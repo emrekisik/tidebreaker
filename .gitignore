@@ -9,4 +9,4 @@ coverage/
 Thumbs.db
 .vite/
 *.tsbuildinfo
-.claude/settings.local.json
+.claude/

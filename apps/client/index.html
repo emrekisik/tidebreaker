@@ -9,19 +9,137 @@
       body {
         margin: 0;
         height: 100%;
-        background: #0b3a5b;
+        overflow: hidden;
+        background: #0a4a73;
+        font-family: system-ui, sans-serif;
         color: #fff;
-        font-family: sans-serif;
+        user-select: none;
+        touch-action: none;
       }
-      #app {
-        display: grid;
-        place-items: center;
+      #game {
+        position: fixed;
+        inset: 0;
+        width: 100%;
         height: 100%;
+        display: block;
+        cursor: crosshair;
+      }
+      .overlay {
+        position: fixed;
+        pointer-events: none;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+      }
+      #hint {
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 14px;
+        border-radius: 8px;
+        background: rgba(7, 18, 28, 0.55);
+        font-size: 15px;
+        transition: opacity 1s;
+      }
+      #hud {
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        width: min(360px, 80vw);
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 5px;
+      }
+      .row span:first-child {
+        width: 54px;
+        opacity: 0.85;
+      }
+      .track {
+        flex: 1;
+        height: 10px;
+        border-radius: 5px;
+        background: rgba(7, 18, 28, 0.6);
+        overflow: hidden;
+      }
+      .fill {
+        height: 100%;
+        width: 100%;
+      }
+      #bar-hull {
+        background: #59d36b;
+      }
+      #bar-shield {
+        background: #4cc9ff;
+      }
+      #sunk {
+        top: 18px;
+        right: 22px;
+        font-size: 15px;
+      }
+      #debug {
+        top: 10px;
+        left: 10px;
+        font:
+          12px/1.4 ui-monospace,
+          monospace;
+        white-space: pre;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 6px 8px;
+        border-radius: 6px;
+      }
+      #dmg-layer {
+        inset: 0;
+      }
+      .dmg {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-weight: 700;
+        font-size: 20px;
+        color: #ffd84d;
+        opacity: 0;
+      }
+      .dmg.shield {
+        color: #7fdcff;
+      }
+      .dmg.pop {
+        animation: pop 0.8s ease-out forwards;
+      }
+      @keyframes pop {
+        0% {
+          opacity: 1;
+          margin-top: 0;
+        }
+        100% {
+          opacity: 0;
+          margin-top: -42px;
+        }
+      }
+      .hidden {
+        opacity: 0;
+        visibility: hidden;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <canvas id="game"></canvas>
+    <div id="dmg-layer" class="overlay"></div>
+    <div id="hint" class="overlay" data-i18n="hint.controls"></div>
+    <div id="sunk" class="overlay">
+      <span data-i18n="hud.sunk"></span>: <b id="sunk-count">0</b>
+    </div>
+    <div id="hud" class="overlay">
+      <div class="row">
+        <span data-i18n="hud.shield"></span>
+        <div class="track"><div id="bar-shield" class="fill"></div></div>
+      </div>
+      <div class="row">
+        <span data-i18n="hud.hull"></span>
+        <div class="track"><div id="bar-hull" class="fill"></div></div>
+      </div>
+    </div>
+    <div id="debug" class="overlay hidden"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

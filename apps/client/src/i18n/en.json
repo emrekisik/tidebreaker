@@ -1,0 +1,6 @@
+{
+  "hint.controls": "WASD to sail · move the mouse to aim · hold left click to fire",
+  "hud.hull": "Hull",
+  "hud.shield": "Shield",
+  "hud.sunk": "Sunk"
+}
