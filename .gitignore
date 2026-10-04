@@ -10,3 +10,6 @@ Thumbs.db
 .vite/
 *.tsbuildinfo
 .claude/
+
+# Purchased source models: license unknown, never commit (see ASSETS.md)
+models/
