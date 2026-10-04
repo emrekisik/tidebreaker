@@ -652,8 +652,15 @@ Her fazın sonunda oynanabilir ve test edilebilir bir şey vardır. **Fazı biti
 **KK:** `pnpm dev` hem sunucuyu hem istemciyi başlatır · `pnpm test`, `pnpm lint`, `pnpm typecheck` geçer · CI yeşil.
 
 ### Faz 1: Çevrimdışı tek kişilik dilim (ağ yok)
-**Görevler:** renderer + kamera + su plane'i, placeholder gemi, WASD hareket (`shared/sim.stepShip`), fare nişanı, T1 güverte topu + mermiler (yerel simüle), seed'den ada üretimi (shared) + çizim + gemi–ada çarpışması, sabit adımlı istemci simülasyonu + render enterpolasyonu, debug HUD.
-**KK:** 60 fps masaüstü · S20 FE'de ≥ 45 fps (ölçüm notu `docs/perf.md`'ye) · harita hash testi geçer · `stepShip` birim testleri.
+Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
+
+#### Faz 1a: Oynanabilir çekirdek
+**Görevler:** renderer + kamera + su plane'i, placeholder gemi (`AssetProvider` ile), WASD hareket (`shared/sim.stepShip`), fare nişanı + dönen top, T1 güverte topu + mermiler (yerel simüle, `InstancedMesh`), swept vuruş + hasar (kalkan→gövde), **hareketsiz hedef gemi** (batınca 3 sn sonra yeniden doğar), sabit adımlı istemci simülasyonu + render enterpolasyonu, debug HUD (`?debug=1`).
+**KK:** WASD + fare nişanı + tık ile ateş çalışır, mermi hedefi vurur, hedef batar ve yeniden doğar · 60 fps masaüstü, ≤ 120 draw call · `stepShip`, mermi/vuruş (tünelleme dahil) ve hasar birim testleri geçer · konsol hatası yok.
+
+#### Faz 1b: Adalar ve performans
+**Görevler:** seed'den ada üretimi (shared) + çizim + gemi–ada çarpışması, harita sınırı yumuşak duvarı, harita hash testi, S20 FE ölçümü.
+**KK:** harita hash testi geçer · S20 FE'de ≥ 45 fps (ölçüm notu `docs/perf.md`'ye) · gemi–ada çarpışması testleri geçer.
 
 ### Faz 2: Yetkili sunucu + ağ çekirdeği
 **Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/INPUT/SNAPSHOT/PING/PONG`, tick döngüsü, sunucuda `stepShip`, **tam** varlık listesi gönderimi (AOI henüz yok), istemci prediction + reconciliation + interpolasyon + saat senkronu, `tools/netem`, debug HUD'ye ağ metrikleri.
