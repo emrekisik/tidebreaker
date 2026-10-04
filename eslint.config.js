@@ -26,7 +26,11 @@ const hotPathRules = {
       selector: 'ArrowFunctionExpression',
       message: 'Closures allocate. Not allowed in hot paths.',
     },
-    { selector: 'FunctionExpression', message: 'Closures allocate. Not allowed in hot paths.' },
+    {
+      // Class methods are FunctionExpression nodes too; only flag real closures.
+      selector: 'FunctionExpression:not(MethodDefinition > FunctionExpression)',
+      message: 'Closures allocate. Not allowed in hot paths.',
+    },
     {
       selector: 'NewExpression[callee.name=/^(Map|Set|WeakMap|WeakSet)$/]',
       message: 'Do not create Map/Set in hot paths.',
@@ -44,6 +48,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     files: ['apps/server/src/sim/hot/**/*.ts', 'apps/client/src/**/frame/**/*.ts'],
+    ignores: ['**/*.test.ts'],
     rules: hotPathRules,
   },
 );
