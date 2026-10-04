@@ -1,1 +1,3 @@
 export * from './config/index.ts';
+export * from './math/index.ts';
+export * from './sim/index.ts';
