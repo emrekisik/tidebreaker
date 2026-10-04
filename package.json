@@ -1,0 +1,29 @@
+{
+  "name": "tidebreaker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": "\u003e=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"pnpm --filter @tidebreaker/server dev\" \"pnpm --filter @tidebreaker/client dev\"",
+    "build": "pnpm -r --filter \"./apps/*\" build",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.4",
+    "concurrently": "10.0.5",
+    "eslint": "10.12.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3"
+  }
+}
