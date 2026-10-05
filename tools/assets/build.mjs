@@ -4,7 +4,7 @@
 //   - prunes/dedupes and applies meshopt compression
 // Node names, transforms and pivots are left untouched: the client reads turret pivots from them.
 // Each part keeps its exported node as a pure transform node; its mesh sits in a child node.
-import { mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
@@ -16,6 +16,14 @@ import sharp from 'sharp';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const srcDir = join(root, 'models');
 const outDir = join(root, 'apps/client/public/models');
+// `--if-needed`: used before dev/build; does nothing when the sources are missing or the outputs
+// are already newer than both the sources and this script.
+const ifNeeded = process.argv.includes('--if-needed');
+if (ifNeeded && !existsSync(srcDir)) {
+  console.log('assets: no models/ folder, skipping (placeholders will be used)');
+  process.exit(0);
+}
+
 const SKIP = new Set(['aircraft_carrier.glb']);
 const ATLAS_PX = 256;
 
@@ -33,6 +41,14 @@ for (const file of readdirSync(srcDir)
   .filter((f) => f.endsWith('.glb'))
   .sort()) {
   if (SKIP.has(file)) continue;
+  if (ifNeeded) {
+    const out = join(outDir, file);
+    const newest = Math.max(
+      statSync(join(srcDir, file)).mtimeMs,
+      statSync(fileURLToPath(import.meta.url)).mtimeMs,
+    );
+    if (existsSync(out) && statSync(out).mtimeMs >= newest) continue;
+  }
   const doc = await io.read(join(srcDir, file));
   const sceneRoot = doc.getRoot();
 

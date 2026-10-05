@@ -3,5 +3,6 @@
   "hud.hull": "Hull",
   "hud.shield": "Shield",
   "hud.sunk": "Sunk",
-  "picker.title": "Ship model (test)"
+  "picker.title": "Ship model (test)",
+  "picker.failed": "Model not loaded, showing the placeholder. Run: pnpm assets:build"
 }

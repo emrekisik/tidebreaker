@@ -8,6 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node tools/assets/build.mjs --if-needed",
+    "prebuild": "node tools/assets/build.mjs --if-needed",
     "dev": "concurrently -n server,client -c blue,green \"pnpm --filter @tidebreaker/server dev\" \"pnpm --filter @tidebreaker/client dev\"",
     "build": "pnpm -r --filter \"./apps/*\" build",
     "test": "vitest run",

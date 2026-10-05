@@ -15,6 +15,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   PropertyBinding,
+  RingGeometry,
   Quaternion,
   Vector3,
 } from 'three';
@@ -159,8 +160,18 @@ export class AssetProvider {
     opacity: 0.35,
     depthWrite: false,
   });
+  /** Foam where the hull meets the water. */
+  private readonly ringGeo = new RingGeometry(0.8, 1, 28).rotateX(-Math.PI / 2);
+  private readonly ringMat = new MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.5,
+    depthWrite: false,
+  });
   private readonly cache = new Map<string, { hull: BufferGeometry; turret: BufferGeometry }>();
   private readonly loaded = new Map<string, LoadedModel>();
+  /** Why a model fell back to the placeholder (shown in the test panel). */
+  readonly failures = new Map<string, string>();
 
   /** Loads the GLBs for these model keys. Failures are logged and fall back to placeholders. */
   async preload(keys: readonly string[]): Promise<void> {
@@ -175,7 +186,12 @@ export class AssetProvider {
           const hullMesh = hull ? hullMeshes(hull)[0] : undefined;
           const map = hullMesh ? ((hullMesh.material as MeshStandardMaterial).map ?? null) : null;
           this.loaded.set(key, { spec, scene: gltf.scene, ...this.makeMaterials(map) });
+          this.failures.delete(key);
         } catch (err) {
+          this.failures.set(
+            key,
+            `${spec.file}: ${err instanceof Error ? err.message : String(err)}`,
+          );
           console.warn(`Model "${key}" failed to load, using the placeholder.`, err);
         }
       }),
@@ -194,15 +210,27 @@ export class AssetProvider {
 
   createShip(modelKey: string, palette: Palette): ShipModel {
     const loaded = this.loaded.get(modelKey);
+    if (!loaded && MODEL_SPECS[modelKey] && !this.failures.has(modelKey) && palette === 'player') {
+      this.failures.set(modelKey, 'not loaded');
+    }
     // Team/faction colors are not supported on GLB models yet, so only the player uses them.
     if (loaded && palette === 'player') {
       try {
         return this.buildFromGltf(loaded);
       } catch (err) {
+        this.failures.set(modelKey, err instanceof Error ? err.message : String(err));
         console.warn(`Model "${modelKey}" could not be built, using the placeholder.`, err);
       }
     }
     return this.buildPlaceholder(modelKey, palette);
+  }
+
+  private foamRing(length: number, width: number): Mesh {
+    const ring = new Mesh(this.ringGeo, this.ringMat);
+    ring.scale.set(length * 0.56, 1, width * 0.7);
+    ring.position.y = 0.14;
+    ring.renderOrder = 2;
+    return ring;
   }
 
   private shadow(length: number, width: number, y: number): Mesh {
@@ -300,7 +328,11 @@ export class AssetProvider {
     const model = new ShipModel(meshes, turrets, loaded.normal, loaded.flash);
     model.hullLength = box.max.x - box.min.x;
     model.hullWidth = box.max.z - box.min.z;
-    model.root.add(fit, this.shadow(spec.length, box.max.z - box.min.z, 0.2));
+    model.root.add(
+      fit,
+      this.shadow(spec.length, box.max.z - box.min.z, 0.2),
+      this.foamRing(spec.length, box.max.z - box.min.z),
+    );
     return model;
   }
 
@@ -332,7 +364,7 @@ export class AssetProvider {
       this.normal,
       this.flash,
     );
-    model.root.add(this.shadow(5, 1.9, 0.25), hull, turret);
+    model.root.add(this.shadow(5, 1.9, 0.25), this.foamRing(5, 1.9), hull, turret);
     return model;
   }
 

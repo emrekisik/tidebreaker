@@ -43,6 +43,7 @@ const particleKit = createParticleKit();
 stage.scene.add(
   particleKit.foam.mesh,
   particleKit.puff.mesh,
+  particleKit.fire.mesh,
   particleKit.spark.mesh,
   particleKit.debris.mesh,
 );
@@ -81,13 +82,18 @@ const game = new LocalGame(
 );
 
 const startModel = previewShip ?? SHIPS[TRAINING.playerShip as ShipId].modelKey;
-new ShipPicker(document.getElementById('picker') as HTMLElement, startModel, async (key) => {
-  await assets.preload([key]);
-  // A model that belongs to a ship class switches the whole class; others are visual-only.
-  const id = (Object.keys(SHIPS) as ShipId[]).find((k) => SHIPS[k].modelKey === key);
-  if (id) game.setPlayerShip(id);
-  else game.setPlayerModel(key);
-});
+new ShipPicker(
+  document.getElementById('picker') as HTMLElement,
+  startModel,
+  async (key) => {
+    await assets.preload([key]);
+    // A model that belongs to a ship class switches the whole class; others are visual-only.
+    const id = (Object.keys(SHIPS) as ShipId[]).find((k) => SHIPS[k].modelKey === key);
+    if (id) game.setPlayerShip(id);
+    else game.setPlayerModel(key);
+  },
+  (key) => assets.failures.get(key),
+);
 
 const input = new Input(canvas);
 const rig = new CameraRig();
@@ -148,6 +154,7 @@ if (debug) {
     input,
     camera: stage.camera,
     assets,
+    particleKit,
     advance(frames: number, frameMs = 16.7): void {
       for (let i = 0; i < frames; i++) {
         update(lastMs + frameMs);

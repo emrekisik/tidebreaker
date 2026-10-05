@@ -4,7 +4,7 @@
  */
 export const FX = {
   /** Particle pool sizes; the oldest particle is recycled when a pool is full. */
-  capacity: { puff: 1200, spark: 700, debris: 160, foam: 1000 },
+  capacity: { puff: 1500, fire: 700, spark: 800, debris: 200, foam: 1000 },
   gravity: 16,
   /** Smoke drifts with the wind (world x/z units per second). */
   wind: { x: 0.9, z: -0.5 },
@@ -12,9 +12,12 @@ export const FX = {
   foamLift: 0.14,
 
   colors: {
+    white: 0xffffff,
     flash: 0xfff0b8,
     fireHot: 0xffe08a,
     fire: 0xff7a1f,
+    fireDeep: 0xa82208,
+    glow: 0xff6a1a,
     ember: 0xff9a3c,
     smokeLight: 0xcfd5da,
     smokeMid: 0x8d949b,
@@ -22,6 +25,8 @@ export const FX = {
     foam: 0xffffff,
     spray: 0xcfeeff,
     shieldSpark: 0x6fd8ff,
+    shieldFlash: 0xcff6ff,
+    shieldDeep: 0x2a7dff,
     hitSpark: 0xffc65a,
     debrisA: 0x626972,
     debrisB: 0x2e3238,
@@ -30,16 +35,16 @@ export const FX = {
 
   /** Muzzle flash and smoke by projectile visual. */
   muzzle: {
-    bullet: { flash: 0.5, flashLife: 0.05, smoke: 0.45, smokeCount: 1, smokeLife: 0.6 },
-    shell: { flash: 1.7, flashLife: 0.09, smoke: 1.5, smokeCount: 3, smokeLife: 1.3 },
-    rocket: { flash: 1.2, flashLife: 0.08, smoke: 1.9, smokeCount: 4, smokeLife: 1.5 },
+    bullet: { flash: 0.5, flashLife: 0.05, sparks: 2, smoke: 0.45, smokeCount: 1, smokeLife: 0.6 },
+    shell: { flash: 1.7, flashLife: 0.09, sparks: 7, smoke: 1.5, smokeCount: 3, smokeLife: 1.3 },
+    rocket: { flash: 1.2, flashLife: 0.08, sparks: 5, smoke: 1.9, smokeCount: 4, smokeLife: 1.5 },
   },
 
   /** Smoke trail behind rockets in flight. */
   rocketTrail: { everySec: 0.03, startSize: 0.35, endSize: 1.2, life: 0.9 },
 
   /** Sparks when a shot hits a ship. */
-  impact: { sparks: 9, shieldSparks: 11, speed: 8, life: 0.45 },
+  impact: { sparks: 10, shieldSparks: 12, speed: 11, life: 0.4, chips: 3 },
 
   /** Water splash where a shot lands. Scaled by the weapon (see splashScale). */
   splash: { foam: 3, spray: 8, life: 1.2 },
@@ -50,15 +55,15 @@ export const FX = {
     smokeBelow: 0.66,
     fireBelow: 0.33,
     /** Puffs per second per 10 units of ship length. */
-    smokeRate: 2.5,
-    fireRate: 5,
+    smokeRate: 9,
+    fireRate: 26,
     smokeLife: 1.8,
   },
 
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },
-  sinkingSmokeRate: 24,
-  sinkingFireRate: 10,
+  sinkingSmokeRate: 34,
+  sinkingFireRate: 30,
 
   /** Foam trail behind moving ships. */
   wake: {

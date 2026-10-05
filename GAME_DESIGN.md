@@ -536,7 +536,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Gemi **kıç izi (wake):** gemi arkasında hıza bağlı şerit parçacıkları (instanced). Baş dalgası hızla ölçeklenir.
 
 ### 12.2b Efektler (low-poly, kozmetik)
-- Tüm efektler **havuzlu parçacıklardır** (4 `InstancedMesh`: duman/ateş küreleri, kıvılcım, enkaz, köpük elmasları). Düz renkli, kenarlı (flat-shaded), toplam 4 çizim çağrısı. Ayarlar `config/effects.ts`.
+- Tüm efektler **havuzlu parçacıklardır** (5 `InstancedMesh`: duman/su (lit, alfa), ateş ve parlamalar (additive, ışıma hissi), hız yönünde uzayan kıvılcımlar (additive), dönen enkaz, yumuşak kenarlı köpük). Düz renkli, kenarlı (flat-shaded), toplam 5 çizim çağrısı. Ayarlar `config/effects.ts`. Ateş üç renk durağıyla (beyaz-sarı → turuncu → koyu kırmızı) solar. Enkaz suya düşünce sıçrama yapar. Gemi gövdesinin su çizgisinde köpük halkası vardır.
 - Sim olaylarına bağlıdır: namlu alevi + duman (silah tipine göre), isabet kıvılcımı (kalkan cyan, gövde turuncu), ıska = su sıçraması, roket izi, batarken patlama + parçalanma (dönen low-poly parçalar). Hasar durumları gövde oranına göre: < %66 duman, < %33 alev + siyah duman.
 - **Su:** kenarlı (flat-shaded) düşük poligonlu tek plane; dalga fonksiyonu shader ve JS tarafında aynı sabitlerden gelir, gemiler dalgayla sallanır. **Kıç izi:** hıza bağlı köpük elmasları (merkez çizgi + V kolları) ve baş dalgası.
 

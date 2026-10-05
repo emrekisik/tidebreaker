@@ -3,5 +3,6 @@
   "hud.hull": "Gövde",
   "hud.shield": "Kalkan",
   "hud.sunk": "Batırılan",
-  "picker.title": "Gemi modeli (test)"
+  "picker.title": "Gemi modeli (test)",
+  "picker.failed": "Model yüklenemedi, placeholder gösteriliyor. Çalıştır: pnpm assets:build"
 }
