@@ -1,6 +1,6 @@
 # CLAUDE.md — Tidebreaker.io (working title)
 
-Browser-based multiplayer **.io naval combat game**: 3D low-poly ships, instant join (type a name, press Play), authoritative Node server, three.js client. Think "Starblast.io at sea".
+Desktop-browser multiplayer **.io naval combat game** (browser first, not mobile first; no touch or mobile quality tiers): 3D low-poly ships, instant join (type a name, press Play), authoritative Node server, three.js client. Think "Starblast.io at sea".
 
 **Source of truth: `GAME_DESIGN.md` (written in Turkish).** Read the relevant sections before starting any phase. If code and the doc disagree, update the doc first (ask the user if the change is a design decision), then the code.
 
@@ -32,7 +32,7 @@ Browser-based multiplayer **.io naval combat game**: 3D low-poly ships, instant 
 Bounds-checked binary reader (never throws or loops on bad input), per-connection token-bucket rate limit, name sanitization + blocklist, `Origin` allowlist, per-IP connection cap, `perMessageDeflate: false`, small `maxPayload`. See design doc §13.
 
 ## Performance budgets (verify, do not guess)
-Initial load <= 2.5 MB (JS <= ~350 KB gz) · client >= 60 fps desktop, **>= 45 fps on Galaxy S20 FE** · <= 120 draw calls · server tick p99 <= 8 ms at 50 players + 30 pirates + 1000 projectiles · <= 200 MB RAM per room · <= 4 KB/s downstream per player on average. Details in design doc §16.
+Initial load <= 2.5 MB (JS <= ~350 KB gz) · client >= 60 fps on a mid-range desktop browser · <= 120 draw calls · server tick p99 <= 8 ms at 50 players + 30 pirates + 1000 projectiles · <= 200 MB RAM per room · <= 4 KB/s downstream per player on average. Details in design doc §16.
 
 ## Workflow
 - Work **phase by phase** (design doc §17). Before each phase: read the sections, write a short plan, get the user's confirmation, then implement. Do not start the next phase before the current phase's acceptance criteria pass.

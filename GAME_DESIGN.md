@@ -28,7 +28,7 @@
 2. **Risk–ödül.** Değerli şeyler tehlikeli yerlerde durur (iç bölge, korsan kaleleri). Ölürsen her şeyi kaybedersin ama ganimet bırakırsın.
 3. **Okunabilirlik.** Düz renkli low-poly siluetler. Gemi sınıfı bir bakışta anlaşılır, efektler bilgi taşır.
 4. **Ucuz ve ölçeklenebilir.** Bir VPS çekirdeği ≈ bir oda. Sıcak döngüde sıfır allocation, sıkı ikili protokol.
-5. **Mobilde de çalışır.** Referans cihaz: Samsung Galaxy S20 FE (hedef ≥ 45 fps).
+5. **Tarayıcı öncelikli.** Masaüstü tarayıcı birincil platformdur (klavye + fare). Mobil/dokunmatik desteği hedeflenmez, kalite katmanı yoktur. Hedef: orta seviye masaüstünde ≥ 60 fps.
 6. **Juice.** Su, kıç izi, duman, sarsıntı, ses. Oyunun "hissi" ayrı bir kalite kapısıdır.
 
 **Telif/marka notu:** Starblast'ın varlıkları, isimleri, arayüzü ve ship tree'si kopyalanmaz. Yalnızca tür ve mekanik ilhamı alınır. Tüm asset'lerin kaynağı ve lisansı `ASSETS.md` dosyasında tutulur.
@@ -54,7 +54,7 @@ Starblast geliştiricilerinin 2017 r/gamedev AMA'sından çıkarılan bilgiler v
 | Pictogram chat (serbest chat yok, çok dilli, moderasyon yükü yok) | Serbest chat yok, sadece emote |
 | MongoDB sadece kayıtlı oyuncular için | v1'de veritabanı yok. İleride SQLite (§17, Faz 10) |
 | Snapshot tabanlı özel dağıtım, 5 bölge | Docker Compose + bölge başına VPS, ilk bölge EU |
-| Mobil oyuncu < %1, kontroller zor | Mobil desteklenir ama birincil değil. Basit twin-stick, auto-fire seçeneği |
+| Mobil oyuncu < %1, kontroller zor | Mobil desteklenmez, oyun masaüstü tarayıcı içindir |
 | WebAssembly yerine önce kod optimizasyonu | WASM yok |
 | Electron ile Steam | Backlog |
 
@@ -120,11 +120,11 @@ Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min 
 ## 5. Gemi
 
 ### 5.1 Kontroller
-| | Masaüstü | Mobil |
-|---|---|---|
-| Hareket | **W** = gaz, **S** = fren, **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur | Sol sanal joystick: yatay = dümen, dikey = gaz/fren |
-| Nişan | Fare konumu | Sağ joystick yönü |
-| Ateş | Sol tık basılı tut | Sağ joystick'i çek, ya da "auto-fire" ayarı |
+| | Masaüstü |
+|---|---|
+| Hareket | **W** = gaz, **S** = fren, **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur |
+| Nişan | Fare konumu |
+| Ateş | Sol tık basılı tut |
 | Upgrade | 1–5 tuşları veya paneldeki butonlar | Panel butonları |
 | Sınıf atla | `U` veya buton | Buton |
 | Emote | `E` tekerleği / 1–4 | Emote butonu |
@@ -143,7 +143,7 @@ accel = vMax / 2.5
 pos += (cosθ, sinθ) * v * dt
 ```
 - Yanal kayma yok, geri gitme yok (S sadece frenler). `turnRate` sınıfa göre değiştiği için ağır gemiler daha yavaş ve zor döner. Dalga sallanması (yalpa/yatma) sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
-- Sayılar `SHIP_MOVEMENT` (`config/ships.ts`). Mobil joystick aynı (steer, throttle) girdisine çevrilir.
+- Sayılar `SHIP_MOVEMENT` (`config/ships.ts`).
 - `vMax`, `turnRate` = sınıf tabanı × upgrade çarpanı (§6).
 - **Gemi–gemi çarpışması:** yumuşak itme (üst üste binmeyi çöz), hasar yok. (Çarpma hasarı backlog.)
 - **Gemi–ada çarpışması:** gövde 2–3 daire zinciri olarak modellenir, çokgen kenarına itme.
@@ -341,7 +341,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 │        ├─ net/                  # WS istemcisi, saat senkronu, prediction, interpolasyon
 │        ├─ game/                 # varlık görünümleri, kamera, efektler
 │        ├─ render/               # renderer, su, ada mesh üretimi, instanced mesh'ler
-│        ├─ input/                # klavye+fare, dokunmatik
+│        ├─ input/                # klavye+fare
 │        ├─ ui/                   # menü, HUD, liderlik, minimap, upgrade paneli
 │        └─ audio/
 ├─ tools/
@@ -522,17 +522,17 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ## 12. İstemci
 
 ### 12.1 Render ve performans
-- three.js, `WebGLRenderer({ powerPreference: 'high-performance', antialias: <DPR < 2> })`. **`pixelRatio = min(devicePixelRatio, 2)`**, mobilde başlangıçta 1.5.
+- three.js, `WebGLRenderer({ powerPreference: 'high-performance', antialias: <DPR < 2> })`. **`pixelRatio = min(devicePixelRatio, 2)`**.
 - **Çizim çağrısı bütçesi ≤ 120**, görünür üçgen ≤ 150k.
 - **Instancing:** mermiler, sandık/varil/coin, parçacıklar, kıç izi parçaları `InstancedMesh` ile.
 - Gemiler ayrı `Mesh` (≈ 30 görünür), **tek paylaşımlı materyal**, doku yok, **vertex color**. Takım/korsan rengi `userData` ile.
 - Işık: tek yönlü ışık + ortam ışığı (`MeshLambertMaterial` veya basit toon). **Gölge yok**: gemi altında "blob gölge" quad'ı.
-- **Kalite katmanları:** `LOW / MEDIUM / HIGH` (DPR sınırı, parçacık yoğunluğu, su detayı). Açılışta 2 sn FPS ölçülür. Ortalama kare süresi > 22 ms ise 3 sn sonra bir kademe **düşür** (otomatik artırma yok, salınımı önler). Kullanıcı elle değiştirebilir.
+- **Kalite katmanı yok:** tek kalite ayarı vardır (masaüstü hedefli). Bütçeler ve instancing ile performans korunur.
 - İstemcide de **kare başına allocation yok**: `Vector3`/`Quaternion` nesneleri yeniden kullanılır. HUD DOM güncellemesi ≤ 10 Hz.
-- `devicePixelRatio`/boyut değişimi `ResizeObserver` ile, `touch-action: none`, `user-select: none`.
+- `devicePixelRatio`/boyut değişimi `ResizeObserver` ile, `user-select: none`.
 
 ### 12.2 Su
-- Kameranın altında kayan **tek plane** (dünyayı kaplayan dev mesh yok). Vertex shader ile hafif dalga, fragment shader'da renk gradyanı + gürültü dokusuyla (≤ 256², ya da procedural) köpük/parıltı. `LOW` katmanda köpük kapalı.
+- Kameranın altında kayan **tek plane** (dünyayı kaplayan dev mesh yok). Vertex shader ile hafif dalga, fragment shader'da renk gradyanı + gürültü dokusuyla (≤ 256², ya da procedural) köpük/parıltı.
 - Gemi **kıç izi (wake):** gemi arkasında hıza bağlı şerit parçacıkları (instanced). Baş dalgası hızla ölçeklenir.
 
 ### 12.2b Efektler (low-poly, kozmetik)
@@ -557,18 +557,17 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Lisans: her asset `ASSETS.md`'ye (kaynak, lisans, yazar, URL) işlenir. CC0 ya da ticari kullanıma izin veren lisans şart.
 
 ### 12.6 UI / HUD
-- **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (kalite, ses, auto-fire).
+- **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
 - **HUD:** kalkan ve gövde çubuğu, score/gold, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
 - **Ölüm ekranı:** özet + "Tekrar Oyna" (aynı isim).
 - Yerelleştirme: `tr` ve `en` metin dosyaları (JSON). Kullanıcı adı: Unicode harf/rakam/boşluk/`_`/`-`, 1–16 karakter.
 
 ### 12.7 Ses
-- Web Audio, küçük ogg/mp3 dosyaları (toplam ≤ 300 KB), **oyun başladıktan sonra tembel yüklenir**. Mobilde ilk dokunuşta ses bağlamı açılır.
+- Web Audio, küçük ogg/mp3 dosyaları (toplam ≤ 300 KB), **oyun başladıktan sonra tembel yüklenir**. Tarayıcının otomatik oynatma kuralı gereği ses bağlamı ilk tıklamada açılır.
 - Sesler: top, isabet, batma, sandık toplama, upgrade, sınıf atlama, su ambiyansı, UI tıkları. Mesafeyle ses azaltma basit gain.
 
 ### 12.8 Girdi
 - Klavye + fare: pointer lock gerekmez. Nişan, ekran koordinatından zemin düzlemine ışın ile hesaplanır, `u16 aim` olarak gönderilir.
-- Dokunmatik: iki sanal joystick, çoklu dokunuş, tarayıcı kaydırma/yakınlaştırma kapalı, yatay yönelim önerisi.
 - Sekme görünmezse girdi gönderimi `setInterval` ile devam eder (AFK kuralı geçerli).
 
 ---
@@ -639,7 +638,7 @@ Tarayıcı oyunlarında hile tamamen önlenemez (ör. aimbot). Hedef: **sunucu y
 |---|---|---|
 | İlk yükleme | ≤ 2.5 MB toplam, JS ≤ ~350 KB gz | build raporu, Lighthouse |
 | "Oyna"ya hazır süre | ≤ 3 sn (4G, orta cihaz) | manuel + Lighthouse |
-| İstemci kare hızı | masaüstü ≥ 60 fps, **S20 FE ≥ 45 fps** (50 oyuncu sahnede) | debug HUD |
+| İstemci kare hızı | orta seviye masaüstü ≥ 60 fps (50 oyuncu sahnede) | debug HUD |
 | Çizim çağrısı / üçgen | ≤ 120 / ≤ 150k | `renderer.info` |
 | Sunucu tick (50 oyuncu + 30 korsan + 1000 mermi) | p99 ≤ 8 ms (bütçe 50 ms), `tickBusyEma` < 0.65 | `/metrics`, loadtest |
 | Sunucu bellek | ≤ 200 MB/oda | `/metrics` |
@@ -665,8 +664,8 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** WASD + fare nişanı + tık ile ateş çalışır, mermi hedefi vurur, hedef batar ve yeniden doğar · 60 fps masaüstü, ≤ 120 draw call · `stepShip`, mermi/vuruş (tünelleme dahil) ve hasar birim testleri geçer · konsol hatası yok.
 
 #### Faz 1b: Adalar ve performans
-**Görevler:** seed'den ada üretimi (shared) + çizim + gemi–ada çarpışması, harita sınırı yumuşak duvarı, harita hash testi, S20 FE ölçümü.
-**KK:** harita hash testi geçer · S20 FE'de ≥ 45 fps (ölçüm notu `docs/perf.md`'ye) · gemi–ada çarpışması testleri geçer.
+**Görevler:** seed'den ada üretimi (shared) + çizim + gemi–ada çarpışması, harita sınırı yumuşak duvarı, harita hash testi, masaüstü fps ölçümü.
+**KK:** harita hash testi geçer · masaüstünde ≥ 60 fps (ölçüm notu `docs/perf.md`'ye) · gemi–ada çarpışması testleri geçer.
 
 ### Faz 2: Yetkili sunucu + ağ çekirdeği
 **Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/INPUT/SNAPSHOT/PING/PONG`, tick döngüsü, sunucuda `stepShip`, **tam** varlık listesi gönderimi (AOI henüz yok), istemci prediction + reconciliation + interpolasyon + saat senkronu, `tools/netem`, debug HUD'ye ağ metrikleri.
@@ -688,9 +687,9 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **Görevler:** uzamsal grid + **AOI farkı** (`ENTER/UPDATE/LEAVE`), gönderim önceliği, struct-of-arrays mermi/toplanabilir, nesne havuzları, gönderim tamponu yeniden kullanımı, yük kapısı (`tickBusyEma`), `/status` ve `/metrics`, `tools/loadtest`, `node --inspect` ile profil, bütçe doğrulaması (§16).
 **KK:** 50 bot + 30 korsan + yoğun savaşta tick p99 ≤ 8 ms · oyuncu başına ≤ 4 KB/s · sıcak yolda allocation yok (benchmark) · 65% kapısı çalışıyor.
 
-### Faz 7: Juice, görsel kalite, ses, mobil
-**Görevler:** nihai low-poly modeller (GLB hattı) ya da iyileştirilmiş placeholder'lar, su shader'ı + kıç izi + baş dalgası, top dumanı/isabet/patlama efektleri, kamera sarsıntısı, yalpa/yatma, batma animasyonu, coin patlaması, minimap, ses, kalite katmanları + otomatik düşürme, **mobil twin-stick** + auto-fire, yerelleştirme (tr/en).
-**KK:** S20 FE'de ≥ 45 fps · `LOW` katmanı bütçeyi tutar · ilk yükleme ≤ 2.5 MB · iki dilde arayüz.
+### Faz 7: Juice, görsel kalite, ses
+**Görevler:** nihai low-poly modeller (GLB hattı) ya da iyileştirilmiş placeholder'lar, su shader'ı + kıç izi + baş dalgası, top dumanı/isabet/patlama efektleri, kamera sarsıntısı, yalpa/yatma, batma animasyonu, coin patlaması, minimap, ses, yerelleştirme (tr/en).
+**KK:** masaüstünde ≥ 60 fps · ilk yükleme ≤ 2.5 MB · iki dilde arayüz.
 
 ### Faz 8: Sağlamlaştırma
 **Görevler:** rate limit + token bucket, isim doğrulama/kara liste, `Origin` kontrolü, IP bağlantı sınırı, AFK kicker, fuzz testleri, hata durumları (bağlantı kopması mesajı, yeniden bağlanma akışı), `SIGTERM` temiz kapanış, Playwright E2E smoke, bağımlılık denetimi.
@@ -711,7 +710,6 @@ Sınıf dallanması (T4+), takım modu, Kraken/fırtına olayları, fener ele ge
 |---|---|---|
 | Oyuncu bulma/tutma (io oyunlarının asıl zorluğu) | Yüksek | Faz 9'dan önce dağıtım planı: io oyun dizinleri, YouTuber/yayıncı, portal siteleri. Oyun çekirdeği hızlı eğlence versin |
 | Boş sunucu hissi | Yüksek | Korsan botlar + tüccar + olaylar. Gerekirse doldurma botları |
-| Mobil performans | Orta | Kalite katmanları, DPR sınırı, instancing, bütçeler, S20 FE'de erken ve sürekli ölçüm |
 | TCP head-of-line takılması | Orta | `netem` testi, interpolasyon tamponu, ileride WebTransport |
 | Node tek iş parçacığı CPU sınırı | Orta | Oda başına süreç, `tickBusyEma` kapısı, sıfır-alloc |
 | GLB asset boyutu / yükleme süresi | Orta | Meshopt, bütçe, procedural ada, placeholder → nihai |
@@ -731,7 +729,7 @@ Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıc�
 2. **Mod:** v1 tek mod, **herkes herkese (FFA)**, PvP her yerde (limanlar hariç). Takım modu backlog.
 3. **Gemi teması:** stilize "karma modern" (sahil güvenlik botundan fırkateyne). Korsanlar sandal/tekne/brik karışımı. Dönem netleşirse modeller buna göre.
 4. **Hesap/kalıcılık:** v1'de yok. Sadece isim.
-5. **Kontroller:** WASD + fare, mobilde twin-stick.
+5. **Kontroller:** klavye + fare (W gaz, S fren, A/D dümen). Mobil desteklenmez.
 6. **Oda kapasitesi:** 50 oyuncu + 10–40 korsan. Harita 2400×2400.
 7. **Doldurma botları:** kapalı.
 8. **Para kazanma:** v1'de yok. Reklam/portal SDK sonra. (Faz 10)

@@ -23,8 +23,9 @@ void main() {
 }
 `;
 
-// Flat (per-triangle) shading from screen-space derivatives keeps the faceted low-poly look. On
-// top of it: depth patches, sky reflection at grazing angles, sun glitter and foam on the crests.
+// Smooth normals come from the wave function itself (not from the triangles), so the grid never
+// shows. Stylized on top: flat-ish color bands, depth patches, sky reflection at grazing angles,
+// sun glitter and foam on the crests.
 const FRAGMENT = /* glsl */ `
 uniform float uTime;
 uniform vec3 uDeep;
@@ -33,11 +34,12 @@ uniform vec3 uFoam;
 uniform vec3 uSky;
 uniform vec3 uSun;
 uniform vec2 uCenter;
-uniform float uFacet;
+uniform float uSlope;
 uniform float uWaveMax;
-uniform float uCell;
 varying vec3 vWorld;
 varying float vH;
+
+${glslWaveFunction()}
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
@@ -49,30 +51,36 @@ float vnoise(vec2 p) {
 }
 
 void main() {
-  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
-  if (n.y < 0.0) n = -n;
-  n = normalize(vec3(n.x * uFacet, n.y, n.z * uFacet));
+  vec2 p = vWorld.xz;
+
+  // Surface normal from the wave slope, plus two scrolling ripple layers for fine detail.
+  float e = 0.45;
+  float hx = waveHeight(p + vec2(e, 0.0), uTime) - waveHeight(p - vec2(e, 0.0), uTime);
+  float hz = waveHeight(p + vec2(0.0, e), uTime) - waveHeight(p - vec2(0.0, e), uTime);
+  vec2 slope = vec2(hx, hz) / (2.0 * e);
+  vec2 rip = vec2(vnoise(p * 0.8 + vec2(uTime * 0.35, uTime * 0.2)),
+                  vnoise(p * 0.8 + vec2(17.0 - uTime * 0.3, uTime * 0.25))) - 0.5;
+  rip += (vec2(vnoise(p * 2.1 + vec2(uTime * 0.6, 3.0)), vnoise(p * 2.1 + vec2(9.0, uTime * 0.5))) - 0.5) * 0.5;
+  vec3 n = normalize(vec3(-slope.x * uSlope + rip.x * 0.22, 1.0, -slope.y * uSlope + rip.y * 0.22));
 
   vec3 V = normalize(cameraPosition - vWorld);
   vec3 H = normalize(uSun + V);
   float diff = dot(n, uSun) * 0.5 + 0.5;
-  vec2 cell = floor(vWorld.xz / uCell);
-  float cellRand = hash(cell) - 0.5;
 
   // Slow, large depth patches so the sea is not one flat tone.
-  float depthPatch = vnoise(vWorld.xz * 0.018 + vec2(uTime * 0.01, 0.0));
+  float depthPatch = vnoise(p * 0.018 + vec2(uTime * 0.01, 0.0));
   float crest = vH / uWaveMax;
-  float t = clamp(0.40 + crest * 0.26 + (diff - 0.7) * 0.75 + cellRand * 0.03 + (depthPatch - 0.5) * 0.35, 0.0, 1.0);
+  float t = clamp(0.40 + crest * 0.26 + (diff - 0.7) * 0.7 + (depthPatch - 0.5) * 0.35, 0.0, 1.0);
   vec3 col = mix(uDeep, uShallow, t);
 
   // Sky reflection grows toward the horizon (fresnel).
   float fres = pow(1.0 - max(dot(n, V), 0.0), 3.0);
   col = mix(col, uSky, clamp(fres * 0.55, 0.0, 0.45));
 
-  // Sun glitter: a tight lobe plus facets that twinkle.
+  // Sun glitter: a tight lobe plus a broader, slowly twinkling one.
   float nh = max(dot(n, H), 0.0);
-  float twinkle = 0.55 + 0.45 * sin(uTime * 2.3 + cellRand * 40.0);
-  col += pow(nh, 260.0) * 0.25 + pow(nh, 40.0) * 0.12 * twinkle;
+  float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + vnoise(p * 0.5) * 30.0);
+  col += pow(nh, 220.0) * 0.28 + pow(nh, 36.0) * 0.1 * twinkle;
 
   // Foam streaks ride on the crests and drift with the swell.
   float fn = vnoise(vWorld.xz * 1.1 + vec2(uTime * 0.3, uTime * 0.14));
@@ -103,9 +111,8 @@ export class Water {
         uSky: { value: new Color(0x9fd3ea) },
         uSun: { value: SUN },
         uCenter: { value: new Vector2() },
-        uFacet: { value: 4.5 },
+        uSlope: { value: 2.6 },
         uWaveMax: { value: WAVE_MAX },
-        uCell: { value: CELL },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
