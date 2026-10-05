@@ -22,6 +22,12 @@ export class ShipEntity {
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
+  /** Collision rattle: starts at the impact strength and dies out (cosmetic). */
+  shake = 0;
+  /** Where this ship (re)appears. */
+  homeX = 0;
+  homeY = 0;
+  homeHeading = 0;
   /** Fractional effect timers (see Effects.ship). */
   wakeCarry = 0;
   bowCarry = 0;
@@ -63,10 +69,21 @@ export class ShipEntity {
     const sn = Math.sin(this.pose.heading);
     const pitch = Math.atan(slope[0]! * c + slope[1]! * sn) * TILT;
     const roll = -Math.atan(-slope[0]! * sn + slope[1]! * c) * TILT;
-    root.position.set(this.pose.x, bob - sink * 2.4, this.pose.y);
+    let rattleY = 0;
+    let rattleRoll = 0;
+    let rattlePitch = 0;
+    if (this.shake > 0.01) {
+      rattleY = Math.sin(timeSec * 47) * this.shake * 0.1;
+      rattleRoll = Math.sin(timeSec * 36) * this.shake * 0.1;
+      rattlePitch = Math.sin(timeSec * 29 + 1) * this.shake * 0.07;
+      this.shake *= Math.exp(-dtSec * 3.2);
+    } else {
+      this.shake = 0;
+    }
+    root.position.set(this.pose.x, bob + rattleY - sink * 2.4, this.pose.y);
     root.rotation.y = -this.pose.heading;
-    root.rotation.x = roll + sink * 0.45;
-    root.rotation.z = pitch;
+    root.rotation.x = roll + rattleRoll + sink * 0.45;
+    root.rotation.z = pitch + rattlePitch;
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
     this.model.aimTurrets(this.pose.heading, this.aim);
 

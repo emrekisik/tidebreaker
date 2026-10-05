@@ -145,7 +145,7 @@ pos += (cosθ, sinθ) * v * dt
 - Yanal kayma yok, geri gitme yok (S sadece frenler). `turnRate` sınıfa göre değiştiği için ağır gemiler daha yavaş ve zor döner. Dalga sallanması (yalpa/yatma) sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
 - Sayılar `SHIP_MOVEMENT` (`config/ships.ts`).
 - `vMax`, `turnRate` = sınıf tabanı × upgrade çarpanı (§6).
-- **Gemi–gemi çarpışması:** yumuşak itme (üst üste binmeyi çöz), hasar yok. (Çarpma hasarı backlog.)
+- **Gemi–gemi çarpışması (hasarlı):** gövde daire zincirleri çakışınca gemiler ayrılır, temas normali boyunca momentum alışverişi olur (kütle = can), merkez dışı vuruş gemiyi **savurur (yan itme)** ve **döndürür (spin)**; ikisi de kendiliğinden söner. Yaklaşma hızı `minDamageSpeed`'i aşarsa iki gemi de hasar alır; **hafif gemi aynı çarpmada daha çok hasar alır** (`damage = damagePerSpeed × hız × 2 × diğerinin kütlesi / toplam`). Gemi batarsa öldüren çarpan sayılır. Sayılar `config/collision.ts`. İstemci tarafı: gemi ve kamera sarsıntısı, kıvılcım/su efektleri (kozmetik). Geniş faz şimdilik düz çift döngü, Faz 6'da uzamsal grid.
 - **Gemi–ada çarpışması:** gövde 2–3 daire zinciri olarak modellenir, çokgen kenarına itme.
 
 ### 5.3 Silah sistemi: mount modeli
@@ -211,7 +211,7 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 | 5 | `heavy_frigate` | Ağır Fırkateyn | 6000 | 900 | 380 | 11 | 60 | 15 | 3 × taret (dmg 22, 0.8 sn) + yan başına 4 top (dmg 15, 1.0 sn) |
 
 - Mermi hızı 60 u/s, menzil: T1 42 → T5 60 birim (config).
-- **Model tabanlı sınıflar (güncel durum):** sınıflar artık elimizdeki 3D modellere bağlıdır ve her gemi `packages/shared/src/config/ships.ts` içinde kendi hız/dönüş/can/kalkan/boy/vuruş dairesi/mount listesiyle tanımlıdır. Eşleşme: T1 `coast_guard_boat` = assault_boat, T2 `gunboat` = hovercraft ve `landing_craft`, T3 `corvette` = frigate1, T4 `frigate` = frigate2 ve `cruiser`, T5 `heavy_frigate` = battleship. Denizaltı şimdilik yalnızca görsel (oynanabilir sınıf değil). Üstteki tablodaki mount düzenleri model gelene kadar tahmindi; gerçek düzen modeldeki taret sayısıdır.
+- **Model tabanlı sınıflar (güncel durum):** sınıflar artık elimizdeki 3D modellere bağlıdır ve her gemi `packages/shared/src/config/ships.ts` içinde kendi hız/dönüş/can/kalkan/boy/vuruş dairesi/mount listesiyle tanımlıdır. Eşleşme: T1 `coast_guard_boat` = assault_boat, T2 `gunboat` = hovercraft ve `landing_craft`, T3 `corvette` = frigate1, T4 `frigate` = frigate2 ve `cruiser`, T5 `heavy_frigate` = battleship. Denizaltı şimdilik yalnızca görsel (oynanabilir sınıf değil). Boylar: coast_guard 5, gunboat/landing 7, corvette ve frigate 11, cruiser 14,5, heavy_frigate 18 (hit daireleri, mount ve namlu ölçüleri aynı oranda ölçeklenir). **Takımlar:** oyuncu mavi, düşman kırmızı (model dokusu takım rengiyle çarpılır). Üstteki tablodaki mount düzenleri model gelene kadar tahmindi; gerçek düzen modeldeki taret sayısıdır.
 - **Silah tipleri** (`weapons.ts`): `machine_gun` (hızlı, düşük hasar), `cannon_t3/t4/t5` (tablodaki hasar/aralık), `rocket` (yavaş, uzun reload, **düz isabet**, alan hasarı yok). Her silahın kendi reload'u vardır; bir gemideki mount'lar sırayla ateş eder (`SALVO_GAP_SEC`, arka arkaya yaylım). Mermi, taretin pivotundan namlu ucuna (`muzzle`) kadar ilerlemiş noktada doğar. Reload süreleri sim adımına (50 ms) yukarı yuvarlanır.
 - Vuruş daireleri her modelin gövde ayak izinden türetilir (yarıçap ≈ genişlik × 0,45).
 - Kamera uzaklaştırması sınıfla artar (§12.3).
@@ -700,7 +700,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** gerçek alan adında `wss` ile 10+ kişi oynayabilir · deploy tek komut · `/status` izleniyor.
 
 ### Faz 10: Sonrası (backlog)
-Sınıf dallanması (T4+), takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik (SQLite), kozmetik skin'ler, doldurma botları, portal SDK'ları (CrazyGames/Poki vb.), analitik, ek bölgeler, Electron ile Steam, çarpma hasarı, WebTransport.
+Sınıf dallanması (T4+), takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik (SQLite), kozmetik skin'ler, doldurma botları, portal SDK'ları (CrazyGames/Poki vb.), analitik, ek bölgeler, Electron ile Steam, WebTransport.
 
 ---
 
@@ -742,7 +742,7 @@ Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıc�
 
 ## 20. v1 dışı (kapsam dışı)
 
-Hesap sistemi, satın alma, serbest chat, rüzgâr/yelken fiziği, çarpma hasarı, sınıf dallanması, takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik, kozmetikler, doldurma botları, WebTransport, Steam/Electron, çoklu harita.
+Hesap sistemi, satın alma, serbest chat, rüzgâr/yelken fiziği, sınıf dallanması, takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik, kozmetikler, doldurma botları, WebTransport, Steam/Electron, çoklu harita.
 
 ---
 

@@ -78,6 +78,17 @@ const game = new LocalGame(
     onMiss(x, y, weaponIdx) {
       effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     },
+    onCollision(x, y, impact, a, b, damageA, damageB, killedA, killedB) {
+      effects.collision(x, y, impact);
+      if (damageA > 0) damageNumbers.show(stage.camera, a.pose.x, a.pose.y, damageA, false);
+      if (damageB > 0) damageNumbers.show(stage.camera, b.pose.x, b.pose.y, damageB, false);
+      if (killedA)
+        effects.explode(a.combatant.state.x, a.combatant.state.y, a.combatant.def.length);
+      if (killedB)
+        effects.explode(b.combatant.state.x, b.combatant.state.y, b.combatant.def.length);
+      // The camera rattles when the player is involved.
+      if (a === game.player || b === game.player) rig.shake(Math.min(0.9, impact * 0.045));
+    },
   },
   previewShip,
 );

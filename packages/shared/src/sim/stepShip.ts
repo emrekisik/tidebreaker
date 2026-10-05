@@ -1,3 +1,4 @@
+import { COLLISION } from '../config/collision.ts';
 import { SHIP_MOVEMENT } from '../config/ships.ts';
 import { clamp, lerp, normalizeAngle } from '../math/angle.ts';
 import type { ShipState } from './types.ts';
@@ -31,7 +32,7 @@ export function stepShip(
   // A nearly stationary ship turns sluggishly; steerage comes with speed.
   const speedFrac = clamp(s.speed / (vMax * SHIP_MOVEMENT.turnFullSpeedFrac), 0, 1);
   const turnScale = lerp(SHIP_MOVEMENT.minTurnFactor, 1, speedFrac);
-  s.heading = normalizeAngle(s.heading + st * turnRate * turnScale * dt);
+  s.heading = normalizeAngle(s.heading + st * turnRate * turnScale * dt + s.spin * dt);
 
   const accel = vMax / SHIP_MOVEMENT.accelSeconds;
   const coast = vMax / SHIP_MOVEMENT.coastSeconds;
@@ -45,6 +46,12 @@ export function stepShip(
     s.speed = moveToward(s.speed, 0, coast * dt);
   }
 
-  s.x += Math.cos(s.heading) * s.speed * dt;
-  s.y += Math.sin(s.heading) * s.speed * dt;
+  s.x += Math.cos(s.heading) * s.speed * dt + s.kx * dt;
+  s.y += Math.sin(s.heading) * s.speed * dt + s.ky * dt;
+
+  // Collision knock-back and spin fade out on their own.
+  const knockKeep = Math.exp(-dt / COLLISION.knockDecaySec);
+  s.kx *= knockKeep;
+  s.ky *= knockKeep;
+  s.spin *= Math.exp(-dt / COLLISION.spinDecaySec);
 }

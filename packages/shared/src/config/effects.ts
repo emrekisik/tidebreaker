@@ -43,6 +43,13 @@ export const FX = {
   /** Smoke trail behind rockets in flight. */
   rocketTrail: { everySec: 0.03, startSize: 0.35, endSize: 1.2, life: 0.9 },
 
+  /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
+  bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
+  shellTrail: { everySec: 0.04, life: 0.55, startSize: 0.16, endSize: 0.6, alpha: 0.4 },
+
+  /** Ship-to-ship collisions; counts scale with the closing speed. */
+  collision: { sparksBase: 8, sparksPerSpeed: 0.8, sparksMax: 30, chips: 5, splashAbove: 6 },
+
   /** Sparks when a shot hits a ship. */
   impact: { sparks: 10, shieldSparks: 12, speed: 11, life: 0.4, chips: 3 },
 

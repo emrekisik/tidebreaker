@@ -2,11 +2,12 @@ import {
   BoxGeometry,
   BufferGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   Float32BufferAttribute,
   InstancedMesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
-  SphereGeometry,
 } from 'three';
 import type { Material } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -15,6 +16,7 @@ import type { ProjectileVisual } from '@tidebreaker/shared';
 /** Order of the meshes returned by `createProjectileMeshes`; ProjectileView relies on it. */
 export const VISUAL_ORDER: readonly ProjectileVisual[] = ['bullet', 'shell', 'rocket'];
 
+/** Gives the geometry one flat vertex color and shifts it along the shot axis (+x). */
 function colored(geo: BufferGeometry, color: number, x = 0): BufferGeometry {
   geo.translate(x, 0, 0);
   const c = new Color(color);
@@ -27,6 +29,11 @@ function colored(geo: BufferGeometry, color: number, x = 0): BufferGeometry {
   }
   geo.setAttribute('color', new Float32BufferAttribute(arr, 3));
   return geo;
+}
+
+/** A cylinder or cone lying along +x. */
+function alongX(geo: BufferGeometry): BufferGeometry {
+  return geo.rotateZ(-Math.PI / 2);
 }
 
 function instanced(geo: BufferGeometry, mat: Material, capacity: number): InstancedMesh {
@@ -43,29 +50,51 @@ function instanced(geo: BufferGeometry, mat: Material, capacity: number): Instan
   return mesh;
 }
 
-/**
- * One instanced draw call per projectile visual. Long shapes point along local +x, which the view
- * aligns with the velocity.
- */
-export function createProjectileMeshes(capacity: number): InstancedMesh[] {
-  // Machine-gun tracer: a short bright streak.
-  const bullet = instanced(
-    new BoxGeometry(1.1, 0.14, 0.14),
-    new MeshBasicMaterial({ color: 0xffe27a }),
-    capacity,
-  );
-  // Cannon shell: dark iron ball with a warm glow.
-  const shell = instanced(
-    new SphereGeometry(0.4, 8, 6),
-    new MeshLambertMaterial({ color: 0x1b1b22, emissive: 0x3a2a10, emissiveIntensity: 0.6 }),
-    capacity,
-  );
-  // Rocket: grey body, red nose, orange exhaust.
-  const rocketGeo = mergeGeometries([
-    colored(new BoxGeometry(1.2, 0.3, 0.3), 0xd8dde2),
-    colored(new BoxGeometry(0.35, 0.22, 0.22), 0xd2452a, 0.75),
-    colored(new BoxGeometry(0.4, 0.2, 0.2), 0xffa030, -0.78),
+/** Machine-gun tracer: a hot white core inside a longer yellow-orange streak. */
+function tracerGeometry(): BufferGeometry {
+  return mergeGeometries([
+    colored(new BoxGeometry(1.5, 0.1, 0.1), 0xffd36a, -0.15),
+    colored(new BoxGeometry(0.7, 0.14, 0.14), 0xffffff, 0.2),
   ]);
-  const rocket = instanced(rocketGeo, new MeshBasicMaterial({ vertexColors: true }), capacity);
+}
+
+/** Artillery shell: steel body, brass driving band and a pointed nose. */
+function shellGeometry(): BufferGeometry {
+  return mergeGeometries([
+    colored(alongX(new CylinderGeometry(0.17, 0.17, 0.7, 8)), 0x2d3139),
+    colored(alongX(new CylinderGeometry(0.19, 0.19, 0.1, 8)), 0xb8923c, -0.22),
+    colored(alongX(new ConeGeometry(0.17, 0.34, 8)), 0x40454f, 0.52),
+  ]);
+}
+
+/** Rocket: white body, red nose, four tail fins and a dark nozzle. */
+function rocketGeometry(): BufferGeometry {
+  return mergeGeometries([
+    colored(alongX(new CylinderGeometry(0.13, 0.13, 1, 8)), 0xe6eaee),
+    colored(alongX(new ConeGeometry(0.13, 0.4, 8)), 0xd2452a, 0.7),
+    colored(new BoxGeometry(0.36, 0.56, 0.02), 0xc7ccd1, -0.42),
+    colored(new BoxGeometry(0.36, 0.02, 0.56), 0xc7ccd1, -0.42),
+    colored(alongX(new CylinderGeometry(0.1, 0.12, 0.14, 8)), 0x2a2a2e, -0.55),
+  ]);
+}
+
+/** One instanced draw call per projectile visual. Long shapes lie along +x. */
+export function createProjectileMeshes(capacity: number): InstancedMesh[] {
+  const bullet = instanced(
+    tracerGeometry(),
+    new MeshBasicMaterial({ vertexColors: true }),
+    capacity,
+  );
+  const lit = new MeshLambertMaterial({
+    vertexColors: true,
+    emissive: 0x2a1608,
+    emissiveIntensity: 0.5,
+  });
+  const shell = instanced(shellGeometry(), lit, capacity);
+  const rocket = instanced(
+    rocketGeometry(),
+    new MeshLambertMaterial({ vertexColors: true }),
+    capacity,
+  );
   return [bullet, shell, rocket];
 }

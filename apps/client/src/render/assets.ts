@@ -26,11 +26,14 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { MODEL_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
-export type Palette = 'player' | 'target';
+export type Team = 'blue' | 'red';
 
-const PALETTES: Record<Palette, { hull: number; deck: number; trim: number; gun: number }> = {
-  player: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
-  target: { hull: 0xb5412f, deck: 0xe8d9c8, trim: 0x3a2a24, gun: 0x2b2b2b },
+/** Multiplied into the model's color atlas (which is mostly grey), so each team reads at a glance. */
+const TEAM_TINT: Record<Team, number> = { blue: 0x9ec4ff, red: 0xff9482 };
+
+const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
+  blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
+  red: { hull: 0xb5412f, deck: 0xe8d9c8, trim: 0x3a2a24, gun: 0x2b2b2b },
 };
 
 const UP = new Vector3(0, 1, 0);
@@ -122,11 +125,15 @@ function merge(parts: BufferGeometry[]): BufferGeometry {
   return merged;
 }
 
+interface TeamMaterials {
+  normal: MeshLambertMaterial;
+  flash: MeshLambertMaterial;
+}
+
 interface LoadedModel {
   spec: ModelSpec;
   scene: Object3D;
-  normal: MeshLambertMaterial;
-  flash: MeshLambertMaterial;
+  materials: Record<Team, TeamMaterials>;
 }
 
 /** Meshes that belong to the hull node itself (not to its turret/child nodes). */
@@ -185,7 +192,7 @@ export class AssetProvider {
           const hull = findNode(gltf.scene, spec.hullNode);
           const hullMesh = hull ? hullMeshes(hull)[0] : undefined;
           const map = hullMesh ? ((hullMesh.material as MeshStandardMaterial).map ?? null) : null;
-          this.loaded.set(key, { spec, scene: gltf.scene, ...this.makeMaterials(map) });
+          this.loaded.set(key, { spec, scene: gltf.scene, materials: this.makeMaterials(map) });
           this.failures.delete(key);
         } catch (err) {
           this.failures.set(
@@ -198,31 +205,33 @@ export class AssetProvider {
     );
   }
 
-  private makeMaterials(map: Texture | null): {
-    normal: MeshLambertMaterial;
-    flash: MeshLambertMaterial;
-  } {
-    return {
-      normal: new MeshLambertMaterial({ map }),
-      flash: new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 }),
-    };
+  private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
+    const make = (team: Team): TeamMaterials => ({
+      normal: new MeshLambertMaterial({ map, color: TEAM_TINT[team] }),
+      flash: new MeshLambertMaterial({
+        map,
+        color: TEAM_TINT[team],
+        emissive: 0xffffff,
+        emissiveIntensity: 0.7,
+      }),
+    });
+    return { blue: make('blue'), red: make('red') };
   }
 
-  createShip(modelKey: string, palette: Palette): ShipModel {
+  createShip(modelKey: string, team: Team): ShipModel {
     const loaded = this.loaded.get(modelKey);
-    if (!loaded && MODEL_SPECS[modelKey] && !this.failures.has(modelKey) && palette === 'player') {
+    if (!loaded && MODEL_SPECS[modelKey] && !this.failures.has(modelKey)) {
       this.failures.set(modelKey, 'not loaded');
     }
-    // Team/faction colors are not supported on GLB models yet, so only the player uses them.
-    if (loaded && palette === 'player') {
+    if (loaded) {
       try {
-        return this.buildFromGltf(loaded);
+        return this.buildFromGltf(loaded, team);
       } catch (err) {
         this.failures.set(modelKey, err instanceof Error ? err.message : String(err));
         console.warn(`Model "${modelKey}" could not be built, using the placeholder.`, err);
       }
     }
-    return this.buildPlaceholder(modelKey, palette);
+    return this.buildPlaceholder(modelKey, team);
   }
 
   private foamRing(length: number, width: number): Mesh {
@@ -240,7 +249,8 @@ export class AssetProvider {
     return shadow;
   }
 
-  private buildFromGltf(loaded: LoadedModel): ShipModel {
+  private buildFromGltf(loaded: LoadedModel, team: Team): ShipModel {
+    const mats = loaded.materials[team];
     const { spec } = loaded;
     const scene = loaded.scene.clone(true);
     const hull = findNode(scene, spec.hullNode);
@@ -277,7 +287,7 @@ export class AssetProvider {
     const meshes: Mesh[] = [];
     scene.traverse((o) => {
       if ((o as Mesh).isMesh) {
-        (o as Mesh).material = loaded.normal;
+        (o as Mesh).material = mats.normal;
         meshes.push(o as Mesh);
       }
     });
@@ -325,7 +335,7 @@ export class AssetProvider {
       });
     }
 
-    const model = new ShipModel(meshes, turrets, loaded.normal, loaded.flash);
+    const model = new ShipModel(meshes, turrets, mats.normal, mats.flash);
     model.hullLength = box.max.x - box.min.x;
     model.hullWidth = box.max.z - box.min.z;
     model.root.add(
@@ -336,11 +346,11 @@ export class AssetProvider {
     return model;
   }
 
-  private buildPlaceholder(modelKey: string, palette: Palette): ShipModel {
-    const cacheKey = `${modelKey}:${palette}`;
+  private buildPlaceholder(modelKey: string, team: Team): ShipModel {
+    const cacheKey = `${modelKey}:${team}`;
     let geos = this.cache.get(cacheKey);
     if (!geos) {
-      geos = this.buildPlaceholderGeometry(palette);
+      geos = this.buildPlaceholderGeometry(team);
       this.cache.set(cacheKey, geos);
     }
     const hull = new Mesh(geos.hull, this.normal);
@@ -368,11 +378,11 @@ export class AssetProvider {
     return model;
   }
 
-  private buildPlaceholderGeometry(palette: Palette): {
+  private buildPlaceholderGeometry(team: Team): {
     hull: BufferGeometry;
     turret: BufferGeometry;
   } {
-    const p = PALETTES[palette];
+    const p = PALETTES[team];
     // Bow: a 4-sided pyramid pointing along +x.
     const bowRot = new Matrix4()
       .makeRotationZ(-Math.PI / 2)

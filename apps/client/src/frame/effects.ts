@@ -28,8 +28,8 @@ export class Effects {
   private readonly foamY = WAVE_MAX + FX.foamLift;
   /** Fractional smoke-trail time per projectile slot. */
   private readonly trailCarry: Float32Array;
-  /** weapon index -> 1 when it is a rocket */
-  private readonly isRocket: Uint8Array;
+  /** weapon index -> 0 bullet, 1 shell, 2 rocket (same order as ProjectileVisual) */
+  private readonly kindOfWeapon: Uint8Array;
 
   constructor(kit: ParticleKit, projectileCapacity: number) {
     this.puff = new ParticlePool(kit.puff, -100);
@@ -38,9 +38,10 @@ export class Effects {
     this.debris = new ParticlePool(kit.debris, -0.4);
     this.foam = new ParticlePool(kit.foam, -100);
     this.trailCarry = new Float32Array(projectileCapacity);
-    this.isRocket = new Uint8Array(WEAPON_IDS.length);
+    this.kindOfWeapon = new Uint8Array(WEAPON_IDS.length);
     for (let i = 0; i < WEAPON_IDS.length; i++) {
-      this.isRocket[i] = WEAPONS[WEAPON_IDS[i]!].visual === 'rocket' ? 1 : 0;
+      const v = WEAPONS[WEAPON_IDS[i]!].visual;
+      this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : 2;
     }
   }
 
@@ -524,56 +525,194 @@ export class Effects {
     this.foam.spawn(x, this.foamY, y, 0, 0, 0, 1.1, 2 * s, 9 * s, 0, 0, C.foam, C.foam, 0.7, 0, 0);
   }
 
-  /** Smoke trail and a glowing exhaust flare behind every rocket in flight. */
+  /** Trails behind projectiles in flight: tracer streaks, shell smoke, rocket exhaust. */
   trails(set: ProjectileSet, dt: number): void {
-    const T = FX.rocketTrail;
+    const R = FX.rocketTrail;
+    const B = FX.bulletTrail;
+    const S = FX.shellTrail;
     for (let i = 0; i < set.highWater; i++) {
-      if (set.active[i] === 0 || this.isRocket[set.weapon[i]!] === 0) continue;
+      if (set.active[i] === 0) continue;
+      const kind = this.kindOfWeapon[set.weapon[i]!]!;
+      const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : R.everySec;
       let carry = this.trailCarry[i]! + dt;
-      while (carry >= T.everySec) {
-        carry -= T.everySec;
+      while (carry >= every) {
+        carry -= every;
         const px = set.x[i]!;
         const pz = set.y[i]!;
-        this.puff.spawn(
-          px,
-          1.2,
-          pz,
-          set.vx[i]! * -0.04 + FX.wind.x * 0.3 + this.r(-0.3, 0.3),
-          this.r(0.2, 0.7),
-          set.vy[i]! * -0.04 + FX.wind.z * 0.3 + this.r(-0.3, 0.3),
-          T.life * this.r(0.8, 1.2),
-          T.startSize,
-          T.endSize,
-          0,
-          1.2,
-          C.smokeLight,
-          C.smokeMid,
-          0.65,
-          0,
-          0,
-        );
-        this.fire.spawn(
-          px,
-          1.2,
-          pz,
-          0,
-          0,
-          0,
-          0.14,
-          0.55,
-          0.12,
-          0,
-          0,
-          C.flash,
-          C.fireDeep,
-          0.9,
-          0,
-          0,
-          C.fire,
-        );
+        const vx = set.vx[i]!;
+        const vz = set.vy[i]!;
+        if (kind === 0) {
+          // Glowing streak that trails behind the tracer.
+          this.spark.spawn(
+            px,
+            1.2,
+            pz,
+            vx * -0.3,
+            0,
+            vz * -0.3,
+            B.life,
+            B.size,
+            B.size * 0.2,
+            0,
+            0,
+            C.flash,
+            C.fire,
+            0.9,
+            0,
+            0,
+          );
+        } else if (kind === 1) {
+          this.puff.spawn(
+            px,
+            1.2,
+            pz,
+            vx * -0.02 + this.r(-0.2, 0.2),
+            this.r(0.1, 0.4),
+            vz * -0.02 + this.r(-0.2, 0.2),
+            S.life * this.r(0.8, 1.2),
+            S.startSize,
+            S.endSize,
+            0,
+            1,
+            C.smokeLight,
+            C.smokeMid,
+            S.alpha,
+            0,
+            0,
+          );
+        } else {
+          this.puff.spawn(
+            px,
+            1.2,
+            pz,
+            vx * -0.04 + FX.wind.x * 0.3 + this.r(-0.3, 0.3),
+            this.r(0.2, 0.7),
+            vz * -0.04 + FX.wind.z * 0.3 + this.r(-0.3, 0.3),
+            R.life * this.r(0.8, 1.2),
+            R.startSize,
+            R.endSize,
+            0,
+            1.2,
+            C.smokeLight,
+            C.smokeMid,
+            0.65,
+            0,
+            0,
+          );
+          this.fire.spawn(
+            px,
+            1.2,
+            pz,
+            0,
+            0,
+            0,
+            0.14,
+            0.55,
+            0.12,
+            0,
+            0,
+            C.flash,
+            C.fireDeep,
+            0.9,
+            0,
+            0,
+            C.fire,
+          );
+        }
       }
       this.trailCarry[i] = carry;
     }
+  }
+
+  /** Two ships hit each other: flash, sparks, hull chips, a splash and foam at the contact. */
+  collision(x: number, y: number, impact: number): void {
+    const K = FX.collision;
+    this.flash(x, 1.4, y, 1.4 + impact * 0.12, 0.12, C.white, C.fire);
+    const n = Math.min(K.sparksMax, Math.round(K.sparksBase + impact * K.sparksPerSpeed));
+    for (let i = 0; i < n; i++) {
+      const a = this.r(0, Math.PI * 2);
+      const sp = this.r(0.4, 1) * (6 + impact * 0.5);
+      this.spark.spawn(
+        x,
+        1.2,
+        y,
+        Math.cos(a) * sp,
+        this.r(2, 8),
+        Math.sin(a) * sp,
+        this.r(0.3, 0.6),
+        0.14,
+        0.03,
+        FX.gravity,
+        0.4,
+        C.flash,
+        C.fire,
+        1,
+        0,
+        0,
+        C.hitSpark,
+      );
+    }
+    for (let i = 0; i < K.chips; i++) {
+      const a = this.r(0, Math.PI * 2);
+      const sp = this.r(2, 6);
+      const size = this.r(0.12, 0.28);
+      const hex = this.rng.next() < 0.5 ? C.debrisA : C.debrisB;
+      this.debris.spawn(
+        x,
+        1.2,
+        y,
+        Math.cos(a) * sp,
+        this.r(3, 8),
+        Math.sin(a) * sp,
+        1.6,
+        size,
+        size,
+        FX.gravity,
+        0,
+        hex,
+        hex,
+        1,
+        1,
+        this.r(-14, 14),
+      );
+    }
+    this.puff.spawn(
+      x,
+      1.3,
+      y,
+      FX.wind.x * 0.5,
+      this.r(1, 2),
+      FX.wind.z * 0.5,
+      1.3,
+      0.6,
+      1.9,
+      0,
+      0.8,
+      C.smokeMid,
+      C.smokeDark,
+      0.7,
+      0,
+      0,
+    );
+    this.foam.spawn(
+      x,
+      this.foamY,
+      y,
+      0,
+      0,
+      0,
+      1.4,
+      1.2,
+      3 + impact * 0.2,
+      0,
+      0,
+      C.foam,
+      C.foam,
+      0.7,
+      0,
+      0,
+    );
+    if (impact > K.splashAbove) this.splash(x, y, 'shell');
   }
 
   /** Per-frame effects tied to a ship: its wake, damage smoke/fire and the sinking burn. */
