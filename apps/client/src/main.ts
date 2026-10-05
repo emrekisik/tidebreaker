@@ -25,6 +25,7 @@ import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
 import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
+import { MODEL_SPECS } from './render/modelSpecs.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
 
 setLanguage(detectLanguage());
@@ -80,6 +81,9 @@ const game = new LocalGame(
   },
   previewShip,
 );
+
+// The test picker can switch to any model, so fetch them all in the background right away.
+void assets.preload(Object.keys(MODEL_SPECS));
 
 const startModel = previewShip ?? SHIPS[TRAINING.playerShip as ShipId].modelKey;
 new ShipPicker(
