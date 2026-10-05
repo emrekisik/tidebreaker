@@ -51,6 +51,8 @@ export class ProjectileSet implements ProjectileSink {
   readonly remaining: Float32Array;
   readonly radius: Float32Array;
   readonly damage: Float32Array;
+  /** Index into WEAPON_IDS; the client picks the visual from it. */
+  readonly weapon: Uint8Array;
   readonly owner: Uint16Array;
   readonly active: Uint8Array;
   /** One past the highest slot index that may be active. */
@@ -70,6 +72,7 @@ export class ProjectileSet implements ProjectileSink {
     this.remaining = new Float32Array(capacity);
     this.radius = new Float32Array(capacity);
     this.damage = new Float32Array(capacity);
+    this.weapon = new Uint8Array(capacity);
     this.owner = new Uint16Array(capacity);
     this.active = new Uint8Array(capacity);
     this.freeSlots = new Int32Array(capacity);
@@ -86,6 +89,7 @@ export class ProjectileSet implements ProjectileSink {
     radius: number,
     damage: number,
     ownerId: number,
+    weaponIdx: number,
   ): void {
     let slot: number;
     if (this.freeTop > 0) {
@@ -103,6 +107,7 @@ export class ProjectileSet implements ProjectileSink {
     this.remaining[slot] = range;
     this.radius[slot] = radius;
     this.damage[slot] = damage;
+    this.weapon[slot] = weaponIdx;
     this.owner[slot] = ownerId;
     this.active[slot] = 1;
     this.activeCount++;

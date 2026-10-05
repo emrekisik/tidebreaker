@@ -9,7 +9,7 @@ import { applyI18n, detectLanguage, setLanguage } from './i18n/index.ts';
 import { Input } from './input/input.ts';
 import { AssetProvider } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
-import { createProjectileMesh } from './render/projectileMesh.ts';
+import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
 import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
@@ -25,9 +25,9 @@ const stage = new Stage(canvas);
 const water = new Water();
 stage.scene.add(water.mesh);
 
-const projectileMesh = createProjectileMesh(MAX_PROJECTILES);
-stage.scene.add(projectileMesh);
-const projectileView = new ProjectileView(projectileMesh);
+const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
+stage.scene.add(...projectileMeshes);
+const projectileView = new ProjectileView(projectileMeshes, VISUAL_ORDER);
 
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
 const params = new URLSearchParams(location.search);
@@ -53,7 +53,10 @@ const game = new LocalGame(
 const startModel = previewShip ?? SHIPS[TRAINING.playerShip as ShipId].modelKey;
 new ShipPicker(document.getElementById('picker') as HTMLElement, startModel, async (key) => {
   await assets.preload([key]);
-  game.setPlayerModel(key);
+  // A model that belongs to a ship class switches the whole class; others are visual-only.
+  const id = (Object.keys(SHIPS) as ShipId[]).find((k) => SHIPS[k].modelKey === key);
+  if (id) game.setPlayerShip(id);
+  else game.setPlayerModel(key);
 });
 
 const input = new Input(canvas);
@@ -110,6 +113,7 @@ if (debug) {
     game,
     input,
     camera: stage.camera,
+    assets,
     advance(frames: number, frameMs = 16.7): void {
       for (let i = 0; i < frames; i++) {
         update(lastMs + frameMs);

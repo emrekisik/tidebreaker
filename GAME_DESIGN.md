@@ -214,6 +214,9 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 | 5 | `heavy_frigate` | Ağır Fırkateyn | 6000 | 900 | 380 | 11 | 60 | 15 | 3 × taret (dmg 22, 0.8 sn) + yan başına 4 top (dmg 15, 1.0 sn) |
 
 - Mermi hızı 60 u/s, menzil: T1 42 → T5 60 birim (config).
+- **Model tabanlı sınıflar (güncel durum):** sınıflar artık elimizdeki 3D modellere bağlıdır ve her gemi `packages/shared/src/config/ships.ts` içinde kendi hız/dönüş/can/kalkan/boy/vuruş dairesi/mount listesiyle tanımlıdır. Eşleşme: T1 `coast_guard_boat` = assault_boat, T2 `gunboat` = hovercraft ve `landing_craft`, T3 `corvette` = frigate1, T4 `frigate` = frigate2 ve `cruiser`, T5 `heavy_frigate` = battleship. Denizaltı şimdilik yalnızca görsel (oynanabilir sınıf değil). Üstteki tablodaki mount düzenleri model gelene kadar tahmindi; gerçek düzen modeldeki taret sayısıdır.
+- **Silah tipleri** (`weapons.ts`): `machine_gun` (hızlı, düşük hasar), `cannon_t3/t4/t5` (tablodaki hasar/aralık), `rocket` (yavaş, uzun reload, **düz isabet**, alan hasarı yok). Her silahın kendi reload'u vardır; bir gemideki mount'lar sırayla ateş eder (`SALVO_GAP_SEC`, arka arkaya yaylım). Mermi, taretin pivotundan namlu ucuna (`muzzle`) kadar ilerlemiş noktada doğar. Reload süreleri sim adımına (50 ms) yukarı yuvarlanır.
+- Vuruş daireleri her modelin gövde ayak izinden türetilir (yarıçap ≈ genişlik × 0,45).
 - Kamera uzaklaştırması sınıfla artar (§12.3).
 - **Dallanma (backlog, Faz 10):** T4'ten itibaren iki yol (ör. "Fırkateyn" dengeli / "Hızlı Saldırı Gemisi" cam top). Veri modeli buna hazır olmalıdır: `ShipDef.next: ShipId[]`.
 

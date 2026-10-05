@@ -43,13 +43,21 @@ export interface TurretRig {
   rest: Quaternion;
   /** Direction the barrel points at rest, in sim heading terms (0 = bow, PI = stern). */
   restYaw: number;
+  /** Pivot position in ship space (sim units): forward (+x) and starboard (+y). */
+  forward: number;
+  starboard: number;
+  /** Pivot-to-muzzle distance along the barrel at rest. */
+  muzzle: number;
 }
 
 /** A ship's scene objects: the hull plus any number of turrets that follow the aim. */
 export class ShipModel {
   readonly root = new Group();
   private readonly meshes: readonly Mesh[];
-  private readonly turrets: readonly TurretRig[];
+  readonly turrets: readonly TurretRig[];
+  /** Hull footprint after normalization (world units). */
+  hullLength = 0;
+  hullWidth = 0;
   private readonly normal: MeshLambertMaterial;
   private readonly flash: MeshLambertMaterial;
   private flashing = false;
@@ -267,15 +275,31 @@ export class AssetProvider {
         const dz = center.z - pivot.z;
         if (Math.hypot(dx, dz) > spec.length * 0.01) restYaw = Math.atan2(dz, dx);
       }
+      node.getWorldPosition(pivot);
+      // Barrel reach: furthest bounds corner along the rest direction.
+      const reach = new Box3().setFromObject(node, true);
+      const dirX = Math.cos(restYaw);
+      const dirZ = Math.sin(restYaw);
+      let muzzle = 0;
+      for (const cx of [reach.min.x, reach.max.x]) {
+        for (const cz of [reach.min.z, reach.max.z]) {
+          muzzle = Math.max(muzzle, (cx - pivot.x) * dirX + (cz - pivot.z) * dirZ);
+        }
+      }
       turrets.push({
         node,
         axis: UP.clone().applyQuaternion(parentQuat),
         rest: node.quaternion.clone(),
         restYaw,
+        forward: pivot.x,
+        starboard: pivot.z,
+        muzzle,
       });
     }
 
     const model = new ShipModel(meshes, turrets, loaded.normal, loaded.flash);
+    model.hullLength = box.max.x - box.min.x;
+    model.hullWidth = box.max.z - box.min.z;
     model.root.add(fit, this.shadow(spec.length, box.max.z - box.min.z, 0.2));
     return model;
   }
@@ -294,7 +318,17 @@ export class AssetProvider {
     turret.add(turretMesh);
     const model = new ShipModel(
       [hull, turretMesh],
-      [{ node: turret, axis: UP.clone(), rest: new Quaternion(), restYaw: 0 }],
+      [
+        {
+          node: turret,
+          axis: UP.clone(),
+          rest: new Quaternion(),
+          restYaw: 0,
+          forward: 0.3,
+          starboard: 0,
+          muzzle: 1.3,
+        },
+      ],
       this.normal,
       this.flash,
     );

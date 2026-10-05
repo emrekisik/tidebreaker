@@ -16,7 +16,10 @@ export interface ModelSpec {
   length: number;
   /** Fraction of hull height (from the keel) that is below the waterline. */
   draft: number;
-  /** Nodes that rotate toward the aim direction. Everything else stays fixed to the hull. */
+  /**
+   * Nodes that rotate toward the aim direction, in fire-priority order. Index i is mount i of the
+   * matching ShipDef (packages/shared/src/config/ships.ts). Everything else stays fixed.
+   */
   aimNodes: readonly string[];
 }
 
@@ -54,7 +57,12 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     bow: '+z',
     length: 9,
     draft: 0.15,
-    aimNodes: ['frigate1.BackTurret', 'frigate1.FrontTurrent'],
+    aimNodes: [
+      'frigate1.FrontTurrent',
+      'frigate1.BackTurret',
+      'frigate1.TopLauncher1',
+      'frigate1.TopLauncher2',
+    ],
   },
   frigate2: {
     file: 'frigate2.glb',
@@ -63,9 +71,9 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     length: 9,
     draft: 0.15,
     aimNodes: [
+      'frigate2.FrontTurret',
       'frigate2.BackTurret1',
       'frigate2.BackTurret2',
-      'frigate2.FrontTurret',
       'frigate2.TopMachineGun',
     ],
   },
@@ -75,7 +83,13 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     bow: '+z',
     length: 12,
     draft: 0.15,
-    aimNodes: ['cruiser.FrontTurret.1', 'cruiser.FrontTurret.2', 'cruiser.TopMachineGun'],
+    aimNodes: [
+      'cruiser.FrontTurret.1',
+      'cruiser.FrontTurret.2',
+      'cruiser.TopMachineGun',
+      'cruiser.TopLauncher.01',
+      'cruiser.TopLauncher.002',
+    ],
   },
   battleship: {
     file: 'battleship.glb',
@@ -83,7 +97,13 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     bow: '-z',
     length: 15,
     draft: 0.15,
-    aimNodes: ['HeavyBackTurret.001', 'HeavyFrontTurret.002', 'HeavyFrontTurret.003'],
+    aimNodes: [
+      'HeavyFrontTurret.002',
+      'HeavyFrontTurret.003',
+      'HeavyBackTurret.001',
+      'TopLauncher.01',
+      'TopLauncher.02',
+    ],
   },
   submarine: {
     file: 'submarine.glb',

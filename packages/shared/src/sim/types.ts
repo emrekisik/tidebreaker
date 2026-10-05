@@ -12,6 +12,8 @@ export interface ShipState {
   alive: boolean;
   /** Seconds until each mount may fire again. */
   mountCooldown: Float32Array;
+  /** Seconds until any mount of this ship may fire again (sequential salvos). */
+  salvoCooldown: number;
 }
 
 export function createShipState(def: ShipDef, x: number, y: number, heading: number): ShipState {
@@ -24,6 +26,7 @@ export function createShipState(def: ShipDef, x: number, y: number, heading: num
     shield: def.shield,
     alive: true,
     mountCooldown: new Float32Array(def.mounts.length),
+    salvoCooldown: 0,
   };
 }
 
@@ -42,6 +45,7 @@ export function resetShipState(
   s.shield = def.shield;
   s.alive = true;
   s.mountCooldown.fill(0);
+  s.salvoCooldown = 0;
 }
 
 /** Anything that can be hit by projectiles. */

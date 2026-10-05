@@ -78,6 +78,19 @@ export class LocalGame implements HitSink {
     }
   }
 
+  /**
+   * Switches the player to another ship class: new stats, hit shape, mounts and model. Position
+   * and heading are kept; hull, shield and cooldowns start fresh.
+   */
+  setPlayerShip(id: ShipId): void {
+    const def = SHIPS[id];
+    const c = this.player.combatant;
+    const s = c.state;
+    c.def = def;
+    c.state = createShipState(def, s.x, s.y, s.heading);
+    this.setPlayerModel(def.modelKey);
+  }
+
   /** Visual-only: swaps the player's model. Sim data (speed, hit shape, mounts) is unchanged. */
   setPlayerModel(modelKey: string): void {
     const model = this.assets.createShip(modelKey, 'player');

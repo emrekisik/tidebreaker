@@ -5,7 +5,7 @@ Only CC0 or commercially usable licenses. Never use Starblast assets, names or U
 
 | Asset | Source / URL | Author | License | Used in | Notes |
 |---|---|---|---|---|---|
-| Low-poly ship pack: `assault_boat`, `battleship`, `cruiser`, `frigate1`, `frigate2`, `hovercraft`, `landing_craft`, `submarine` (+ `aircraft_carrier`, unused) | purchased by the project owner; seller/URL **TODO** | **TODO** | "Creative Commons", exact variant **TODO** (BY / BY-SA / NC / ND?) | `assault_boat` = player ship (T1); the others are `?ship=` previews | Turrets separated in Blender by the project owner. Processed by `pnpm assets:build`. **Do not commit** `models/` or `apps/client/public/models/` until the license is confirmed (both are in `.gitignore`). A `-ND` license would forbid the processing step. |
+| Low-poly ship pack: `assault_boat`, `battleship`, `cruiser`, `frigate1`, `frigate2`, `hovercraft`, `landing_craft`, `submarine` (+ `aircraft_carrier`, unused) | purchased by the project owner; seller/URL **TODO** | **TODO** | Seller's "Royalty Free License": personal/educational/commercial use allowed; **no resale, redistribution or repackaging of the purchased product** without the creator's permission; not usable in a logo/watermark/trademark | all ship models; `assault_boat` = T1 player ship | Turrets separated in Blender by the project owner. Processed by `pnpm assets:build`. **Never commit the raw `models/` GLBs** (public repo = redistribution); `apps/client/public/models/` is also git-ignored. Open question: shipping optimized copies inside the deployed game (browser-downloadable) should be confirmed with the seller before launch. |
 
 ## Model pipeline
 
