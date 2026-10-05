@@ -8,7 +8,7 @@ import { PoseInterp } from './pose.ts';
 /** A ship in the scene: sim state plus its interpolated visual. */
 export class ShipEntity {
   readonly combatant: Combatant;
-  readonly model: ShipModel;
+  model: ShipModel;
   readonly bar: HealthBar | null;
   readonly pose = new PoseInterp();
   /** World-space aim angle of the turret (sim radians). */
@@ -21,9 +21,15 @@ export class ShipEntity {
     this.combatant = combatant;
     this.model = model;
     this.bar = bar;
-    this.model.root.rotation.order = 'YXZ';
+    this.setModel(model);
     this.aim = combatant.state.heading;
     this.pose.snap(combatant.state.x, combatant.state.y, combatant.state.heading);
+  }
+
+  /** Replaces the visual (the caller adds/removes the roots from the scene). */
+  setModel(model: ShipModel): void {
+    this.model = model;
+    model.root.rotation.order = 'YXZ';
   }
 
   render(alpha: number, dtSec: number, camera: PerspectiveCamera): void {

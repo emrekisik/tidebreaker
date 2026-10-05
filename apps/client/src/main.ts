@@ -15,6 +15,7 @@ import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
 import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
+import { ShipPicker } from './ui/shipPicker.ts';
 
 setLanguage(detectLanguage());
 applyI18n(document);
@@ -48,6 +49,12 @@ const game = new LocalGame(
   },
   previewShip,
 );
+
+const startModel = previewShip ?? SHIPS[TRAINING.playerShip as ShipId].modelKey;
+new ShipPicker(document.getElementById('picker') as HTMLElement, startModel, async (key) => {
+  await assets.preload([key]);
+  game.setPlayerModel(key);
+});
 
 const input = new Input(canvas);
 const rig = new CameraRig();

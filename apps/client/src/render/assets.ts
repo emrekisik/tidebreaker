@@ -199,7 +199,7 @@ export class AssetProvider {
 
   private shadow(length: number, width: number, y: number): Mesh {
     const shadow = new Mesh(this.shadowGeo, this.shadowMat);
-    shadow.scale.set(length * 0.68, 1, width);
+    shadow.scale.set(length * 0.52, 1, width * 0.62);
     shadow.position.y = y;
     return shadow;
   }

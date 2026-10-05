@@ -27,7 +27,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'assault_boat',
     bow: '+z',
     length: 5,
-    draft: 0.3,
+    draft: 0.15,
     aimNodes: ['assault_boat.MachineGun'],
   },
   // The entries below are visual previews only (`?ship=<key>`); lengths are placeholders until
@@ -37,7 +37,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'hovercraft',
     bow: '+z',
     length: 7,
-    draft: 0.2,
+    draft: 0.1,
     aimNodes: ['hovercraft.MachineGun1', 'hovercraft.MachineGun2'],
   },
   landing_craft: {
@@ -45,7 +45,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'landing_craft',
     bow: '+z',
     length: 7,
-    draft: 0.25,
+    draft: 0.12,
     aimNodes: ['landing_craft.MachineGun1', 'landing_craft.MachineGun2'],
   },
   frigate1: {
@@ -53,7 +53,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'frigate1',
     bow: '+z',
     length: 9,
-    draft: 0.3,
+    draft: 0.15,
     aimNodes: ['frigate1.BackTurret', 'frigate1.FrontTurrent'],
   },
   frigate2: {
@@ -61,7 +61,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'frigate2',
     bow: '+z',
     length: 9,
-    draft: 0.3,
+    draft: 0.15,
     aimNodes: [
       'frigate2.BackTurret1',
       'frigate2.BackTurret2',
@@ -74,7 +74,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'cruiser',
     bow: '+z',
     length: 12,
-    draft: 0.3,
+    draft: 0.15,
     aimNodes: ['cruiser.FrontTurret.1', 'cruiser.FrontTurret.2', 'cruiser.TopMachineGun'],
   },
   battleship: {
@@ -82,7 +82,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'battleship',
     bow: '-z',
     length: 15,
-    draft: 0.3,
+    draft: 0.15,
     aimNodes: ['HeavyBackTurret.001', 'HeavyFrontTurret.002', 'HeavyFrontTurret.003'],
   },
   submarine: {
@@ -90,7 +90,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'submarnie',
     bow: '+z',
     length: 9,
-    draft: 0.5,
+    draft: 0.45,
     aimNodes: [],
   },
 };

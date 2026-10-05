@@ -37,6 +37,8 @@ export class LocalGame implements HitSink {
   ticks = 0;
   private readonly rng = new Mulberry32(0x1d3a5c71);
   private readonly events: GameEvents;
+  private readonly scene: Scene;
+  private readonly assets: AssetProvider;
 
   constructor(
     scene: Scene,
@@ -47,6 +49,8 @@ export class LocalGame implements HitSink {
     playerModelKey?: string,
   ) {
     this.events = events;
+    this.scene = scene;
+    this.assets = assets;
 
     const spawn = TRAINING.playerSpawn;
     const playerDef = SHIPS[TRAINING.playerShip as ShipId];
@@ -72,6 +76,14 @@ export class LocalGame implements HitSink {
         new HealthBar(scene, bars),
       );
     }
+  }
+
+  /** Visual-only: swaps the player's model. Sim data (speed, hit shape, mounts) is unchanged. */
+  setPlayerModel(modelKey: string): void {
+    const model = this.assets.createShip(modelKey, 'player');
+    this.scene.remove(this.player.model.root);
+    this.scene.add(model.root);
+    this.player.setModel(model);
   }
 
   private addShip(
