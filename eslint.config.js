@@ -47,6 +47,10 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['tools/**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly' } },
+  },
+  {
     files: ['apps/server/src/sim/hot/**/*.ts', 'apps/client/src/**/frame/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: hotPathRules,

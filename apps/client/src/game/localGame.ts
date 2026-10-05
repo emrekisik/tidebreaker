@@ -38,14 +38,21 @@ export class LocalGame implements HitSink {
   private readonly rng = new Mulberry32(0x1d3a5c71);
   private readonly events: GameEvents;
 
-  constructor(scene: Scene, assets: AssetProvider, bars: BarKit, events: GameEvents) {
+  constructor(
+    scene: Scene,
+    assets: AssetProvider,
+    bars: BarKit,
+    events: GameEvents,
+    /** Visual-only override of the player model (`?ship=<key>` preview). Sim data is unchanged. */
+    playerModelKey?: string,
+  ) {
     this.events = events;
 
     const spawn = TRAINING.playerSpawn;
     const playerDef = SHIPS[TRAINING.playerShip as ShipId];
     this.player = this.addShip(
       scene,
-      assets.createShip(playerDef.modelKey, 'player'),
+      assets.createShip(playerModelKey ?? playerDef.modelKey, 'player'),
       playerDef,
       spawn.x,
       spawn.y,

@@ -45,7 +45,7 @@ export const SHIPS = {
   coast_guard_boat: {
     id: 'coast_guard_boat',
     tier: 1,
-    modelKey: 'coast_guard_boat',
+    modelKey: 'assault_boat',
     hull: 100,
     shield: 40,
     vMax: 16,

@@ -1,4 +1,5 @@
-import { MAX_PROJECTILES, STEP_MS, STEP_SEC } from '@tidebreaker/shared';
+import { MAX_PROJECTILES, SHIPS, STEP_MS, STEP_SEC, TRAINING } from '@tidebreaker/shared';
+import type { ShipId } from '@tidebreaker/shared';
 import { FixedStep } from './frame/fixedStep.ts';
 import { aimAngleFromScreen } from './frame/aim.ts';
 import { CameraRig } from './frame/cameraRig.ts';
@@ -28,17 +29,31 @@ stage.scene.add(projectileMesh);
 const projectileView = new ProjectileView(projectileMesh);
 
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
-const game = new LocalGame(stage.scene, new AssetProvider(), new BarKit(), {
-  onHit(x, y, damage, shieldHit) {
-    damageNumbers.show(stage.camera, x, y, damage, shieldHit);
+const params = new URLSearchParams(location.search);
+// `?ship=<model key>` swaps only the player's visual model (preview); the sim is unchanged.
+const previewShip = params.get('ship') ?? undefined;
+const assets = new AssetProvider();
+await assets.preload([
+  SHIPS[TRAINING.playerShip as ShipId].modelKey,
+  ...(previewShip ? [previewShip] : []),
+]);
+const game = new LocalGame(
+  stage.scene,
+  assets,
+  new BarKit(),
+  {
+    onHit(x, y, damage, shieldHit) {
+      damageNumbers.show(stage.camera, x, y, damage, shieldHit);
+    },
   },
-});
+  previewShip,
+);
 
 const input = new Input(canvas);
 const rig = new CameraRig();
 const fixedStep = new FixedStep(STEP_MS);
 const hud = new Hud();
-const debug = new URLSearchParams(location.search).get('debug') === '1';
+const debug = params.get('debug') === '1';
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 
 let aim = 0;

@@ -43,7 +43,7 @@ export class ShipEntity {
     root.rotation.y = -this.pose.heading;
     root.rotation.x = sink * 0.45;
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
-    this.model.turret.rotation.y = this.pose.heading - this.aim;
+    this.model.aimTurrets(this.pose.heading, this.aim);
 
     this.flashSeconds = this.flashSeconds > dtSec ? this.flashSeconds - dtSec : 0;
     this.model.setFlash(this.flashSeconds > 0);

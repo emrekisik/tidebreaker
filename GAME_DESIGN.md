@@ -548,6 +548,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - `pnpm assets:build` → `gltf-transform` ile `dedup + prune + weld + meshopt` → `apps/client/public/models/`.
 - **Bütçe:** gemi başına ≤ 40 KB, toplam model ≤ 400 KB. Toplam ilk yükleme ≤ 2.5 MB (JS dahil).
 - **`AssetProvider` soyutlaması:** `modelKey` → GLB yoksa **procedural placeholder** (kutu birleşimleri). Böylece oyun, nihai modeller gelmeden oynanabilir. Nihai gemi modelleri Faz 7'de ya da sanatçıdan gelince eklenir.
+- **Model manifesti (`apps/client/src/render/modelSpecs.ts`):** her GLB için gövde düğümü, baş yönü, uzunluk, su çizgisi ve nişanı takip edecek taret düğümleri veri olarak tanımlanır. Yükleyici modeli normalize eder (baş +x, uzunluk, su çizgisi y=0). Taret pivotu = Blender'daki düğümün origin'i; namlunun hangi yöne baktığı (baş/kıç) mesh sınırlarından otomatik bulunur. `pnpm assets:build` ağ sıkıştırması sırasında her mesh'i alt düğüme taşır; çünkü kuantizasyon mesh taşıyan düğümün dönüşümünü değiştirir ve pivotu bozar. Doku atlası 256 px'e indirilir.
 - Lisans: her asset `ASSETS.md`'ye (kaynak, lisans, yazar, URL) işlenir. CC0 ya da ticari kullanıma izin veren lisans şart.
 
 ### 12.6 UI / HUD
