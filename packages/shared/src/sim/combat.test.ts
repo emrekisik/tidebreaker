@@ -20,13 +20,18 @@ interface Hit {
   killed: boolean;
 }
 
-function recorder(): { hits: Hit[]; sink: HitSink } {
+function recorder(): { hits: Hit[]; expired: number[]; sink: HitSink } {
   const hits: Hit[] = [];
+  const expired: number[] = [];
   return {
     hits,
+    expired,
     sink: {
       onHit(owner, target, x, y, damage, shield, killed) {
         hits.push({ owner, target, x, y, damage, shield, killed });
+      },
+      onExpire(_x, _y, weaponIdx) {
+        expired.push(weaponIdx);
       },
     },
   };
@@ -173,11 +178,12 @@ describe('ProjectileSet', () => {
 
   it('expires at max range without hitting anything', () => {
     const set = new ProjectileSet(8);
-    const { hits, sink } = recorder();
-    set.spawn(0, 0, 0, weapon.projectileSpeed, weapon.range, weapon.radius, 10, 1, 0);
+    const { hits, expired, sink } = recorder();
+    set.spawn(0, 0, 0, weapon.projectileSpeed, weapon.range, weapon.radius, 10, 1, 3);
     for (let i = 0; i < 40; i++) set.step(0.05, [], sink);
     expect(set.activeCount).toBe(0);
     expect(hits).toHaveLength(0);
+    expect(expired).toEqual([3]); // reported once, with the weapon index
   });
 
   it('does not travel past its range', () => {

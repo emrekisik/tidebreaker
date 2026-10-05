@@ -1,44 +1,49 @@
 import { SHIP_MOVEMENT } from '../config/ships.ts';
-import { angleDiff, clamp, lerp, normalizeAngle } from '../math/angle.ts';
+import { clamp, lerp, normalizeAngle } from '../math/angle.ts';
 import type { ShipState } from './types.ts';
+
+function moveToward(value: number, target: number, maxDelta: number): number {
+  const d = target - value;
+  return d > maxDelta ? value + maxDelta : d < -maxDelta ? value - maxDelta : target;
+}
 
 /**
  * Advances one ship by `dt` seconds (GAME_DESIGN.md §5.2). Pure and deterministic:
  * the only inputs are the arguments; the ship state is mutated in place.
  *
- * @param moveX desired world-direction x in [-1, 1]
- * @param moveY desired world-direction y in [-1, 1]
- * @param turnRate radians per second
+ * Controls are rudder + throttle: the ship turns itself and never moves sideways.
+ *
+ * @param steer rudder in [-1, 1]; positive turns toward +y (clockwise on screen)
+ * @param throttle in [-1, 1]; positive = accelerate, negative = brake, 0 = coast
+ * @param turnRate radians per second at full speed
  */
 export function stepShip(
   s: ShipState,
-  moveX: number,
-  moveY: number,
+  steer: number,
+  throttle: number,
   vMax: number,
   turnRate: number,
   dt: number,
 ): void {
-  let mx = moveX;
-  let my = moveY;
-  let len = Math.sqrt(mx * mx + my * my);
-  if (len > 1) {
-    mx /= len;
-    my /= len;
-    len = 1;
-  }
+  const st = clamp(steer, -1, 1);
+  const th = clamp(throttle, -1, 1);
 
-  let vTarget = 0;
-  if (len > SHIP_MOVEMENT.moveEpsilon) {
-    const diff = angleDiff(Math.atan2(my, mx), s.heading);
-    const maxTurn = turnRate * dt;
-    s.heading = normalizeAngle(s.heading + clamp(diff, -maxTurn, maxTurn));
-    const headingFactor = lerp(1, SHIP_MOVEMENT.minHeadingFactor, Math.abs(diff) / Math.PI);
-    vTarget = vMax * len * headingFactor;
-  }
+  // A nearly stationary ship turns sluggishly; steerage comes with speed.
+  const speedFrac = clamp(s.speed / (vMax * SHIP_MOVEMENT.turnFullSpeedFrac), 0, 1);
+  const turnScale = lerp(SHIP_MOVEMENT.minTurnFactor, 1, speedFrac);
+  s.heading = normalizeAngle(s.heading + st * turnRate * turnScale * dt);
 
   const accel = vMax / SHIP_MOVEMENT.accelSeconds;
-  const decel = vMax / SHIP_MOVEMENT.decelSeconds;
-  s.speed += clamp(vTarget - s.speed, -decel * dt, accel * dt);
+  const coast = vMax / SHIP_MOVEMENT.coastSeconds;
+  const brake = vMax / SHIP_MOVEMENT.brakeSeconds;
+  if (th > 0) {
+    const vTarget = vMax * th * (1 - SHIP_MOVEMENT.turnDrag * Math.abs(st));
+    s.speed += clamp(vTarget - s.speed, -coast * dt, accel * dt);
+  } else if (th < 0) {
+    s.speed = moveToward(s.speed, 0, brake * dt);
+  } else {
+    s.speed = moveToward(s.speed, 0, coast * dt);
+  }
 
   s.x += Math.cos(s.heading) * s.speed * dt;
   s.y += Math.sin(s.heading) * s.speed * dt;

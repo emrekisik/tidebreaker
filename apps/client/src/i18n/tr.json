@@ -1,5 +1,5 @@
 {
-  "hint.controls": "WASD ile yüz · fareyle nişan al · ateş için sol tuşu basılı tut",
+  "hint.controls": "W gaz · S fren · A/D dümen · fareyle nişan · sol tık ateş · sağ tık gaz",
   "hud.hull": "Gövde",
   "hud.shield": "Kalkan",
   "hud.sunk": "Batırılan",

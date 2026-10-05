@@ -1,14 +1,24 @@
-import { MAX_PROJECTILES, SHIPS, STEP_MS, STEP_SEC, TRAINING } from '@tidebreaker/shared';
+import {
+  MAX_PROJECTILES,
+  SHIPS,
+  STEP_MS,
+  STEP_SEC,
+  TRAINING,
+  WEAPONS,
+  WEAPON_IDS,
+} from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
 import { FixedStep } from './frame/fixedStep.ts';
 import { aimAngleFromScreen } from './frame/aim.ts';
 import { CameraRig } from './frame/cameraRig.ts';
+import { Effects } from './frame/effects.ts';
 import { ProjectileView } from './frame/projectileView.ts';
 import { LocalGame } from './game/localGame.ts';
 import { applyI18n, detectLanguage, setLanguage } from './i18n/index.ts';
 import { Input } from './input/input.ts';
 import { AssetProvider } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
+import { createParticleKit } from './render/particleKit.ts';
 import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
 import { Water } from './render/water.ts';
@@ -29,6 +39,15 @@ const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
 stage.scene.add(...projectileMeshes);
 const projectileView = new ProjectileView(projectileMeshes, VISUAL_ORDER);
 
+const particleKit = createParticleKit();
+stage.scene.add(
+  particleKit.foam.mesh,
+  particleKit.puff.mesh,
+  particleKit.spark.mesh,
+  particleKit.debris.mesh,
+);
+const effects = new Effects(particleKit, MAX_PROJECTILES);
+
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
 const params = new URLSearchParams(location.search);
 // `?ship=<model key>` swaps only the player's visual model (preview); the sim is unchanged.
@@ -43,8 +62,19 @@ const game = new LocalGame(
   assets,
   new BarKit(),
   {
-    onHit(x, y, damage, shieldHit) {
+    onShot(x, y, angle, weaponIdx) {
+      effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+    },
+    onHit(x, y, damage, shieldHit, killed, target) {
       damageNumbers.show(stage.camera, x, y, damage, shieldHit);
+      effects.impact(x, y, shieldHit);
+      if (killed) {
+        const t = target.combatant;
+        effects.explode(t.state.x, t.state.y, t.def.length);
+      }
+    },
+    onMiss(x, y, weaponIdx) {
+      effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     },
   },
   previewShip,
@@ -80,16 +110,20 @@ function update(nowMs: number): void {
   for (let i = 0; i < steps; i++) {
     const a = aimAngleFromScreen(stage.camera, input.ndcX, input.ndcY, ps.x, ps.y);
     if (!Number.isNaN(a)) aim = a;
-    game.step(input.moveX, input.moveY, aim, input.fire);
+    game.step(input.steer, input.throttle, aim, input.fire);
   }
 
   const alpha = fixedStep.alpha;
-  for (const e of game.entities) e.render(alpha, dtSec, stage.camera);
+  const timeSec = nowMs / 1000;
+  for (const e of game.entities) e.render(alpha, dtSec, stage.camera, timeSec);
   projectileView.update(game.projectiles, STEP_SEC, alpha);
+  for (const e of game.entities) effects.ship(e, dtSec);
+  effects.trails(game.projectiles, dtSec);
+  effects.update(dtSec);
 
   const p = game.player.pose;
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
-  water.update(nowMs / 1000, rig.focusX, rig.focusZ);
+  water.update(timeSec, rig.focusX, rig.focusZ);
   stage.render();
 
   if (nowMs - lastHudMs > 100) {

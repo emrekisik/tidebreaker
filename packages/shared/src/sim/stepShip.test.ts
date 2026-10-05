@@ -8,16 +8,18 @@ import { stepShip } from './stepShip.ts';
 const def = SHIPS.coast_guard_boat;
 const turnRate = def.turnRateDeg * DEG2RAD;
 
-function run(s: ReturnType<typeof createShipState>, ticks: number, mx: number, my: number): void {
-  for (let i = 0; i < ticks; i++) stepShip(s, mx, my, def.vMax, turnRate, STEP_SEC);
+type State = ReturnType<typeof createShipState>;
+
+function run(s: State, ticks: number, steer: number, throttle: number): void {
+  for (let i = 0; i < ticks; i++) stepShip(s, steer, throttle, def.vMax, turnRate, STEP_SEC);
 }
 
 describe('stepShip', () => {
-  it('accelerates toward vMax and never exceeds it', () => {
+  it('accelerates toward vMax with the throttle and never exceeds it', () => {
     const s = createShipState(def, 0, 0, 0);
     let max = 0;
     for (let i = 0; i < 200; i++) {
-      stepShip(s, 1, 0, def.vMax, turnRate, STEP_SEC);
+      stepShip(s, 0, 1, def.vMax, turnRate, STEP_SEC);
       max = Math.max(max, s.speed);
     }
     expect(max).toBeLessThanOrEqual(def.vMax + 1e-9);
@@ -28,50 +30,78 @@ describe('stepShip', () => {
 
   it('takes about accelSeconds to reach full speed', () => {
     const s = createShipState(def, 0, 0, 0);
-    run(s, 25, 1, 0); // 1.25 s
+    run(s, 25, 0, 1); // 1.25 s
     expect(s.speed).toBeCloseTo(def.vMax / 2, 1);
   });
 
-  it('coasts to a stop without input', () => {
+  it('does not move without throttle', () => {
     const s = createShipState(def, 0, 0, 0);
-    run(s, 100, 1, 0);
-    run(s, 140, 0, 0); // 7 s > decelSeconds
+    run(s, 40, 0, 0);
+    expect(s.speed).toBe(0);
+    expect(s.x).toBe(0);
+  });
+
+  it('coasts to a stop slowly and brakes much faster', () => {
+    const coasting = createShipState(def, 0, 0, 0);
+    const braking = createShipState(def, 0, 0, 0);
+    run(coasting, 100, 0, 1);
+    run(braking, 100, 0, 1);
+    run(coasting, 32, 0, 0); // 1.6 s
+    run(braking, 32, 0, -1); // brakeSeconds = 1.5 s
+    expect(braking.speed).toBe(0);
+    expect(coasting.speed).toBeGreaterThan(def.vMax * 0.5);
+    run(coasting, 140, 0, 0);
+    expect(coasting.speed).toBe(0);
+  });
+
+  it('never reverses', () => {
+    const s = createShipState(def, 0, 0, 0);
+    run(s, 40, 0, -1);
     expect(s.speed).toBe(0);
   });
 
-  it('limits the turn rate', () => {
+  it('steers: positive rudder turns toward +y, at most the class turn rate', () => {
     const s = createShipState(def, 0, 0, 0);
-    run(s, 1, 0, 1); // wants +90 degrees
-    expect(s.heading).toBeCloseTo(turnRate * STEP_SEC, 9);
-  });
-
-  it('turns the short way (+y is positive heading)', () => {
-    const s = createShipState(def, 0, 0, 0);
-    run(s, 40, 0, 1);
-    expect(s.heading).toBeCloseTo(Math.PI / 2, 5);
+    run(s, 60, 0, 1); // reach full speed
+    const h0 = s.heading;
+    run(s, 10, 1, 1);
+    expect(s.heading - h0).toBeGreaterThan(0);
+    expect(s.heading - h0).toBeLessThanOrEqual(turnRate * 10 * STEP_SEC + 1e-9);
     const t = createShipState(def, 0, 0, 0);
-    run(t, 40, 0, -1);
-    expect(t.heading).toBeCloseTo(-Math.PI / 2, 5);
+    run(t, 60, 0, 1);
+    run(t, 10, -1, 1);
+    expect(t.heading).toBeLessThan(0);
   });
 
-  it('slows down on a sharp turn', () => {
+  it('turns slowly when stationary and faster when moving', () => {
+    const still = createShipState(def, 0, 0, 0);
+    const moving = createShipState(def, 0, 0, 0);
+    moving.speed = def.vMax;
+    run(still, 10, 1, 0);
+    run(moving, 10, 1, 0);
+    expect(still.heading).toBeGreaterThan(0);
+    expect(still.heading).toBeLessThan(moving.heading * 0.5);
+  });
+
+  it('a heavier class turns slower than a light one at the same rudder', () => {
+    const heavy = SHIPS.heavy_frigate;
+    const light = createShipState(def, 0, 0, 0);
+    const big = createShipState(heavy, 0, 0, 0);
+    light.speed = def.vMax;
+    big.speed = heavy.vMax;
+    for (let i = 0; i < 20; i++) {
+      stepShip(light, 1, 1, def.vMax, def.turnRateDeg * DEG2RAD, STEP_SEC);
+      stepShip(big, 1, 1, heavy.vMax, heavy.turnRateDeg * DEG2RAD, STEP_SEC);
+    }
+    expect(big.heading).toBeLessThan(light.heading * 0.6);
+  });
+
+  it('bleeds some speed when the rudder is hard over', () => {
     const straight = createShipState(def, 0, 0, 0);
-    const sharp = createShipState(def, 0, 0, 0);
-    // Start at full speed, then ask for a 180 degree reversal: speed must drop while turning.
-    run(straight, 100, 1, 0);
-    run(sharp, 100, 1, 0);
-    run(straight, 10, 1, 0);
-    run(sharp, 10, -1, 0);
-    expect(sharp.speed).toBeLessThan(straight.speed);
-  });
-
-  it('normalizes diagonal input (no speed bonus)', () => {
-    const a = createShipState(def, 0, 0, Math.PI / 4);
-    const b = createShipState(def, 0, 0, Math.PI / 4);
-    run(a, 100, 1, 1);
-    run(b, 100, 0.7071, 0.7071);
-    expect(a.speed).toBeCloseTo(b.speed, 2);
-    expect(a.speed).toBeLessThanOrEqual(def.vMax + 1e-9);
+    const turning = createShipState(def, 0, 0, 0);
+    run(straight, 150, 0, 1);
+    run(turning, 150, 1, 1);
+    expect(turning.speed).toBeLessThan(straight.speed);
   });
 
   it('is deterministic for the same input sequence', () => {
@@ -79,8 +109,8 @@ describe('stepShip', () => {
     for (let i = 0; i < 400; i++) inputs.push([Math.sin(i * 0.07), Math.cos(i * 0.11)]);
     const a = createShipState(def, 5, 5, 0);
     const b = createShipState(def, 5, 5, 0);
-    for (const [mx, my] of inputs) stepShip(a, mx, my, def.vMax, turnRate, STEP_SEC);
-    for (const [mx, my] of inputs) stepShip(b, mx, my, def.vMax, turnRate, STEP_SEC);
+    for (const [st, th] of inputs) stepShip(a, st, th, def.vMax, turnRate, STEP_SEC);
+    for (const [st, th] of inputs) stepShip(b, st, th, def.vMax, turnRate, STEP_SEC);
     expect(b.x).toBe(a.x);
     expect(b.y).toBe(a.y);
     expect(b.heading).toBe(a.heading);

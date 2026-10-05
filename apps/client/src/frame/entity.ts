@@ -4,6 +4,12 @@ import type { Combatant } from '@tidebreaker/shared';
 import type { ShipModel } from '../render/assets.ts';
 import type { HealthBar } from './healthBar.ts';
 import { PoseInterp } from './pose.ts';
+import { waveHeight, waveSlope } from '../render/waves.ts';
+
+const slope = new Float32Array(2);
+/** How strongly ships follow the waves (1 = exactly). Tilt is exaggerated so it reads from above. */
+const BOB = 0.9;
+const TILT = 2.5;
 
 /** A ship in the scene: sim state plus its interpolated visual. */
 export class ShipEntity {
@@ -16,6 +22,11 @@ export class ShipEntity {
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
+  /** Fractional effect timers (see Effects.ship). */
+  wakeCarry = 0;
+  bowCarry = 0;
+  smokeCarry = 0;
+  fireCarry = 0;
 
   constructor(combatant: Combatant, model: ShipModel, bar: HealthBar | null) {
     this.combatant = combatant;
@@ -32,7 +43,7 @@ export class ShipEntity {
     model.root.rotation.order = 'YXZ';
   }
 
-  render(alpha: number, dtSec: number, camera: PerspectiveCamera): void {
+  render(alpha: number, dtSec: number, camera: PerspectiveCamera, timeSec: number): void {
     const s = this.combatant.state;
     this.pose.resolve(s.x, s.y, s.heading, alpha);
 
@@ -45,9 +56,17 @@ export class ShipEntity {
     }
     const root = this.model.root;
     root.visible = sink < 1;
-    root.position.set(this.pose.x, -sink * 2.4, this.pose.y);
+    // Ride the same waves that are drawn: bob, pitch along the hull, roll across it.
+    const bob = waveHeight(this.pose.x, this.pose.y, timeSec) * BOB;
+    waveSlope(this.pose.x, this.pose.y, timeSec, slope);
+    const c = Math.cos(this.pose.heading);
+    const sn = Math.sin(this.pose.heading);
+    const pitch = Math.atan(slope[0]! * c + slope[1]! * sn) * TILT;
+    const roll = -Math.atan(-slope[0]! * sn + slope[1]! * c) * TILT;
+    root.position.set(this.pose.x, bob - sink * 2.4, this.pose.y);
     root.rotation.y = -this.pose.heading;
-    root.rotation.x = sink * 0.45;
+    root.rotation.x = roll + sink * 0.45;
+    root.rotation.z = pitch;
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
     this.model.aimTurrets(this.pose.heading, this.aim);
 

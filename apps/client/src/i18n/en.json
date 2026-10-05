@@ -1,5 +1,5 @@
 {
-  "hint.controls": "WASD to sail · move the mouse to aim · hold left click to fire",
+  "hint.controls": "W gas · S brake · A/D rudder · mouse to aim · left click fire · right click gas",
   "hud.hull": "Hull",
   "hud.shield": "Shield",
   "hud.sunk": "Sunk",

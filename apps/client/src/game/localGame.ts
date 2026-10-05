@@ -12,14 +12,25 @@ import {
   stepShip,
   updateMounts,
 } from '@tidebreaker/shared';
-import type { Combatant, HitSink, ShipId } from '@tidebreaker/shared';
+import type { Combatant, HitSink, ProjectileSink, ShipId } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
 import type { AssetProvider } from '../render/assets.ts';
 import type { BarKit } from '../render/barKit.ts';
 
 export interface GameEvents {
-  onHit(x: number, y: number, damage: number, shieldHit: boolean, killed: boolean): void;
+  /** A projectile left a barrel (muzzle position, fire angle, weapon index). */
+  onShot(x: number, y: number, angle: number, weaponIdx: number): void;
+  onHit(
+    x: number,
+    y: number,
+    damage: number,
+    shieldHit: boolean,
+    killed: boolean,
+    target: ShipEntity,
+  ): void;
+  /** A projectile ended in the water. */
+  onMiss(x: number, y: number, weaponIdx: number): void;
 }
 
 const PLAYER_ID = 1;
@@ -37,6 +48,13 @@ export class LocalGame implements HitSink {
   ticks = 0;
   private readonly rng = new Mulberry32(0x1d3a5c71);
   private readonly events: GameEvents;
+  /** Forwards new shots to the projectile set and tells the view about them. */
+  private readonly shotSink: ProjectileSink = {
+    spawn: (x, y, angle, speed, range, radius, damage, ownerId, weaponIdx) => {
+      this.projectiles.spawn(x, y, angle, speed, range, radius, damage, ownerId, weaponIdx);
+      this.events.onShot(x, y, angle, weaponIdx);
+    },
+  };
   private readonly scene: Scene;
   private readonly assets: AssetProvider;
 
@@ -121,7 +139,7 @@ export class LocalGame implements HitSink {
   }
 
   /** One fixed simulation tick (GAME_DESIGN.md §11.2 order, reduced to what exists in 1a). */
-  step(moveX: number, moveY: number, aim: number, fire: boolean): void {
+  step(steer: number, throttle: number, aim: number, fire: boolean): void {
     for (const e of this.entities) {
       const s = e.combatant.state;
       e.pose.capture(s.x, s.y, s.heading);
@@ -130,9 +148,9 @@ export class LocalGame implements HitSink {
     const p = this.player;
     const ps = p.combatant.state;
     const pdef = p.combatant.def;
-    stepShip(ps, moveX, moveY, pdef.vMax, pdef.turnRateDeg * DEG2RAD, STEP_SEC);
+    stepShip(ps, steer, throttle, pdef.vMax, pdef.turnRateDeg * DEG2RAD, STEP_SEC);
     p.aim = aim;
-    updateMounts(ps, pdef, PLAYER_ID, aim, fire, STEP_SEC, this.rng, this.projectiles);
+    updateMounts(ps, pdef, PLAYER_ID, aim, fire, STEP_SEC, this.rng, this.shotSink);
 
     this.projectiles.step(STEP_SEC, this.combatants, this);
 
@@ -162,6 +180,10 @@ export class LocalGame implements HitSink {
     this.ticks++;
   }
 
+  onExpire(x: number, y: number, weaponIdx: number): void {
+    this.events.onMiss(x, y, weaponIdx);
+  }
+
   onHit(
     ownerId: number,
     targetId: number,
@@ -174,6 +196,6 @@ export class LocalGame implements HitSink {
     const target = this.entities[targetId - PLAYER_ID];
     if (target) target.flashSeconds = 0.12;
     if (killed && ownerId === PLAYER_ID) this.kills++;
-    this.events.onHit(x, y, damage, shieldHit, killed);
+    if (target) this.events.onHit(x, y, damage, shieldHit, killed, target);
   }
 }

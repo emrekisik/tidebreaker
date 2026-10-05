@@ -39,6 +39,8 @@ export interface HitSink {
     shieldHit: boolean,
     killed: boolean,
   ): void;
+  /** A projectile ran out of range without hitting anything (it lands in the water). */
+  onExpire(x: number, y: number, weaponIdx: number): void;
 }
 
 /** Struct-of-arrays projectile storage with a fixed capacity (no allocation after creation). */
@@ -187,7 +189,10 @@ export class ProjectileSet implements ProjectileSink {
       this.x[i] = x0 + dx;
       this.y[i] = y0 + dy;
       this.remaining[i] = remaining - Math.sqrt(dx * dx + dy * dy);
-      if (expired) this.release(i);
+      if (expired) {
+        hits.onExpire(this.x[i]!, this.y[i]!, this.weapon[i]!);
+        this.release(i);
+      }
     }
   }
 }

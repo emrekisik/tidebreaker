@@ -122,7 +122,7 @@ Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min 
 ### 5.1 Kontroller
 | | Masaüstü | Mobil |
 |---|---|---|
-| Hareket | **WASD** = istenen dünya yönü (8 yön). Bırakınca gemi yavaşça durur | Sol sanal joystick: yön + gaz (büyüklük) |
+| Hareket | **W** = gaz, **S** = fren, **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur | Sol sanal joystick: yatay = dümen, dikey = gaz/fren |
 | Nişan | Fare konumu | Sağ joystick yönü |
 | Ateş | Sol tık basılı tut | Sağ joystick'i çek, ya da "auto-fire" ayarı |
 | Upgrade | 1–5 tuşları veya paneldeki butonlar | Panel butonları |
@@ -133,20 +133,17 @@ Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min 
 Durum: `pos(x,y)`, `heading θ`, `speed v` (heading yönünde skaler). Her tick (`dt = 1/TICK_RATE`):
 
 ```
-desired = input.moveVector            // (mx,my) in [-1,1], normalize if > 1
-if |desired| > eps:
-    targetHeading = atan2(desired.y, desired.x)
-    diff = angleDiff(targetHeading, θ)                     // [-π, π]
-    θ += clamp(diff, -turnRate*dt, +turnRate*dt)
-    headingFactor = lerp(1.0, 0.4, |diff| / π)             // keskin dönüşte yavaşla
-    vTarget = vMax * min(1, |desired|) * headingFactor
-else:
-    vTarget = 0
-accel = vMax / 2.5   (hızlanma)         decel = vMax / 5.0   (sürtünme)
-v += clamp(vTarget - v, -decel*dt (veya -accel), +accel*dt)
+steer, throttle in [-1, 1]            // INPUT mesajında moveX = steer, moveY = throttle
+turnScale = lerp(0.35, 1, clamp(v / (0.5*vMax), 0, 1))   // duran gemi hantal döner
+θ += steer * turnRate * turnScale * dt
+if throttle > 0:  vTarget = vMax*throttle*(1 - 0.15*|steer|);  v += clamp(vTarget - v, -coast*dt, +accel*dt)
+if throttle < 0:  v -> 0   (fren: vMax / 1.5 sn)
+if throttle = 0:  v -> 0   (süzülme: vMax / 5.0 sn)
+accel = vMax / 2.5
 pos += (cosθ, sinθ) * v * dt
 ```
-- Yanal kayma yok (MVP). Görsel yalpa/yatma sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
+- Yanal kayma yok, geri gitme yok (S sadece frenler). `turnRate` sınıfa göre değiştiği için ağır gemiler daha yavaş ve zor döner. Dalga sallanması (yalpa/yatma) sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
+- Sayılar `SHIP_MOVEMENT` (`config/ships.ts`). Mobil joystick aynı (steer, throttle) girdisine çevrilir.
 - `vMax`, `turnRate` = sınıf tabanı × upgrade çarpanı (§6).
 - **Gemi–gemi çarpışması:** yumuşak itme (üst üste binmeyi çöz), hasar yok. (Çarpma hasarı backlog.)
 - **Gemi–ada çarpışması:** gövde 2–3 daire zinciri olarak modellenir, çokgen kenarına itme.
@@ -537,6 +534,11 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.2 Su
 - Kameranın altında kayan **tek plane** (dünyayı kaplayan dev mesh yok). Vertex shader ile hafif dalga, fragment shader'da renk gradyanı + gürültü dokusuyla (≤ 256², ya da procedural) köpük/parıltı. `LOW` katmanda köpük kapalı.
 - Gemi **kıç izi (wake):** gemi arkasında hıza bağlı şerit parçacıkları (instanced). Baş dalgası hızla ölçeklenir.
+
+### 12.2b Efektler (low-poly, kozmetik)
+- Tüm efektler **havuzlu parçacıklardır** (4 `InstancedMesh`: duman/ateş küreleri, kıvılcım, enkaz, köpük elmasları). Düz renkli, kenarlı (flat-shaded), toplam 4 çizim çağrısı. Ayarlar `config/effects.ts`.
+- Sim olaylarına bağlıdır: namlu alevi + duman (silah tipine göre), isabet kıvılcımı (kalkan cyan, gövde turuncu), ıska = su sıçraması, roket izi, batarken patlama + parçalanma (dönen low-poly parçalar). Hasar durumları gövde oranına göre: < %66 duman, < %33 alev + siyah duman.
+- **Su:** kenarlı (flat-shaded) düşük poligonlu tek plane; dalga fonksiyonu shader ve JS tarafında aynı sabitlerden gelir, gemiler dalgayla sallanır. **Kıç izi:** hıza bağlı köpük elmasları (merkez çizgi + V kolları) ve baş dalgası.
 
 ### 12.3 Kamera
 - Sabit açı: pitch ≈ 58°, FOV 45. Gemiyi yumuşak takip (kritik sönümlü). Yükseklik/uzaklık `70 + 10 × tier` birim (sınıf büyüdükçe uzaklaşır).

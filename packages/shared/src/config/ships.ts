@@ -38,11 +38,17 @@ export interface ShipDef {
 
 /** Movement model constants (GAME_DESIGN.md §5.2). */
 export const SHIP_MOVEMENT = {
+  /** Seconds from standstill to full speed at full throttle. */
   accelSeconds: 2.5,
-  decelSeconds: 5.0,
-  /** Speed factor when the desired heading is 180 degrees away. */
-  minHeadingFactor: 0.4,
-  moveEpsilon: 0.01,
+  /** Seconds from full speed to standstill when coasting (no throttle). */
+  coastSeconds: 5.0,
+  /** Seconds from full speed to standstill with the brake held. */
+  brakeSeconds: 1.5,
+  /** Turn-rate factor when (almost) stationary; rises to 1 at `turnFullSpeedFrac` of vMax. */
+  minTurnFactor: 0.35,
+  turnFullSpeedFrac: 0.5,
+  /** Fraction of target speed lost while the rudder is fully over. */
+  turnDrag: 0.15,
 } as const;
 
 /** A 360 degree turret mount. Pivot and muzzle numbers are measured from the 3D model. */

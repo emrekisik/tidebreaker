@@ -1,14 +1,21 @@
-import { Color, Mesh, PlaneGeometry, ShaderMaterial } from 'three';
+import { Color, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
+import { WAVE_MAX, glslWaveFunction } from './waves.ts';
+
+const SIZE = 460;
+const SEGMENTS = 80;
+const CELL = SIZE / SEGMENTS;
+
+/** Where the sun is (matches the DirectionalLight in Stage). */
+const SUN = new Vector3(-40, 80, 30).normalize();
 
 const VERTEX = /* glsl */ `
 uniform float uTime;
 varying vec3 vWorld;
 varying float vH;
+${glslWaveFunction()}
 void main() {
   vec4 w = modelMatrix * vec4(position, 1.0);
-  float h = sin(w.x * 0.35 + uTime * 1.2) * 0.05
-          + sin(w.z * 0.27 - uTime * 0.9) * 0.05
-          + sin((w.x + w.z) * 0.18 + uTime * 0.6) * 0.04;
+  float h = waveHeight(w.xz, uTime);
   w.y += h;
   vWorld = w.xyz;
   vH = h;
@@ -16,38 +23,47 @@ void main() {
 }
 `;
 
+// Flat (per-triangle) shading from screen-space derivatives gives the faceted low-poly look.
 const FRAGMENT = /* glsl */ `
-uniform float uTime;
 uniform vec3 uDeep;
 uniform vec3 uShallow;
+uniform vec3 uFoam;
+uniform vec3 uSun;
+uniform vec2 uCenter;
+uniform float uFacet;
+uniform float uWaveMax;
+uniform float uCell;
 varying vec3 vWorld;
 varying float vH;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
 
 void main() {
-  vec2 p = vWorld.xz;
-  float n = noise(p * 0.12 + vec2(uTime * 0.05, uTime * 0.03)) * 0.6
-          + noise(p * 0.45 - vec2(uTime * 0.08, 0.0)) * 0.4;
-  vec3 col = mix(uDeep, uShallow, clamp(n * 0.9 + vH * 2.5, 0.0, 1.0));
-  // Moving glints give a sense of speed over an otherwise flat sea.
-  float glint = smoothstep(0.82, 0.95, noise(p * 1.4 + vec2(uTime * 0.25, -uTime * 0.18)));
-  col += glint * 0.10;
+  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  if (n.y < 0.0) n = -n;
+  n = normalize(vec3(n.x * uFacet, n.y, n.z * uFacet));
+
+  float diff = dot(n, uSun) * 0.5 + 0.5;
+  float cellRand = hash(floor(vWorld.xz / uCell)) - 0.5;
+  float t = clamp(0.42 + vH / uWaveMax * 0.28 + (diff - 0.7) * 0.7 + cellRand * 0.07, 0.0, 1.0);
+  vec3 col = mix(uDeep, uShallow, t);
+
+  vec3 V = normalize(cameraPosition - vWorld);
+  vec3 H = normalize(uSun + V);
+  float spec = pow(max(dot(n, H), 0.0), 260.0);
+  col += spec * 0.22;
+
+  // Crests pick up a little foam color.
+  col = mix(col, uFoam, smoothstep(0.55, 1.0, vH / uWaveMax) * 0.28);
+
+  // Fade into the sky/background color before the edge of the plane.
+  float d = length(vWorld.xz - uCenter);
+  col = mix(col, uDeep * 0.92, smoothstep(${(SIZE * 0.36).toFixed(1)}, ${(SIZE * 0.48).toFixed(1)}, d));
+
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }
 `;
-
-const SIZE = 700;
-const SEGMENTS = 112;
-const SNAP = SIZE / SEGMENTS;
 
 /** One plane that follows the camera; waves and colors are computed from world position. */
 export class Water {
@@ -59,7 +75,13 @@ export class Water {
       uniforms: {
         uTime: { value: 0 },
         uDeep: { value: new Color(0x0a4a73) },
-        uShallow: { value: new Color(0x1f86a8) },
+        uShallow: { value: new Color(0x2a9fc4) },
+        uFoam: { value: new Color(0xd8f1fa) },
+        uSun: { value: SUN },
+        uCenter: { value: new Vector2() },
+        uFacet: { value: 4 },
+        uWaveMax: { value: WAVE_MAX },
+        uCell: { value: CELL },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -71,8 +93,12 @@ export class Water {
 
   update(timeSec: number, centerX: number, centerZ: number): void {
     this.material.uniforms['uTime']!.value = timeSec;
-    // Snap to the vertex grid so the waves do not swim when the plane moves.
-    this.mesh.position.x = Math.round(centerX / SNAP) * SNAP;
-    this.mesh.position.z = Math.round(centerZ / SNAP) * SNAP;
+    // Snap to the vertex grid so the facets do not swim when the plane moves.
+    this.mesh.position.x = Math.round(centerX / CELL) * CELL;
+    this.mesh.position.z = Math.round(centerZ / CELL) * CELL;
+    (this.material.uniforms['uCenter']!.value as Vector2).set(
+      this.mesh.position.x,
+      this.mesh.position.z,
+    );
   }
 }
