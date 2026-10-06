@@ -32,9 +32,9 @@ export type Team = 'blue' | 'red';
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
-const TEAM_TINT: Record<Team, number> = { blue: 0x4f8fff, red: 0xff5a46 };
+const TEAM_TINT: Record<Team, number> = { blue: 0x86d6f2, red: 0xf7a79c };
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
-const TEAM_BOOST = 1.7;
+const TEAM_BOOST = 1.95;
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -63,32 +63,59 @@ export interface TurretRig {
 export class ShipModel {
   readonly root = new Group();
   private readonly meshes: readonly Mesh[];
+  private readonly normals: readonly MeshLambertMaterial[];
+  private readonly flashes: readonly MeshLambertMaterial[];
   readonly turrets: readonly TurretRig[];
   /** Hull footprint after normalization (world units). */
   hullLength = 0;
   hullWidth = 0;
-  private readonly normal: MeshLambertMaterial;
-  private readonly flash: MeshLambertMaterial;
   private flashing = false;
   private readonly tmp = new Quaternion();
+  /** Flat things that must stay on the water surface (blob shadow, foam ring). */
+  private readonly decals: Mesh[] = [];
+  private readonly decalLift: number[] = [];
 
+  /** `normals[i]` / `flashes[i]` are the materials of `meshes[i]` (weapons are not team-tinted). */
   constructor(
     meshes: readonly Mesh[],
+    normals: readonly MeshLambertMaterial[],
+    flashes: readonly MeshLambertMaterial[],
     turrets: readonly TurretRig[],
-    normal: MeshLambertMaterial,
-    flash: MeshLambertMaterial,
   ) {
     this.meshes = meshes;
+    this.normals = normals;
+    this.flashes = flashes;
     this.turrets = turrets;
-    this.normal = normal;
-    this.flash = flash;
+    for (let i = 0; i < meshes.length; i++) meshes[i]!.material = normals[i]!;
+  }
+
+  /** Adds a flat mesh that is kept `lift` above the water surface under the ship. */
+  addDecal(mesh: Mesh, lift: number): void {
+    mesh.rotation.order = 'ZXY';
+    this.decals.push(mesh);
+    this.decalLift.push(lift);
+    this.root.add(mesh);
+  }
+
+  /**
+   * Keeps the decals level and on the real water surface while the hull bobs and tilts, so the
+   * foam ring never dips into the sea (or floats above it) when the ship rocks.
+   * @param tiltX root.rotation.x, @param tiltZ root.rotation.z
+   */
+  layDecals(surfaceY: number, rootY: number, tiltX: number, tiltZ: number): void {
+    for (let i = 0; i < this.decals.length; i++) {
+      const d = this.decals[i]!;
+      d.position.y = surfaceY + this.decalLift[i]! - rootY;
+      d.rotation.set(-tiltX, 0, -tiltZ);
+    }
   }
 
   setFlash(on: boolean): void {
     if (on === this.flashing) return;
     this.flashing = on;
-    const m = on ? this.flash : this.normal;
-    for (let i = 0; i < this.meshes.length; i++) this.meshes[i]!.material = m;
+    for (let i = 0; i < this.meshes.length; i++) {
+      this.meshes[i]!.material = on ? this.flashes[i]! : this.normals[i]!;
+    }
   }
 
   /** Turns every turret toward `aim` (sim angle) for a hull heading of `heading`. */
@@ -163,6 +190,8 @@ interface LoadedModel {
   spec: ModelSpec;
   scene: Object3D;
   materials: Record<Team, TeamMaterials>;
+  /** Untinted materials for weapons. */
+  neutral: TeamMaterials;
 }
 
 /** Meshes that belong to the hull node itself (not to its turret/child nodes). */
@@ -221,7 +250,12 @@ export class AssetProvider {
           const hull = findNode(gltf.scene, spec.hullNode);
           const hullMesh = hull ? hullMeshes(hull)[0] : undefined;
           const map = hullMesh ? ((hullMesh.material as MeshStandardMaterial).map ?? null) : null;
-          this.loaded.set(key, { spec, scene: gltf.scene, materials: this.makeMaterials(map) });
+          this.loaded.set(key, {
+            spec,
+            scene: gltf.scene,
+            materials: this.makeMaterials(map),
+            neutral: this.makeNeutral(map),
+          });
           this.failures.delete(key);
         } catch (err) {
           this.failures.set(
@@ -232,6 +266,13 @@ export class AssetProvider {
         }
       }),
     );
+  }
+
+  private makeNeutral(map: Texture | null): TeamMaterials {
+    return {
+      normal: new MeshLambertMaterial({ map }),
+      flash: new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 }),
+    };
   }
 
   private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
@@ -260,15 +301,13 @@ export class AssetProvider {
   private foamRing(length: number, width: number): Mesh {
     const ring = new Mesh(this.ringGeo, this.ringMat);
     ring.scale.set(length * 0.56, 1, width * 0.7);
-    ring.position.y = 0.14;
     ring.renderOrder = 2;
     return ring;
   }
 
-  private shadow(length: number, width: number, y: number): Mesh {
+  private shadow(length: number, width: number): Mesh {
     const shadow = new Mesh(this.shadowGeo, this.shadowMat);
     shadow.scale.set(length * 0.52, 1, width * 0.62);
-    shadow.position.y = y;
     return shadow;
   }
 
@@ -309,10 +348,7 @@ export class AssetProvider {
 
     const meshes: Mesh[] = [];
     scene.traverse((o) => {
-      if ((o as Mesh).isMesh) {
-        (o as Mesh).material = mats.normal;
-        meshes.push(o as Mesh);
-      }
+      if ((o as Mesh).isMesh) meshes.push(o as Mesh);
     });
 
     const turrets: TurretRig[] = [];
@@ -358,14 +394,17 @@ export class AssetProvider {
       });
     }
 
-    const model = new ShipModel(meshes, turrets, mats.normal, mats.flash);
+    // Weapons keep their own colors; only the hull gets the team tint.
+    const weaponParts = new Set<Object3D>();
+    for (const rig of turrets) rig.node.traverse((o) => weaponParts.add(o));
+    const normals = meshes.map((m) => (weaponParts.has(m) ? loaded.neutral.normal : mats.normal));
+    const flashes = meshes.map((m) => (weaponParts.has(m) ? loaded.neutral.flash : mats.flash));
+    const model = new ShipModel(meshes, normals, flashes, turrets);
     model.hullLength = box.max.x - box.min.x;
     model.hullWidth = box.max.z - box.min.z;
-    model.root.add(
-      fit,
-      this.shadow(spec.length, box.max.z - box.min.z, 0.2),
-      this.foamRing(spec.length, box.max.z - box.min.z),
-    );
+    model.root.add(fit);
+    model.addDecal(this.shadow(spec.length, box.max.z - box.min.z), 0.2);
+    model.addDecal(this.foamRing(spec.length, box.max.z - box.min.z), 0.26);
     return model;
   }
 
@@ -383,6 +422,8 @@ export class AssetProvider {
     turret.add(turretMesh);
     const model = new ShipModel(
       [hull, turretMesh],
+      [this.normal, this.normal],
+      [this.flash, this.flash],
       [
         {
           node: turret,
@@ -394,10 +435,10 @@ export class AssetProvider {
           muzzle: 1.3,
         },
       ],
-      this.normal,
-      this.flash,
     );
-    model.root.add(this.shadow(5, 1.9, 0.25), this.foamRing(5, 1.9), hull, turret);
+    model.root.add(hull, turret);
+    model.addDecal(this.shadow(5, 1.9), 0.2);
+    model.addDecal(this.foamRing(5, 1.9), 0.26);
     return model;
   }
 

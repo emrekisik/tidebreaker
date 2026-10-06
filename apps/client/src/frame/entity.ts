@@ -87,6 +87,13 @@ export class ShipEntity {
     root.rotation.y = -this.pose.heading;
     root.rotation.x = roll + rattleRoll + sink * 0.45;
     root.rotation.z = pitch + rattlePitch;
+    // Foam ring and blob shadow stay on the real water surface, level, however the hull rocks.
+    this.model.layDecals(
+      waveHeight(this.pose.x, this.pose.y, timeSec),
+      root.position.y,
+      root.rotation.x,
+      root.rotation.z,
+    );
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
     this.model.aimTurrets(this.pose.heading, this.aim);
 

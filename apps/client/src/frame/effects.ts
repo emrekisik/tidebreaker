@@ -547,8 +547,9 @@ export class Effects {
         const vz = set.vy[i]!;
         const sp = Math.sqrt(vx * vx + vz * vz) || 1;
         // Where the projectile is drawn this frame (between the last two sim steps).
-        const px = set.x[i]! - vx * back;
-        const pz = set.y[i]! - vz * back;
+        // The spawn happened `carry` seconds ago within this frame, so spread it along the path.
+        const px = set.x[i]! - vx * (back + carry);
+        const pz = set.y[i]! - vz * (back + carry);
         const dx = vx / sp;
         const dz = vz / sp;
         if (kind === 0) {
@@ -572,29 +573,30 @@ export class Effects {
             0,
           );
         } else if (kind === 1) {
-          this.puff.spawn(
+          // Cannon: a thick, glowing streak like the machine gun's, plus a little air-glow at the nose.
+          this.spark.spawn(
             px,
             1.2,
             pz,
-            vx * -0.02 + this.r(-0.2, 0.2),
-            this.r(0.1, 0.4),
-            vz * -0.02 + this.r(-0.2, 0.2),
-            S.life * this.r(0.8, 1.2),
-            S.startSize,
-            S.endSize,
+            vx * -0.3,
             0,
-            1,
-            C.smokeLight,
-            C.smokeMid,
-            S.alpha,
+            vz * -0.3,
+            S.life,
+            S.streak,
+            S.streak * 0.2,
             0,
             0,
+            C.flash,
+            C.fire,
+            0.95,
+            0,
+            0,
+            C.hitSpark,
           );
-          // Compressed air glowing yellow at the nose, plus a short forward cone.
           this.fire.spawn(
-            px + dx * 0.5,
+            px + dx * 0.8,
             1.2,
-            pz + dz * 0.5,
+            pz + dz * 0.8,
             0,
             0,
             0,
@@ -605,28 +607,10 @@ export class Effects {
             0,
             C.flash,
             C.fireHot,
-            0.85,
+            0.7,
             0,
             0,
             C.fireHot,
-          );
-          this.spark.spawn(
-            px + dx * 0.7,
-            1.2,
-            pz + dz * 0.7,
-            vx * 0.12,
-            0,
-            vz * 0.12,
-            N.life,
-            N.coneSize,
-            N.coneSize * 0.3,
-            0,
-            0,
-            C.flash,
-            C.fireHot,
-            0.8,
-            0,
-            0,
           );
         } else {
           const u = 1 - (set.remaining[i]! + sp * back) / WEAPONS[WEAPON_IDS[w]!].range;

@@ -8,6 +8,7 @@ import {
   InstancedMesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  SphereGeometry,
 } from 'three';
 import type { Material } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -58,12 +59,12 @@ function tracerGeometry(): BufferGeometry {
   ]);
 }
 
-/** Artillery shell: steel body, brass driving band and a pointed nose. */
+/** Cannon shell: a thick hot tracer streak with a small dark shell at its tip. */
 function shellGeometry(): BufferGeometry {
   return mergeGeometries([
-    colored(alongX(new CylinderGeometry(0.17, 0.17, 0.7, 8)), 0x2d3139),
-    colored(alongX(new CylinderGeometry(0.19, 0.19, 0.1, 8)), 0xb8923c, -0.22),
-    colored(alongX(new ConeGeometry(0.17, 0.34, 8)), 0x40454f, 0.52),
+    colored(new BoxGeometry(2.1, 0.28, 0.28), 0xffa63d, -0.35),
+    colored(new BoxGeometry(1.2, 0.19, 0.19), 0xfff0a8, 0.05),
+    colored(new SphereGeometry(0.21, 6, 4), 0x2d3139, 0.8),
   ]);
 }
 
@@ -85,12 +86,7 @@ export function createProjectileMeshes(capacity: number): InstancedMesh[] {
     new MeshBasicMaterial({ vertexColors: true }),
     capacity,
   );
-  const lit = new MeshLambertMaterial({
-    vertexColors: true,
-    emissive: 0x2a1608,
-    emissiveIntensity: 0.5,
-  });
-  const shell = instanced(shellGeometry(), lit, capacity);
+  const shell = instanced(shellGeometry(), new MeshBasicMaterial({ vertexColors: true }), capacity);
   const rocket = instanced(
     rocketGeometry(),
     new MeshLambertMaterial({ vertexColors: true }),

@@ -50,9 +50,9 @@ export const FX = {
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
-  shellTrail: { everySec: 0.025, life: 0.55, startSize: 0.16, endSize: 0.6, alpha: 0.4 },
+  shellTrail: { everySec: 0.01, life: 0.18, streak: 0.3 },
   /** Yellowish glow of compressed air at the nose of a shell. */
-  shellNose: { size: 0.65, life: 0.07, coneSize: 0.22 },
+  shellNose: { size: 0.5, life: 0.07 },
 
   /** Ship-to-ship collisions; counts scale with the closing speed. */
   collision: { sparksBase: 8, sparksPerSpeed: 0.8, sparksMax: 30, chips: 5, splashAbove: 6 },
