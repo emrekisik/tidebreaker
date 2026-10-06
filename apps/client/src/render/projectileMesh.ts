@@ -62,9 +62,9 @@ function tracerGeometry(): BufferGeometry {
 /** Cannon shell: a thick hot tracer streak with a small dark shell at its tip. */
 function shellGeometry(): BufferGeometry {
   return mergeGeometries([
-    colored(new BoxGeometry(0.95, 0.14, 0.14), 0xffa63d, -0.2),
-    colored(new BoxGeometry(0.55, 0.09, 0.09), 0xfff0a8, 0.02),
-    colored(new SphereGeometry(0.15, 6, 4), 0x2d3139, 0.48),
+    colored(new BoxGeometry(0.95, 0.28, 0.28), 0xffa63d, -0.2),
+    colored(new BoxGeometry(0.55, 0.19, 0.19), 0xfff0a8, 0.02),
+    colored(new SphereGeometry(0.21, 6, 4), 0x2d3139, 0.48),
   ]);
 }
 

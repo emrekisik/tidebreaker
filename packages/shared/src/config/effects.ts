@@ -52,7 +52,7 @@ export const FX = {
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
-  shellTrail: { everySec: 0.01, life: 0.13, streak: 0.15 },
+  shellTrail: { everySec: 0.01, life: 0.13, streak: 0.3 },
   /** Yellowish glow of compressed air at the nose of a shell. */
   shellNose: { size: 0.32, life: 0.06 },
 

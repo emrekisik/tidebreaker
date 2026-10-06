@@ -168,9 +168,9 @@ describe('rocket launch profile', () => {
     const start = rocket.projectileSpeed * rocket.startSpeedPct;
     expect(speeds[0]!).toBeGreaterThanOrEqual(start);
     expect(speeds[0]!).toBeLessThan(start * 1.2); // still crawling after the first step
-    for (let i = 1; i < 28; i++) expect(speeds[i]!).toBeGreaterThanOrEqual(speeds[i - 1]!);
+    for (let i = 1; i < 29; i++) expect(speeds[i]!).toBeGreaterThanOrEqual(speeds[i - 1]!);
     // Convex: the gain per step keeps growing (slow start, fast finish).
-    expect(speeds[20]! - speeds[19]!).toBeGreaterThan(speeds[5]! - speeds[4]!);
+    expect(speeds[12]! - speeds[11]!).toBeGreaterThan(speeds[3]! - speeds[2]!); // ramp lasts 0.8 s = 16 steps
     expect(speeds[29]!).toBeCloseTo(rocket.projectileSpeed, 3);
   });
 

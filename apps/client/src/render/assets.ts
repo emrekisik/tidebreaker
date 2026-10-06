@@ -34,13 +34,13 @@ export type Team = 'blue' | 'red';
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
-const TEAM_TINT: Record<Team, number> = { blue: 0x1fa3ff, red: 0xe8182f };
+const TEAM_TINT: Record<Team, number> = { blue: 0x4cc2ff, red: 0xff3d50 };
 /** Glow ring and accent color of each team (sRGB). */
 const TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
 /** Outline thickness around the hull, in world units. */
 const OUTLINE_WORLD = 0.13;
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
-const TEAM_BOOST = 2;
+const TEAM_BOOST = 2.3;
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -184,7 +184,7 @@ function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLamb
       )
       .replace(
         '#include <emissivemap_fragment>',
-        '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uTeam * tm * 0.22;',
+        '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uTeam * tm * 0.3;',
       );
   };
   mat.customProgramCacheKey = () => 'team-tint';
@@ -320,7 +320,7 @@ export class AssetProvider {
 
   /** Adds the glowing team ring under the ship. */
   private addTeamRing(model: ShipModel, length: number, team: Team): void {
-    const radius = Math.max(2.4, length * 0.56);
+    const radius = Math.max(1.5, length * 0.36);
     const ring = new Mesh(this.glowRingGeo, this.glowMats[team]);
     ring.scale.set(radius, 1, radius);
     ring.renderOrder = 2;

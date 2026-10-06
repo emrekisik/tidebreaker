@@ -80,7 +80,7 @@ export const WEAPONS = {
     // Rockets crawl out of the tube and keep building speed (quadratic ease-in), so they are
     // slow at the start and fast near the target.
     startSpeedPct: 0.25,
-    accelSec: 1.4,
+    accelSec: 0.8,
     visual: 'rocket',
   },
 } as const satisfies Record<string, WeaponDef>;
