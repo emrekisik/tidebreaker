@@ -24,7 +24,7 @@ function applyVelocityChange(s: ShipState, dvx: number, dvy: number): void {
   const fx = Math.cos(s.heading);
   const fy = Math.sin(s.heading);
   const along = dvx * fx + dvy * fy;
-  s.speed = Math.max(0, s.speed + along);
+  s.speed += along;
   s.kx += dvx - along * fx;
   s.ky += dvy - along * fy;
   const k = Math.sqrt(s.kx * s.kx + s.ky * s.ky);

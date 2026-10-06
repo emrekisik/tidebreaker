@@ -41,11 +41,18 @@ export const FX = {
   },
 
   /** Smoke trail behind rockets in flight. */
-  rocketTrail: { everySec: 0.03, startSize: 0.35, endSize: 1.2, life: 0.9 },
+  rocketTrail: { everySec: 0.02, startSize: 0.35, endSize: 1.2, life: 0.9 },
+  /**
+   * Rockets lob gently: height = start + a*u - b*u^2 over the flight fraction u (0..1), so they
+   * climb a little and then drop toward the target. Purely visual; hits stay 2D.
+   */
+  rocketArc: { start: 1.1, a: 7, b: 7.8, pitchBoost: 1.6 },
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
-  shellTrail: { everySec: 0.04, life: 0.55, startSize: 0.16, endSize: 0.6, alpha: 0.4 },
+  shellTrail: { everySec: 0.025, life: 0.55, startSize: 0.16, endSize: 0.6, alpha: 0.4 },
+  /** Yellowish glow of compressed air at the nose of a shell. */
+  shellNose: { size: 0.65, life: 0.07, coneSize: 0.22 },
 
   /** Ship-to-ship collisions; counts scale with the closing speed. */
   collision: { sparksBase: 8, sparksPerSpeed: 0.8, sparksMax: 30, chips: 5, splashAbove: 6 },

@@ -6,11 +6,19 @@ export class CameraRig {
   focusX = 0;
   focusZ = 0;
   private ready = false;
+  private zoomTarget = 1;
+  private zoom = 1;
   /** Current shake strength (world units); decays on its own. */
   private shakeAmount = 0;
   private readonly rng = new Mulberry32(0x5eed);
   private readonly sinPitch = Math.sin(CAMERA.pitchDeg * DEG2RAD);
   private readonly cosPitch = Math.cos(CAMERA.pitchDeg * DEG2RAD);
+
+  /** Mouse wheel: positive = zoom out. Smoothed and clamped (see CAMERA.zoom*). */
+  zoomBy(wheelDelta: number): void {
+    const z = this.zoomTarget * Math.exp(wheelDelta * CAMERA.zoomSpeed);
+    this.zoomTarget = z < CAMERA.zoomMin ? CAMERA.zoomMin : z > CAMERA.zoomMax ? CAMERA.zoomMax : z;
+  }
 
   /** Adds a camera kick (hits, collisions); the strongest recent kick wins. */
   shake(amount: number): void {
@@ -33,7 +41,8 @@ export class CameraRig {
       this.focusX += (targetX - this.focusX) * k;
       this.focusZ += (targetZ - this.focusZ) * k;
     }
-    const distance = CAMERA.baseDistance + CAMERA.perTier * tier;
+    this.zoom += (this.zoomTarget - this.zoom) * (1 - Math.exp(-CAMERA.zoomSmooth * dtSec));
+    const distance = (CAMERA.baseDistance + CAMERA.perTier * tier) * this.zoom;
     // Camera sits on the +z side looking toward -z, so screen-up is -z (sim -y).
     let ox = 0;
     let oy = 0;

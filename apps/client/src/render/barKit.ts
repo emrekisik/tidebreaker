@@ -11,6 +11,14 @@ export class BarKit {
     depthTest: false,
     depthWrite: false,
   });
+  /** The white "recently lost" part behind the real bar. */
+  readonly ghostMat = new MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.9,
+    depthTest: false,
+    depthWrite: false,
+  });
   readonly hullMat = new MeshBasicMaterial({
     color: 0x59d36b,
     transparent: true,

@@ -99,6 +99,7 @@ export class ShipEntity {
         s.hull / def.hull,
         s.shield / def.shield,
         s.alive,
+        dtSec,
       );
     }
   }

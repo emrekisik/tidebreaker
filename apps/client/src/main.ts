@@ -55,10 +55,8 @@ const params = new URLSearchParams(location.search);
 // `?ship=<model key>` swaps only the player's visual model (preview); the sim is unchanged.
 const previewShip = params.get('ship') ?? undefined;
 const assets = new AssetProvider();
-await assets.preload([
-  SHIPS[TRAINING.playerShip as ShipId].modelKey,
-  ...(previewShip ? [previewShip] : []),
-]);
+// The enemy fleet is built from every ship class, so all models must be here before the game starts.
+await assets.preload(Object.keys(MODEL_SPECS));
 const game = new LocalGame(
   stage.scene,
   assets,
@@ -93,9 +91,6 @@ const game = new LocalGame(
   previewShip,
 );
 
-// The test picker can switch to any model, so fetch them all in the background right away.
-void assets.preload(Object.keys(MODEL_SPECS));
-
 const startModel = previewShip ?? SHIPS[TRAINING.playerShip as ShipId].modelKey;
 new ShipPicker(
   document.getElementById('picker') as HTMLElement,
@@ -125,6 +120,9 @@ function update(nowMs: number): void {
   const frameMs = nowMs - lastMs;
   lastMs = nowMs;
   const dtSec = Math.max(0, Math.min(frameMs, 100)) / 1000;
+
+  const wheel = input.consumeWheel();
+  if (wheel !== 0) rig.zoomBy(wheel);
 
   const steps = fixedStep.advance(frameMs);
   const ps = game.player.combatant.state;

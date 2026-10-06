@@ -12,6 +12,7 @@ export class Input {
   ndcY = 0;
   private readonly keys = new Set<string>();
   private rightMouse = false;
+  private wheel = 0;
   private readonly canvas: HTMLCanvasElement;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -48,6 +49,21 @@ export class Input {
       }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.wheel += e.deltaY;
+      },
+      { passive: false },
+    );
+  }
+
+  /** Wheel movement since the last call (positive = scrolled away from the user = zoom out). */
+  consumeWheel(): number {
+    const w = this.wheel;
+    this.wheel = 0;
+    return w;
   }
 
   private pointer(e: PointerEvent): void {

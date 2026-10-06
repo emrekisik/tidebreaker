@@ -13,6 +13,10 @@ export interface WeaponDef {
   radius: number;
   /** Max random deviation (degrees, +/-) applied by the server/sim RNG. */
   spreadDeg: number;
+  /** Fraction of `projectileSpeed` the shot leaves the barrel with (1 = constant speed). */
+  startSpeedPct: number;
+  /** Seconds to accelerate from the start speed to `projectileSpeed` (0 = constant speed). */
+  accelSec: number;
   visual: ProjectileVisual;
 }
 
@@ -27,6 +31,8 @@ export const WEAPONS = {
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 3,
+    startSpeedPct: 1,
+    accelSec: 0,
     visual: 'bullet',
   },
   // Turret cannons follow GAME_DESIGN.md §6.3 per tier (damage / interval); range grows with tier.
@@ -37,6 +43,8 @@ export const WEAPONS = {
     projectileSpeed: 60,
     radius: 0.25,
     spreadDeg: 1.5,
+    startSpeedPct: 1,
+    accelSec: 0,
     visual: 'shell',
   },
   cannon_t4: {
@@ -46,6 +54,8 @@ export const WEAPONS = {
     projectileSpeed: 60,
     radius: 0.28,
     spreadDeg: 1.5,
+    startSpeedPct: 1,
+    accelSec: 0,
     visual: 'shell',
   },
   cannon_t5: {
@@ -55,6 +65,8 @@ export const WEAPONS = {
     projectileSpeed: 60,
     radius: 0.32,
     spreadDeg: 1.2,
+    startSpeedPct: 1,
+    accelSec: 0,
     visual: 'shell',
   },
   // Direct hit only (no splash). Slower and longer reload than cannons.
@@ -65,6 +77,9 @@ export const WEAPONS = {
     projectileSpeed: 42,
     radius: 0.3,
     spreadDeg: 2.5,
+    // Rockets leave the tube slowly and build up speed (kept mild so they stay readable).
+    startSpeedPct: 0.55,
+    accelSec: 0.7,
     visual: 'rocket',
   },
 } as const satisfies Record<string, WeaponDef>;

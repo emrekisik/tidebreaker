@@ -89,9 +89,10 @@ describe('mounts', () => {
     const set = new ProjectileSet(4);
     updateMounts(s, def, 1, Math.PI / 2, true, 0.05, zeroRng, set);
     expect(set.activeCount).toBe(1);
-    // pivot at (10 - 0.03, 20 + -0.02 rotated by heading 0), tip 0.55 along +y
-    expect(set.x[0]).toBeCloseTo(10 - 0.03 + 0.02 * 0 + 0.55 * Math.cos(Math.PI / 2), 3);
-    expect(set.y[0]).toBeCloseTo(20 - 0.02 + 0.55, 3);
+    // Ship heading is 0, so forward = +x and starboard = +y; the shot goes along +y.
+    const m = def.mounts[0]!;
+    expect(set.x[0]).toBeCloseTo(10 + m.offset[0], 3);
+    expect(set.y[0]).toBeCloseTo(20 + m.offset[1] + m.muzzle, 3);
   });
 
   it('records which weapon fired', () => {
@@ -138,6 +139,55 @@ describe('sweptSegmentCircle', () => {
     expect(sweptSegmentCircle(0, 0, 10, 0, 5, 3, 1)).toBe(-1);
     expect(sweptSegmentCircle(0, 0, -10, 0, 5, 0, 1)).toBe(-1);
     expect(sweptSegmentCircle(5, 0, 1, 0, 5, 0, 1)).toBe(0);
+  });
+});
+
+describe('rocket launch profile', () => {
+  const rocket = WEAPONS.rocket;
+  const idx = weaponIndex('rocket');
+
+  it('leaves slowly, speeds up to full speed, and then stays there', () => {
+    const set = new ProjectileSet(4);
+    const { sink } = recorder();
+    set.spawn(
+      0,
+      0,
+      0,
+      rocket.projectileSpeed * rocket.startSpeedPct,
+      rocket.range,
+      rocket.radius,
+      1,
+      1,
+      idx,
+    );
+    const speeds: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      set.step(0.05, [], sink);
+      speeds.push(Math.hypot(set.vx[0]!, set.vy[0]!));
+    }
+    expect(speeds[0]!).toBeGreaterThan(rocket.projectileSpeed * rocket.startSpeedPct);
+    expect(speeds[0]!).toBeLessThan(rocket.projectileSpeed * 0.7);
+    for (let i = 1; i < 14; i++) expect(speeds[i]!).toBeGreaterThanOrEqual(speeds[i - 1]!);
+    expect(speeds[29]!).toBeCloseTo(rocket.projectileSpeed, 3);
+  });
+
+  it('constant-speed weapons never change speed', () => {
+    const set = new ProjectileSet(4);
+    const { sink } = recorder();
+    const gun = WEAPONS.machine_gun;
+    set.spawn(
+      0,
+      0,
+      0,
+      gun.projectileSpeed,
+      gun.range,
+      gun.radius,
+      1,
+      1,
+      weaponIndex('machine_gun'),
+    );
+    for (let i = 0; i < 5; i++) set.step(0.05, [], sink);
+    expect(Math.hypot(set.vx[0]!, set.vy[0]!)).toBeCloseTo(gun.projectileSpeed, 4);
   });
 });
 

@@ -1,5 +1,5 @@
 {
-  "hint.controls": "W gas · S brake · A/D rudder · mouse to aim · left click fire · right click gas",
+  "hint.controls": "W gas · S brake/reverse · A/D rudder · mouse aim · left click fire · right click gas · wheel zoom",
   "hud.hull": "Hull",
   "hud.shield": "Shield",
   "hud.sunk": "Sunk",

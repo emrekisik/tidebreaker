@@ -57,6 +57,7 @@
         opacity: 0.85;
       }
       .track {
+        position: relative;
         flex: 1;
         height: 10px;
         border-radius: 5px;
@@ -64,8 +65,17 @@
         overflow: hidden;
       }
       .fill {
+        position: absolute;
+        left: 0;
+        top: 0;
         height: 100%;
         width: 100%;
+      }
+      /* Lost health lingers as white, then drains after a short hold. */
+      .ghost {
+        background: #fff;
+        opacity: 0.9;
+        transition: width 0.45s ease-out 0.5s;
       }
       #bar-hull {
         background: #59d36b;
@@ -167,11 +177,17 @@
     <div id="hud" class="overlay">
       <div class="row">
         <span data-i18n="hud.shield"></span>
-        <div class="track"><div id="bar-shield" class="fill"></div></div>
+        <div class="track">
+          <div id="ghost-shield" class="fill ghost"></div>
+          <div id="bar-shield" class="fill"></div>
+        </div>
       </div>
       <div class="row">
         <span data-i18n="hud.hull"></span>
-        <div class="track"><div id="bar-hull" class="fill"></div></div>
+        <div class="track">
+          <div id="ghost-hull" class="fill ghost"></div>
+          <div id="bar-hull" class="fill"></div>
+        </div>
       </div>
     </div>
     <div id="picker" class="overlay"><div class="title" data-i18n="picker.title"></div></div>

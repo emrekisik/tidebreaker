@@ -15,7 +15,7 @@ function moveToward(value: number, target: number, maxDelta: number): number {
  * Controls are rudder + throttle: the ship turns itself and never moves sideways.
  *
  * @param steer rudder in [-1, 1]; positive turns toward +y (clockwise on screen)
- * @param throttle in [-1, 1]; positive = accelerate, negative = brake, 0 = coast
+ * @param throttle in [-1, 1]; positive = accelerate, negative = brake and then reverse, 0 = coast
  * @param turnRate radians per second at full speed
  */
 export function stepShip(
@@ -30,7 +30,8 @@ export function stepShip(
   const th = clamp(throttle, -1, 1);
 
   // A nearly stationary ship turns sluggishly; steerage comes with speed.
-  const speedFrac = clamp(s.speed / (vMax * SHIP_MOVEMENT.turnFullSpeedFrac), 0, 1);
+  // A nearly stationary ship turns sluggishly; steerage comes with speed (either direction).
+  const speedFrac = clamp(Math.abs(s.speed) / (vMax * SHIP_MOVEMENT.turnFullSpeedFrac), 0, 1);
   const turnScale = lerp(SHIP_MOVEMENT.minTurnFactor, 1, speedFrac);
   s.heading = normalizeAngle(s.heading + st * turnRate * turnScale * dt + s.spin * dt);
 
@@ -39,9 +40,14 @@ export function stepShip(
   const brake = vMax / SHIP_MOVEMENT.brakeSeconds;
   if (th > 0) {
     const vTarget = vMax * th * (1 - SHIP_MOVEMENT.turnDrag * Math.abs(st));
-    s.speed += clamp(vTarget - s.speed, -coast * dt, accel * dt);
+    // Coming out of reverse the brake does the work, otherwise normal acceleration.
+    const up = s.speed < 0 ? brake : accel;
+    s.speed += clamp(vTarget - s.speed, -coast * dt, up * dt);
   } else if (th < 0) {
-    s.speed = moveToward(s.speed, 0, brake * dt);
+    // Brake to a stop first, then back up slowly.
+    const vTarget = -vMax * SHIP_MOVEMENT.reverseSpeedFactor * -th;
+    const rate = s.speed > 0 ? brake : accel * SHIP_MOVEMENT.reverseAccelFactor;
+    s.speed = moveToward(s.speed, vTarget, rate * dt);
   } else {
     s.speed = moveToward(s.speed, 0, coast * dt);
   }

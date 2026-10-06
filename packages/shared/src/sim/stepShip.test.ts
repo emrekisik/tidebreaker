@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SHIPS } from '../config/ships.ts';
+import { SHIP_MOVEMENT, SHIPS } from '../config/ships.ts';
 import { STEP_SEC } from '../config/net.ts';
 import { DEG2RAD } from '../math/angle.ts';
 import { createShipState } from './types.ts';
@@ -46,18 +46,38 @@ describe('stepShip', () => {
     const braking = createShipState(def, 0, 0, 0);
     run(coasting, 100, 0, 1);
     run(braking, 100, 0, 1);
-    run(coasting, 32, 0, 0); // 1.6 s
-    run(braking, 32, 0, -1); // brakeSeconds = 1.5 s
-    expect(braking.speed).toBe(0);
+    run(coasting, 31, 0, 0); // 1.55 s
+    run(braking, 31, 0, -1); // brakeSeconds = 1.5 s
+    expect(Math.abs(braking.speed)).toBeLessThan(0.6); // stopped (and just starting to back up)
     expect(coasting.speed).toBeGreaterThan(def.vMax * 0.5);
     run(coasting, 140, 0, 0);
     expect(coasting.speed).toBe(0);
   });
 
-  it('never reverses', () => {
+  it('S brakes first, then backs up slowly to a lower top speed', () => {
     const s = createShipState(def, 0, 0, 0);
-    run(s, 40, 0, -1);
-    expect(s.speed).toBe(0);
+    run(s, 100, 0, 1);
+    run(s, 10, 0, -1);
+    expect(s.speed).toBeGreaterThan(0); // still braking, not yet reversing
+    run(s, 300, 0, -1);
+    expect(s.speed).toBeCloseTo(-def.vMax * SHIP_MOVEMENT.reverseSpeedFactor, 5);
+    expect(s.x).toBeLessThan(def.vMax * 2); // it drove forward first, then came back
+  });
+
+  it('reverse is slower than forward', () => {
+    const f = createShipState(def, 0, 0, 0);
+    const r = createShipState(def, 0, 0, 0);
+    run(f, 200, 0, 1);
+    run(r, 200, 0, -1);
+    expect(Math.abs(r.speed)).toBeLessThan(f.speed * 0.5);
+    expect(r.x).toBeLessThan(0);
+  });
+
+  it('coming out of reverse, the throttle brakes first and then accelerates', () => {
+    const s = createShipState(def, 0, 0, 0);
+    run(s, 200, 0, -1);
+    run(s, 200, 0, 1);
+    expect(s.speed).toBeCloseTo(def.vMax, 5);
   });
 
   it('steers: positive rudder turns toward +y, at most the class turn rate', () => {

@@ -4,6 +4,7 @@ import type { ParticleKit } from '../render/particleKit.ts';
 import { WAVE_MAX } from '../render/waves.ts';
 import type { ShipEntity } from './entity.ts';
 import { ParticlePool } from './particles.ts';
+import { rocketHeight } from './rocketArc.ts';
 
 const C = FX.colors;
 
@@ -525,14 +526,16 @@ export class Effects {
     this.foam.spawn(x, this.foamY, y, 0, 0, 0, 1.1, 2 * s, 9 * s, 0, 0, C.foam, C.foam, 0.7, 0, 0);
   }
 
-  /** Trails behind projectiles in flight: tracer streaks, shell smoke, rocket exhaust. */
+  /** Trails behind projectiles in flight: tracer streaks, shell air-glow, rocket flame and smoke. */
   trails(set: ProjectileSet, dt: number): void {
     const R = FX.rocketTrail;
     const B = FX.bulletTrail;
     const S = FX.shellTrail;
+    const N = FX.shellNose;
     for (let i = 0; i < set.highWater; i++) {
       if (set.active[i] === 0) continue;
-      const kind = this.kindOfWeapon[set.weapon[i]!]!;
+      const w = set.weapon[i]!;
+      const kind = this.kindOfWeapon[w]!;
       const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : R.everySec;
       let carry = this.trailCarry[i]! + dt;
       while (carry >= every) {
@@ -541,6 +544,9 @@ export class Effects {
         const pz = set.y[i]!;
         const vx = set.vx[i]!;
         const vz = set.vy[i]!;
+        const sp = Math.sqrt(vx * vx + vz * vz) || 1;
+        const dx = vx / sp;
+        const dz = vz / sp;
         if (kind === 0) {
           // Glowing streak that trails behind the tracer.
           this.spark.spawn(
@@ -580,11 +586,52 @@ export class Effects {
             0,
             0,
           );
-        } else {
-          this.puff.spawn(
-            px,
+          // Compressed air glowing yellow at the nose, plus a short forward cone.
+          this.fire.spawn(
+            px + dx * 0.5,
             1.2,
-            pz,
+            pz + dz * 0.5,
+            0,
+            0,
+            0,
+            N.life,
+            N.size,
+            N.size * 0.4,
+            0,
+            0,
+            C.flash,
+            C.fireHot,
+            0.85,
+            0,
+            0,
+            C.fireHot,
+          );
+          this.spark.spawn(
+            px + dx * 0.7,
+            1.2,
+            pz + dz * 0.7,
+            vx * 0.12,
+            0,
+            vz * 0.12,
+            N.life,
+            N.coneSize,
+            N.coneSize * 0.3,
+            0,
+            0,
+            C.flash,
+            C.fireHot,
+            0.8,
+            0,
+            0,
+          );
+        } else {
+          const u = 1 - set.remaining[i]! / WEAPONS[WEAPON_IDS[w]!].range;
+          const py = rocketHeight(u);
+          // Smoke trail.
+          this.puff.spawn(
+            px - dx * 0.5,
+            py,
+            pz - dz * 0.5,
             vx * -0.04 + FX.wind.x * 0.3 + this.r(-0.3, 0.3),
             this.r(0.2, 0.7),
             vz * -0.04 + FX.wind.z * 0.3 + this.r(-0.3, 0.3),
@@ -599,25 +646,48 @@ export class Effects {
             0,
             0,
           );
+          // Burning exhaust: a hot flare at the nozzle, a streak of flame behind it and a glow.
+          const nx = px - dx * 0.65;
+          const nz = pz - dz * 0.65;
           this.fire.spawn(
-            px,
-            1.2,
-            pz,
+            nx,
+            py,
+            nz,
             0,
             0,
             0,
-            0.14,
-            0.55,
             0.12,
+            0.95,
+            0.15,
             0,
             0,
-            C.flash,
+            C.white,
             C.fireDeep,
-            0.9,
+            1,
             0,
             0,
             C.fire,
           );
+          this.spark.spawn(
+            nx,
+            py,
+            nz,
+            vx * -0.55,
+            0,
+            vz * -0.55,
+            0.12,
+            0.3,
+            0.08,
+            0,
+            0,
+            C.flash,
+            C.fire,
+            1,
+            0,
+            0,
+            C.fireHot,
+          );
+          this.fire.spawn(nx, py, nz, 0, 0, 0, 0.1, 2.4, 0.8, 0, 0, C.glow, C.fireDeep, 0.24, 0, 0);
         }
       }
       this.trailCarry[i] = carry;

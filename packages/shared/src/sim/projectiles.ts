@@ -1,3 +1,4 @@
+import { WEAPONS, WEAPON_IDS } from '../config/weapons.ts';
 import { applyDamage, HIT_KILLED, HIT_SHIELD } from './damage.ts';
 import type { ProjectileSink } from './mounts.ts';
 import type { Combatant } from './types.ts';
@@ -55,6 +56,9 @@ export class ProjectileSet implements ProjectileSink {
   readonly damage: Float32Array;
   /** Index into WEAPON_IDS; the client picks the visual from it. */
   readonly weapon: Uint8Array;
+  /** Speed gain per second while below `maxSpeed` (rockets); 0 for constant-speed shots. */
+  readonly accel: Float32Array;
+  readonly maxSpeed: Float32Array;
   readonly owner: Uint16Array;
   readonly active: Uint8Array;
   /** One past the highest slot index that may be active. */
@@ -75,6 +79,8 @@ export class ProjectileSet implements ProjectileSink {
     this.radius = new Float32Array(capacity);
     this.damage = new Float32Array(capacity);
     this.weapon = new Uint8Array(capacity);
+    this.accel = new Float32Array(capacity);
+    this.maxSpeed = new Float32Array(capacity);
     this.owner = new Uint16Array(capacity);
     this.active = new Uint8Array(capacity);
     this.freeSlots = new Int32Array(capacity);
@@ -110,6 +116,9 @@ export class ProjectileSet implements ProjectileSink {
     this.radius[slot] = radius;
     this.damage[slot] = damage;
     this.weapon[slot] = weaponIdx;
+    const def = WEAPONS[WEAPON_IDS[weaponIdx]!];
+    this.maxSpeed[slot] = def ? def.projectileSpeed : speed;
+    this.accel[slot] = def && def.accelSec > 0 ? (def.projectileSpeed - speed) / def.accelSec : 0;
     this.owner[slot] = ownerId;
     this.active[slot] = 1;
     this.activeCount++;
@@ -128,6 +137,14 @@ export class ProjectileSet implements ProjectileSink {
       if (this.active[i] === 0) continue;
       const x0 = this.x[i]!;
       const y0 = this.y[i]!;
+      if (this.accel[i]! > 0) {
+        const v = Math.sqrt(this.vx[i]! * this.vx[i]! + this.vy[i]! * this.vy[i]!);
+        if (v > 0 && v < this.maxSpeed[i]!) {
+          const k = Math.min(this.maxSpeed[i]!, v + this.accel[i]! * dt) / v;
+          this.vx[i] = this.vx[i]! * k;
+          this.vy[i] = this.vy[i]! * k;
+        }
+      }
       let dx = this.vx[i]! * dt;
       let dy = this.vy[i]! * dt;
       const len = Math.sqrt(dx * dx + dy * dy);

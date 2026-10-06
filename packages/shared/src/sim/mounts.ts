@@ -75,7 +75,7 @@ export function updateMounts(
       px + Math.cos(angle) * mount.muzzle,
       py + Math.sin(angle) * mount.muzzle,
       angle,
-      weapon.projectileSpeed,
+      weapon.projectileSpeed * weapon.startSpeedPct,
       weapon.range,
       weapon.radius,
       weapon.damage,

@@ -99,9 +99,11 @@ describe('resolveCollisions', () => {
   });
 
   it('an off-center hit twists the ship and knocks it sideways; a centered one does not', () => {
-    // b rams a's bow from the side and slightly ahead.
+    // b rams a's bow from the side: its bow circle meets a's bow circle off to one side.
+    const bow = small.hitCircles[small.hitCircles.length - 1]!;
+    const gap = 0.8 * 2 * bow.radius;
     const a = ship(1, small, 0, 0, 0);
-    const b = ship(2, small, 2.5, 1.8, -Math.PI / 2);
+    const b = ship(2, small, bow.offset + 0.1, bow.offset + gap, -Math.PI / 2);
     b.state.speed = 10;
     resolveCollisions([a, b], recorder().sink);
     expect(Math.abs(a.state.spin)).toBeGreaterThan(0.01);

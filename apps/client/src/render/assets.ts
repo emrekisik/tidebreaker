@@ -29,7 +29,8 @@ import type { ModelSpec } from './modelSpecs.ts';
 export type Team = 'blue' | 'red';
 
 /** Multiplied into the model's color atlas (which is mostly grey), so each team reads at a glance. */
-const TEAM_TINT: Record<Team, number> = { blue: 0x9ec4ff, red: 0xff9482 };
+const TEAM_GLOW: Record<Team, number> = { blue: 0x14295c, red: 0x5a1a10 };
+const TEAM_TINT: Record<Team, number> = { blue: 0x5c98ff, red: 0xff6a58 };
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -207,7 +208,7 @@ export class AssetProvider {
 
   private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
     const make = (team: Team): TeamMaterials => ({
-      normal: new MeshLambertMaterial({ map, color: TEAM_TINT[team] }),
+      normal: new MeshLambertMaterial({ map, color: TEAM_TINT[team], emissive: TEAM_GLOW[team] }),
       flash: new MeshLambertMaterial({
         map,
         color: TEAM_TINT[team],

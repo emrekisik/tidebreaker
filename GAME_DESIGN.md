@@ -122,7 +122,7 @@ Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min 
 ### 5.1 Kontroller
 | | Masaüstü |
 |---|---|
-| Hareket | **W** = gaz, **S** = fren, **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur |
+| Hareket | **W** = gaz, **S** = fren, durunca **geri vites** (ileri hızın %40'ı), **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur |
 | Nişan | Fare konumu |
 | Ateş | Sol tık basılı tut |
 | Upgrade | 1–5 tuşları veya paneldeki butonlar | Panel butonları |
@@ -137,12 +137,12 @@ steer, throttle in [-1, 1]            // INPUT mesajında moveX = steer, moveY =
 turnScale = lerp(0.35, 1, clamp(v / (0.5*vMax), 0, 1))   // duran gemi hantal döner
 θ += steer * turnRate * turnScale * dt
 if throttle > 0:  vTarget = vMax*throttle*(1 - 0.15*|steer|);  v += clamp(vTarget - v, -coast*dt, +accel*dt)
-if throttle < 0:  v -> 0   (fren: vMax / 1.5 sn)
+if throttle < 0:  önce v -> 0 (fren: vMax / 1.5 sn), sonra v -> -0.4*vMax (geri vites, ivme %60)
 if throttle = 0:  v -> 0   (süzülme: vMax / 5.0 sn)
 accel = vMax / 2.5
 pos += (cosθ, sinθ) * v * dt
 ```
-- Yanal kayma yok, geri gitme yok (S sadece frenler). `turnRate` sınıfa göre değiştiği için ağır gemiler daha yavaş ve zor döner. Dalga sallanması (yalpa/yatma) sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
+- Yanal kayma yok. Geri gidebilir (düşük hızda). Dümen yönü geri giderken de aynı kalır. `turnRate` sınıfa göre değiştiği için ağır gemiler daha yavaş ve zor döner. Dalga sallanması (yalpa/yatma) sadece istemci tarafında kozmetiktir (sunucuyu etkilemez).
 - Sayılar `SHIP_MOVEMENT` (`config/ships.ts`).
 - `vMax`, `turnRate` = sınıf tabanı × upgrade çarpanı (§6).
 - **Gemi–gemi çarpışması (hasarlı):** gövde daire zincirleri çakışınca gemiler ayrılır, temas normali boyunca momentum alışverişi olur (kütle = can), merkez dışı vuruş gemiyi **savurur (yan itme)** ve **döndürür (spin)**; ikisi de kendiliğinden söner. Yaklaşma hızı `minDamageSpeed`'i aşarsa iki gemi de hasar alır; **hafif gemi aynı çarpmada daha çok hasar alır** (`damage = damagePerSpeed × hız × 2 × diğerinin kütlesi / toplam`). Gemi batarsa öldüren çarpan sayılır. Sayılar `config/collision.ts`. İstemci tarafı: gemi ve kamera sarsıntısı, kıvılcım/su efektleri (kozmetik). Geniş faz şimdilik düz çift döngü, Faz 6'da uzamsal grid.
@@ -212,7 +212,7 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 
 - Mermi hızı 60 u/s, menzil: T1 42 → T5 60 birim (config).
 - **Model tabanlı sınıflar (güncel durum):** sınıflar artık elimizdeki 3D modellere bağlıdır ve her gemi `packages/shared/src/config/ships.ts` içinde kendi hız/dönüş/can/kalkan/boy/vuruş dairesi/mount listesiyle tanımlıdır. Eşleşme: T1 `coast_guard_boat` = assault_boat, T2 `gunboat` = hovercraft ve `landing_craft`, T3 `corvette` = frigate1, T4 `frigate` = frigate2 ve `cruiser`, T5 `heavy_frigate` = battleship. Denizaltı şimdilik yalnızca görsel (oynanabilir sınıf değil). Boylar: coast_guard 5, gunboat/landing 7, corvette ve frigate 11, cruiser 14,5, heavy_frigate 18 (hit daireleri, mount ve namlu ölçüleri aynı oranda ölçeklenir). **Takımlar:** oyuncu mavi, düşman kırmızı (model dokusu takım rengiyle çarpılır). Üstteki tablodaki mount düzenleri model gelene kadar tahmindi; gerçek düzen modeldeki taret sayısıdır.
-- **Silah tipleri** (`weapons.ts`): `machine_gun` (hızlı, düşük hasar), `cannon_t3/t4/t5` (tablodaki hasar/aralık), `rocket` (yavaş, uzun reload, **düz isabet**, alan hasarı yok). Her silahın kendi reload'u vardır; bir gemideki mount'lar sırayla ateş eder (`SALVO_GAP_SEC`, arka arkaya yaylım). Mermi, taretin pivotundan namlu ucuna (`muzzle`) kadar ilerlemiş noktada doğar. Reload süreleri sim adımına (50 ms) yukarı yuvarlanır.
+- **Silah tipleri** (`weapons.ts`): `machine_gun` (hızlı, düşük hasar), `cannon_t3/t4/t5` (tablodaki hasar/aralık), `rocket` (uzun reload, **düz isabet**, alan hasarı yok; namludan %55 hızla çıkar ve 0,7 sn içinde tam hıza ulaşır; görsel olarak hafif yay çizer: yükselip hedefe düşer, vuruş hesabı yine 2D). Her silahın kendi reload'u vardır; bir gemideki mount'lar sırayla ateş eder (`SALVO_GAP_SEC`, arka arkaya yaylım). Mermi, taretin pivotundan namlu ucuna (`muzzle`) kadar ilerlemiş noktada doğar. Reload süreleri sim adımına (50 ms) yukarı yuvarlanır.
 - Vuruş daireleri her modelin gövde ayak izinden türetilir (yarıçap ≈ genişlik × 0,45).
 - Kamera uzaklaştırması sınıfla artar (§12.3).
 - **Dallanma (backlog, Faz 10):** T4'ten itibaren iki yol (ör. "Fırkateyn" dengeli / "Hızlı Saldırı Gemisi" cam top). Veri modeli buna hazır olmalıdır: `ShipDef.next: ShipId[]`.
@@ -541,6 +541,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - **Su:** kenarlı (flat-shaded) düşük poligonlu tek plane; dalga fonksiyonu shader ve JS tarafında aynı sabitlerden gelir, gemiler dalgayla sallanır. **Kıç izi:** hıza bağlı köpük elmasları (merkez çizgi + V kolları) ve baş dalgası.
 
 ### 12.3 Kamera
+- **Zoom:** fare tekerleği kamera mesafesini çarpar (`CAMERA.zoomMin/zoomMax`, yumuşatılmış).
 - Sabit açı: pitch ≈ 58°, FOV 45. Gemiyi yumuşak takip (kritik sönümlü). Yükseklik/uzaklık `70 + 10 × tier` birim (sınıf büyüdükçe uzaklaşır).
 - Vuruş alınca küçük sarsıntı, batma sırasında yavaş zoom-out.
 
@@ -558,6 +559,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
+- **Can/kalkan çubukları:** kaybedilen kısım kısa süre **beyaz** kalır, sonra erir (Dota 2 tarzı). Hem gemi üstü çubuklarda hem oyuncu HUD'ında.
 - **HUD:** kalkan ve gövde çubuğu, score/gold, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
 - **Ölüm ekranı:** özet + "Tekrar Oyna" (aynı isim).
 - Yerelleştirme: `tr` ve `en` metin dosyaları (JSON). Kullanıcı adı: Unicode harf/rakam/boşluk/`_`/`-`, 1–16 karakter.

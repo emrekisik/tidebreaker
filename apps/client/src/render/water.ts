@@ -1,8 +1,8 @@
 import { Color, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
 import { WAVE_MAX, glslWaveFunction } from './waves.ts';
 
-const SIZE = 460;
-const SEGMENTS = 80;
+const SIZE = 600;
+const SEGMENTS = 100;
 const CELL = SIZE / SEGMENTS;
 
 /** Where the sun is (matches the DirectionalLight in Stage). */
