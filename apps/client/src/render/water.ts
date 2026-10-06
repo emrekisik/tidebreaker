@@ -1,5 +1,5 @@
 import { Color, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
-import { WAVE_MAX, glslWaveFunction } from './waves.ts';
+import { WAVE_MAX, glslWaveFunction, glslWaveSlope } from './waves.ts';
 
 const SIZE = 600;
 const SEGMENTS = 100;
@@ -39,9 +39,13 @@ uniform float uWaveMax;
 varying vec3 vWorld;
 varying float vH;
 
-${glslWaveFunction()}
+${glslWaveSlope()}
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float hash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
 float vnoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
@@ -54,13 +58,11 @@ void main() {
   vec2 p = vWorld.xz;
 
   // Surface normal from the wave slope, plus two scrolling ripple layers for fine detail.
-  float e = 0.45;
-  float hx = waveHeight(p + vec2(e, 0.0), uTime) - waveHeight(p - vec2(e, 0.0), uTime);
-  float hz = waveHeight(p + vec2(0.0, e), uTime) - waveHeight(p - vec2(0.0, e), uTime);
-  vec2 slope = vec2(hx, hz) / (2.0 * e);
+  vec2 slope = waveSlope(p, uTime);
+  // Two scrolling ripple layers for fine detail (one noise lookup per axis pair).
   vec2 rip = vec2(vnoise(p * 0.8 + vec2(uTime * 0.35, uTime * 0.2)),
                   vnoise(p * 0.8 + vec2(17.0 - uTime * 0.3, uTime * 0.25))) - 0.5;
-  rip += (vec2(vnoise(p * 2.1 + vec2(uTime * 0.6, 3.0)), vnoise(p * 2.1 + vec2(9.0, uTime * 0.5))) - 0.5) * 0.5;
+  rip += (vnoise(p * 2.1 + vec2(uTime * 0.6, uTime * 0.5)) - 0.5) * 0.5;
   vec3 n = normalize(vec3(-slope.x * uSlope + rip.x * 0.22, 1.0, -slope.y * uSlope + rip.y * 0.22));
 
   vec3 V = normalize(cameraPosition - vWorld);
@@ -79,7 +81,7 @@ void main() {
 
   // Sun glitter: a tight lobe plus a broader, slowly twinkling one.
   float nh = max(dot(n, H), 0.0);
-  float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + vnoise(p * 0.5) * 30.0);
+  float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + depthPatch * 60.0);
   col += pow(nh, 220.0) * 0.28 + pow(nh, 36.0) * 0.1 * twinkle;
 
   // Foam streaks ride on the crests and drift with the swell.

@@ -46,7 +46,8 @@ export class ProjectileView {
       if (m === ROCKET_MESH) {
         // Lobbed flight: climb a little, then drop; the nose follows the arc.
         const w = set.weapon[i]!;
-        const u = 1 - set.remaining[i]! / this.rangeOfWeapon[w]!;
+        // Remaining distance as it was `back` seconds ago, so the arc moves smoothly.
+        const u = 1 - (set.remaining[i]! + speed * back) / this.rangeOfWeapon[w]!;
         const pitch = rocketPitch(u, this.rangeOfWeapon[w]!);
         const cp = Math.cos(pitch);
         const sp = Math.sin(pitch);

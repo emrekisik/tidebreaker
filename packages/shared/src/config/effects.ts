@@ -69,15 +69,15 @@ export const FX = {
     smokeBelow: 0.66,
     fireBelow: 0.33,
     /** Puffs per second per 10 units of ship length. */
-    smokeRate: 9,
-    fireRate: 26,
+    smokeRate: 3.2,
+    fireRate: 11,
     smokeLife: 1.8,
   },
 
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },
-  sinkingSmokeRate: 34,
-  sinkingFireRate: 30,
+  sinkingSmokeRate: 16,
+  sinkingFireRate: 18,
 
   /** Foam trail behind moving ships. */
   wake: {

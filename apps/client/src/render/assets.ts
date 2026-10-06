@@ -28,9 +28,13 @@ import type { ModelSpec } from './modelSpecs.ts';
 
 export type Team = 'blue' | 'red';
 
-/** Multiplied into the model's color atlas (which is mostly grey), so each team reads at a glance. */
-const TEAM_GLOW: Record<Team, number> = { blue: 0x14295c, red: 0x5a1a10 };
-const TEAM_TINT: Record<Team, number> = { blue: 0x5c98ff, red: 0xff6a58 };
+/**
+ * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
+ * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
+ */
+const TEAM_TINT: Record<Team, number> = { blue: 0x4f8fff, red: 0xff5a46 };
+/** Brightness boost so the tinted paint does not come out darker than the original grey. */
+const TEAM_BOOST = 1.7;
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -126,6 +130,30 @@ function merge(parts: BufferGeometry[]): BufferGeometry {
   return merged;
 }
 
+/** Lambert material whose mid-grey texels are tinted with the team color. */
+function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLambertMaterial {
+  const mat = new MeshLambertMaterial(
+    flash ? { map, emissive: 0xffffff, emissiveIntensity: 0.7 } : { map },
+  );
+  const tint = new Color(TEAM_TINT[team]);
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms['uTeam'] = { value: tint };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uTeam;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        // Paint mask: mid greys only, and not the saturated (blue window) texels.
+        float tl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        float ts = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+        float tm = smoothstep(0.17, 0.21, tl) * (1.0 - smoothstep(0.47, 0.51, tl)) * (1.0 - smoothstep(0.03, 0.08, ts));
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * ${TEAM_BOOST.toFixed(2)}, tm);`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'team-tint';
+  return mat;
+}
+
 interface TeamMaterials {
   normal: MeshLambertMaterial;
   flash: MeshLambertMaterial;
@@ -207,16 +235,10 @@ export class AssetProvider {
   }
 
   private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
-    const make = (team: Team): TeamMaterials => ({
-      normal: new MeshLambertMaterial({ map, color: TEAM_TINT[team], emissive: TEAM_GLOW[team] }),
-      flash: new MeshLambertMaterial({
-        map,
-        color: TEAM_TINT[team],
-        emissive: 0xffffff,
-        emissiveIntensity: 0.7,
-      }),
-    });
-    return { blue: make('blue'), red: make('red') };
+    return {
+      blue: { normal: teamMaterial(map, 'blue', false), flash: teamMaterial(map, 'blue', true) },
+      red: { normal: teamMaterial(map, 'red', false), flash: teamMaterial(map, 'red', true) },
+    };
   }
 
   createShip(modelKey: string, team: Team): ShipModel {

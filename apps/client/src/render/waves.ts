@@ -51,3 +51,12 @@ export function glslWaveFunction(): string {
   });
   return `float waveHeight(vec2 p, float t) {\n  float h = 0.0;\n${lines.join('\n')}\n  return h;\n}`;
 }
+
+/** GLSL source of `vec2 waveSlope(vec2 p, float t)`: the exact (dh/dx, dh/dz) of the waves. */
+export function glslWaveSlope(): string {
+  const lines = WAVES.map((w) => {
+    const k = (Math.PI * 2) / w.wavelength;
+    return `  s += ${(w.amplitude * k).toFixed(6)} * vec2(${w.dx.toFixed(6)}, ${w.dz.toFixed(6)}) * cos(${k.toFixed(6)} * dot(p, vec2(${w.dx.toFixed(6)}, ${w.dz.toFixed(6)})) + ${(k * w.speed).toFixed(6)} * t);`;
+  });
+  return `vec2 waveSlope(vec2 p, float t) {\n  vec2 s = vec2(0.0);\n${lines.join('\n')}\n  return s;\n}`;
+}

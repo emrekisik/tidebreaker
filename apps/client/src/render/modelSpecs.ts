@@ -14,7 +14,7 @@ export interface ModelSpec {
   bow: '+z' | '-z';
   /** Hull length in world units after normalization. */
   length: number;
-  /** Fraction of hull height (from the keel) that is below the waterline. */
+  /** Fraction of hull height (from the keel) below the waterline; negative lifts the hull out. */
   draft: number;
   /**
    * Nodes that rotate toward the aim direction, in fire-priority order. Index i is mount i of the
@@ -30,7 +30,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'assault_boat',
     bow: '+z',
     length: 5.8,
-    draft: 0,
+    draft: -0.1,
     aimNodes: ['assault_boat.MachineGun'],
   },
   // The entries below are visual previews only (`?ship=<key>`); lengths are placeholders until
@@ -40,7 +40,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'hovercraft',
     bow: '+z',
     length: 7,
-    draft: 0,
+    draft: -0.1,
     aimNodes: ['hovercraft.MachineGun1', 'hovercraft.MachineGun2'],
   },
   landing_craft: {
@@ -48,7 +48,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'landing_craft',
     bow: '+z',
     length: 8,
-    draft: 0,
+    draft: -0.1,
     aimNodes: ['landing_craft.MachineGun1', 'landing_craft.MachineGun2'],
   },
   frigate1: {
@@ -56,7 +56,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'frigate1',
     bow: '+z',
     length: 12.5,
-    draft: 0,
+    draft: -0.1,
     aimNodes: [
       'frigate1.FrontTurrent',
       'frigate1.BackTurret',
@@ -69,7 +69,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'frigate2',
     bow: '+z',
     length: 12.5,
-    draft: 0,
+    draft: -0.1,
     aimNodes: [
       'frigate2.FrontTurret',
       'frigate2.BackTurret1',
@@ -82,7 +82,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'cruiser',
     bow: '+z',
     length: 16.5,
-    draft: 0,
+    draft: -0.1,
     aimNodes: [
       'cruiser.FrontTurret.1',
       'cruiser.FrontTurret.2',
@@ -96,7 +96,7 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     hullNode: 'battleship',
     bow: '-z',
     length: 20.5,
-    draft: 0,
+    draft: -0.1,
     aimNodes: [
       'HeavyFrontTurret.002',
       'HeavyFrontTurret.003',

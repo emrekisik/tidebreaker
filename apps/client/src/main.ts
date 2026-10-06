@@ -114,7 +114,6 @@ const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLEl
 
 let aim = 0;
 let lastMs = performance.now();
-let lastHudMs = 0;
 
 function update(nowMs: number): void {
   const frameMs = nowMs - lastMs;
@@ -137,7 +136,7 @@ function update(nowMs: number): void {
   for (const e of game.entities) e.render(alpha, dtSec, stage.camera, timeSec);
   projectileView.update(game.projectiles, STEP_SEC, alpha);
   for (const e of game.entities) effects.ship(e, dtSec);
-  effects.trails(game.projectiles, dtSec);
+  effects.trails(game.projectiles, dtSec, STEP_SEC * (1 - alpha));
   effects.update(dtSec);
 
   const p = game.player.pose;
@@ -145,10 +144,7 @@ function update(nowMs: number): void {
   water.update(timeSec, rig.focusX, rig.focusZ);
   stage.render();
 
-  if (nowMs - lastHudMs > 100) {
-    hud.update(ps, game.player.combatant.def, game.kills, nowMs);
-    lastHudMs = nowMs;
-  }
+  hud.update(ps, game.player.combatant.def, game.kills, nowMs, dtSec);
   debugHud?.frame(frameMs, nowMs, stage.renderer, game.projectiles.activeCount, game.ticks);
 }
 
@@ -168,6 +164,8 @@ if (debug) {
     camera: stage.camera,
     assets,
     particleKit,
+    stage,
+    water,
     advance(frames: number, frameMs = 16.7): void {
       for (let i = 0; i < frames; i++) {
         update(lastMs + frameMs);

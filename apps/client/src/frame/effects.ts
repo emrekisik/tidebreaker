@@ -27,6 +27,9 @@ export class Effects {
   private readonly foam: ParticlePool;
   private readonly rng = new Mulberry32(0x51ed1ab5);
   private readonly foamY = WAVE_MAX + FX.foamLift;
+  /** Scratch result of spotPosition (avoids allocating a vector). */
+  private spotX = 0;
+  private spotZ = 0;
   /** Fractional smoke-trail time per projectile slot. */
   private readonly trailCarry: Float32Array;
   /** weapon index -> 0 bullet, 1 shell, 2 rocket (same order as ProjectileVisual) */
@@ -526,8 +529,8 @@ export class Effects {
     this.foam.spawn(x, this.foamY, y, 0, 0, 0, 1.1, 2 * s, 9 * s, 0, 0, C.foam, C.foam, 0.7, 0, 0);
   }
 
-  /** Trails behind projectiles in flight: tracer streaks, shell air-glow, rocket flame and smoke. */
-  trails(set: ProjectileSet, dt: number): void {
+  /** Trails behind projectiles in flight. `back` = seconds between the last sim step and the drawn frame. */
+  trails(set: ProjectileSet, dt: number, back: number): void {
     const R = FX.rocketTrail;
     const B = FX.bulletTrail;
     const S = FX.shellTrail;
@@ -540,11 +543,12 @@ export class Effects {
       let carry = this.trailCarry[i]! + dt;
       while (carry >= every) {
         carry -= every;
-        const px = set.x[i]!;
-        const pz = set.y[i]!;
         const vx = set.vx[i]!;
         const vz = set.vy[i]!;
         const sp = Math.sqrt(vx * vx + vz * vz) || 1;
+        // Where the projectile is drawn this frame (between the last two sim steps).
+        const px = set.x[i]! - vx * back;
+        const pz = set.y[i]! - vz * back;
         const dx = vx / sp;
         const dz = vz / sp;
         if (kind === 0) {
@@ -625,7 +629,7 @@ export class Effects {
             0,
           );
         } else {
-          const u = 1 - set.remaining[i]! / WEAPONS[WEAPON_IDS[w]!].range;
+          const u = 1 - (set.remaining[i]! + sp * back) / WEAPONS[WEAPON_IDS[w]!].range;
           const py = rocketHeight(u);
           // Smoke trail.
           this.puff.spawn(
@@ -797,20 +801,22 @@ export class Effects {
 
     const frac = s.hull / def.hull;
     const D = FX.damage;
+    if (frac >= 1) e.spotsReady = false;
+    else if (!e.spotsReady) this.pickSpots(e, length, width);
     if (s.alive) {
       if (frac < D.smokeBelow) {
         const worse = (D.smokeBelow - frac) / D.smokeBelow;
         e.smokeCarry += D.smokeRate * Math.max(0.8, length / 10) * (1 + worse * 2) * dt;
         while (e.smokeCarry >= 1) {
           e.smokeCarry -= 1;
-          this.shipSmoke(p.x, p.y, p.heading, length, width, frac < D.fireBelow);
+          this.shipSmoke(e, p.x, p.y, p.heading, length, frac < D.fireBelow);
         }
       }
       if (frac < D.fireBelow) {
         e.fireCarry += D.fireRate * Math.max(0.8, length / 10) * dt;
         while (e.fireCarry >= 1) {
           e.fireCarry -= 1;
-          this.shipFire(p.x, p.y, p.heading, length, width);
+          this.shipFire(e, p.x, p.y, p.heading, length);
         }
       }
     } else if (e.sinkSeconds < TRAINING.sinkAnimSec) {
@@ -819,11 +825,11 @@ export class Effects {
       e.fireCarry += FX.sinkingFireRate * left * Math.max(0.8, length / 10) * dt;
       while (e.smokeCarry >= 1) {
         e.smokeCarry -= 1;
-        this.shipSmoke(p.x, p.y, p.heading, length, width, true);
+        this.shipSmoke(e, p.x, p.y, p.heading, length, true);
       }
       while (e.fireCarry >= 1) {
         e.fireCarry -= 1;
-        this.shipFire(p.x, p.y, p.heading, length, width);
+        this.shipFire(e, p.x, p.y, p.heading, length);
       }
     }
   }
@@ -835,48 +841,61 @@ export class Effects {
     return r * 2;
   }
 
+  /** Picks the few places on a ship where it smokes and burns (kept until it is repaired). */
+  private pickSpots(e: ShipEntity, length: number, width: number): void {
+    for (let i = 0; i < 3; i++) {
+      e.spots[i * 2] = this.r(-0.32, 0.32) * length;
+      e.spots[i * 2 + 1] = this.r(-0.12, 0.12) * width;
+    }
+    e.spotsReady = true;
+  }
+
+  private spotPosition(e: ShipEntity, x: number, y: number, heading: number): void {
+    const i = Math.floor(this.rng.next() * 3) % 3;
+    const c = Math.cos(heading);
+    const s = Math.sin(heading);
+    const fwd = e.spots[i * 2]! + this.r(-0.04, 0.04) * e.combatant.def.length;
+    const side = e.spots[i * 2 + 1]!;
+    this.spotX = x + c * fwd - s * side;
+    this.spotZ = y + s * fwd + c * side;
+  }
+
   private shipSmoke(
+    e: ShipEntity,
     x: number,
     y: number,
     heading: number,
     length: number,
-    width: number,
     dark: boolean,
   ): void {
-    const c = Math.cos(heading);
-    const s = Math.sin(heading);
-    const fwd = this.r(-0.35, 0.35) * length;
-    const side = this.r(-0.2, 0.2) * width;
-    const k = clamp(length / 6, 0.9, 2.2);
+    this.spotPosition(e, x, y, heading);
+    const k = clamp(length / 7, 0.8, 1.9);
     this.puff.spawn(
-      x + c * fwd - s * side,
+      this.spotX,
       1.8,
-      y + s * fwd + c * side,
+      this.spotZ,
       FX.wind.x * 0.8 + this.r(-0.3, 0.3),
       this.r(1.4, 2.6),
       FX.wind.z * 0.8 + this.r(-0.3, 0.3),
       FX.damage.smokeLife * this.r(0.9, 1.5),
-      0.8 * k,
-      (dark ? 4.6 : 3.2) * k,
+      0.5 * k,
+      (dark ? 3.4 : 2.4) * k,
       0,
       0.45,
       dark ? C.smokeDark : C.smokeMid,
       dark ? C.smokeMid : C.smokeLight,
-      dark ? 0.9 : 0.6,
+      dark ? 0.75 : 0.5,
       0,
       0,
     );
   }
 
   /** Flames: a white-hot core fading to orange and dark red, with a faint glow around it. */
-  private shipFire(x: number, y: number, heading: number, length: number, width: number): void {
-    const c = Math.cos(heading);
-    const s = Math.sin(heading);
-    const fwd = this.r(-0.3, 0.3) * length;
-    const side = this.r(-0.15, 0.15) * width;
+  private shipFire(e: ShipEntity, x: number, y: number, heading: number, length: number): void {
+    this.spotPosition(e, x, y, heading);
+    const px = this.spotX;
+    const pz = this.spotZ;
     const k = clamp(length / 6, 0.9, 1.9);
-    const px = x + c * fwd - s * side;
-    const pz = y + s * fwd + c * side;
     this.fire.spawn(
       px,
       1.4,
@@ -884,9 +903,9 @@ export class Effects {
       this.r(-0.6, 0.6),
       this.r(2.2, 3.6),
       this.r(-0.6, 0.6),
-      this.r(0.4, 0.75),
-      0.85 * k,
-      0.12 * k,
+      this.r(0.45, 0.85),
+      1.5 * k,
+      0.2 * k,
       0,
       0.25,
       C.fireHot,
@@ -904,14 +923,14 @@ export class Effects {
         0,
         0.8,
         0,
-        0.4,
-        2.4 * k,
-        1.2 * k,
+        0.45,
+        4 * k,
+        2 * k,
         0,
         0,
         C.glow,
         C.fireDeep,
-        0.2,
+        0.22,
         0,
         0,
       );
