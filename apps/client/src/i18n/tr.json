@@ -4,5 +4,18 @@
   "hud.shield": "Kalkan",
   "hud.sunk": "Batırılan",
   "picker.title": "Gemi modeli (test)",
+  "look.title": "Görünüm (test)",
+  "look.oceanDeep": "Okyanus koyu",
+  "look.oceanShallow": "Okyanus açık",
+  "look.blue": "Mavi takım boyası",
+  "look.red": "Kırmızı takım boyası",
+  "look.ringBlue": "Mavi halka",
+  "look.ringRed": "Kırmızı halka",
+  "look.boost": "Takım parlaklığı",
+  "look.glow": "Takım ışıması",
+  "look.outline": "Gövde konturu",
+  "look.reset": "Sıfırla",
+  "look.copy": "Kodları kopyala",
+  "look.copied": "Kopyalandı!",
   "picker.failed": "Model yüklenemedi, placeholder gösteriliyor. Çalıştır: pnpm assets:build"
 }

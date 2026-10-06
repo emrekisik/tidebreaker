@@ -4,5 +4,18 @@
   "hud.shield": "Shield",
   "hud.sunk": "Sunk",
   "picker.title": "Ship model (test)",
+  "look.title": "Look (test)",
+  "look.oceanDeep": "Ocean deep",
+  "look.oceanShallow": "Ocean light",
+  "look.blue": "Blue team paint",
+  "look.red": "Red team paint",
+  "look.ringBlue": "Blue ring",
+  "look.ringRed": "Red ring",
+  "look.boost": "Team brightness",
+  "look.glow": "Team glow",
+  "look.outline": "Hull outline",
+  "look.reset": "Reset",
+  "look.copy": "Copy codes",
+  "look.copied": "Copied!",
   "picker.failed": "Model not loaded, showing the placeholder. Run: pnpm assets:build"
 }

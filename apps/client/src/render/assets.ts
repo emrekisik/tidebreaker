@@ -34,13 +34,23 @@ export type Team = 'blue' | 'red';
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
-const TEAM_TINT: Record<Team, number> = { blue: 0x4cc2ff, red: 0xff3d50 };
+/** Default team paint colors (the Appearance panel can change them at runtime). */
+export const DEFAULT_TEAM_TINT: Record<Team, number> = { blue: 0x7ad6ff, red: 0xff6b78 };
 /** Glow ring and accent color of each team (sRGB). */
-const TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
+export const DEFAULT_TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
 /** Outline thickness around the hull, in world units. */
 const OUTLINE_WORLD = 0.13;
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
-const TEAM_BOOST = 2.3;
+export const DEFAULT_TEAM_BOOST = 2.6;
+/** Self-illumination of the tinted paint (so the team color glows). */
+export const DEFAULT_TEAM_GLOW = 0.3;
+
+/** Shared, live-editable team paint settings: materials read these uniforms every frame. */
+export interface TeamStyle {
+  tint: Record<Team, Color>;
+  boost: { value: number };
+  glow: { value: number };
+}
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -164,15 +174,24 @@ function merge(parts: BufferGeometry[]): BufferGeometry {
 }
 
 /** Lambert material whose mid-grey texels are tinted with the team color. */
-function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLambertMaterial {
+function teamMaterial(
+  map: Texture | null,
+  team: Team,
+  flash: boolean,
+  style: TeamStyle,
+): MeshLambertMaterial {
   const mat = new MeshLambertMaterial(
     flash ? { map, emissive: 0xffffff, emissiveIntensity: 0.4 } : { map },
   );
-  const tint = new Color(TEAM_TINT[team]);
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms['uTeam'] = { value: tint };
+    shader.uniforms['uTeam'] = { value: style.tint[team] };
+    shader.uniforms['uBoost'] = style.boost;
+    shader.uniforms['uGlow'] = style.glow;
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform vec3 uTeam;')
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform vec3 uTeam;\nuniform float uBoost;\nuniform float uGlow;',
+      )
       .replace(
         '#include <map_fragment>',
         `#include <map_fragment>
@@ -180,11 +199,11 @@ function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLamb
         float tl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
         float ts = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
         float tm = smoothstep(0.17, 0.21, tl) * (1.0 - smoothstep(0.47, 0.51, tl)) * (1.0 - smoothstep(0.03, 0.08, ts));
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * ${TEAM_BOOST.toFixed(2)}, tm);`,
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * uBoost, tm);`,
       )
       .replace(
         '#include <emissivemap_fragment>',
-        '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uTeam * tm * 0.3;',
+        '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uTeam * tm * uGlow;',
       );
   };
   mat.customProgramCacheKey = () => 'team-tint';
@@ -239,9 +258,17 @@ export class AssetProvider {
   /** Glowing team ring on the water under each ship. */
   private readonly glowRingGeo = new RingGeometry(0.93, 1, 56).rotateX(-Math.PI / 2);
   private readonly glowMats: Record<Team, MeshBasicMaterial> = {
-    blue: this.makeGlow(TEAM_RING.blue),
-    red: this.makeGlow(TEAM_RING.red),
+    blue: this.makeGlow(DEFAULT_TEAM_RING.blue),
+    red: this.makeGlow(DEFAULT_TEAM_RING.red),
   };
+  /** Live team paint settings (see TeamStyle). */
+  readonly style: TeamStyle = {
+    tint: { blue: new Color(DEFAULT_TEAM_TINT.blue), red: new Color(DEFAULT_TEAM_TINT.red) },
+    boost: { value: DEFAULT_TEAM_BOOST },
+    glow: { value: DEFAULT_TEAM_GLOW },
+  };
+  private outlineOn = false;
+  private readonly outlineMats = new Set<ShaderMaterial>();
   private readonly ringGeo = new RingGeometry(0.8, 1, 28).rotateX(-Math.PI / 2);
   private readonly ringMat = new MeshBasicMaterial({
     color: 0xffffff,
@@ -293,8 +320,14 @@ export class AssetProvider {
 
   private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
     return {
-      blue: { normal: teamMaterial(map, 'blue', false), flash: teamMaterial(map, 'blue', true) },
-      red: { normal: teamMaterial(map, 'red', false), flash: teamMaterial(map, 'red', true) },
+      blue: {
+        normal: teamMaterial(map, 'blue', false, this.style),
+        flash: teamMaterial(map, 'blue', true, this.style),
+      },
+      red: {
+        normal: teamMaterial(map, 'red', false, this.style),
+        flash: teamMaterial(map, 'red', true, this.style),
+      },
     };
   }
 
@@ -312,6 +345,29 @@ export class AssetProvider {
       }
     }
     return this.buildPlaceholder(modelKey, team);
+  }
+
+  /** Team paint color (sRGB hex). */
+  setTeamColor(team: Team, hex: number): void {
+    this.style.tint[team].set(hex);
+  }
+
+  setTeamBoost(v: number): void {
+    this.style.boost.value = v;
+  }
+
+  setTeamGlow(v: number): void {
+    this.style.glow.value = v;
+  }
+
+  setRingColor(team: Team, hex: number): void {
+    this.glowMats[team].color.set(hex);
+  }
+
+  /** Shows or hides the hull outline on every ship, present and future. */
+  setOutline(on: boolean): void {
+    this.outlineOn = on;
+    for (const m of this.outlineMats) m.visible = on;
   }
 
   private makeGlow(color: number): MeshBasicMaterial {
@@ -339,6 +395,8 @@ export class AssetProvider {
         'uniform vec3 uColor;\nvoid main() {\n  gl_FragColor = vec4(uColor, 1.0);\n  #include <colorspace_fragment>\n}',
       side: BackSide,
     });
+    mat.visible = this.outlineOn;
+    this.outlineMats.add(mat);
     return new Mesh(mesh.geometry, mat);
   }
 

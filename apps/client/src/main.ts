@@ -8,6 +8,7 @@ import {
   WEAPON_IDS,
 } from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
+import type { Color } from 'three';
 import { FixedStep } from './frame/fixedStep.ts';
 import { aimAngleFromScreen } from './frame/aim.ts';
 import { CameraRig } from './frame/cameraRig.ts';
@@ -26,6 +27,7 @@ import { DamageNumbers } from './ui/damageNumbers.ts';
 import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS } from './render/modelSpecs.ts';
+import { LookPanel } from './ui/lookPanel.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
 
 setLanguage(detectLanguage());
@@ -104,6 +106,19 @@ new ShipPicker(
   },
   (key) => assets.failures.get(key),
 );
+
+// Test panel: live colors for the ocean, team paint and rings, plus the hull outline switch.
+new LookPanel(document.getElementById('look') as HTMLElement, (look) => {
+  water.setColors(look.oceanDeep, look.oceanShallow);
+  (stage.scene.background as Color).set(look.oceanDeep);
+  assets.setTeamColor('blue', look.blue);
+  assets.setTeamColor('red', look.red);
+  assets.setRingColor('blue', look.ringBlue);
+  assets.setRingColor('red', look.ringRed);
+  assets.setTeamBoost(look.boost);
+  assets.setTeamGlow(look.glow);
+  assets.setOutline(look.outline);
+});
 
 const input = new Input(canvas);
 const rig = new CameraRig();

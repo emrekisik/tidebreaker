@@ -74,7 +74,7 @@ export const WEAPONS = {
     damage: 15,
     intervalSec: 2,
     range: 55,
-    projectileSpeed: 48,
+    projectileSpeed: 54,
     radius: 0.3,
     spreadDeg: 2.5,
     // Rockets crawl out of the tube and keep building speed (quadratic ease-in), so they are

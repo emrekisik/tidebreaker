@@ -124,6 +124,12 @@ export class Water {
     this.mesh.frustumCulled = false;
   }
 
+  /** Ocean colors (sRGB hex): deep water and the lighter tone on wave crests and slopes. */
+  setColors(deepHex: number, shallowHex: number): void {
+    (this.material.uniforms['uDeep']!.value as Color).set(deepHex);
+    (this.material.uniforms['uShallow']!.value as Color).set(shallowHex);
+  }
+
   update(timeSec: number, centerX: number, centerZ: number): void {
     this.material.uniforms['uTime']!.value = timeSec;
     // Snap to the vertex grid so the facets do not swim when the plane moves.
