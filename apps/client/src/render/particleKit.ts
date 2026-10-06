@@ -72,7 +72,7 @@ void main() {
   float d = abs(dot(n, uSun));
   vec3 col = vColor * mix(1.0, 0.5 + 0.7 * d, uLit);
   float a = vAlpha;
-  if (uSoft > 0.5) a *= smoothstep(0.5, 0.28, length(vUv - 0.5));
+  if (uSoft > 0.5) a *= smoothstep(0.5, 0.4, length(vUv - 0.5));
   gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }
@@ -122,7 +122,7 @@ function buffers(
 /** Meshes for all particle pools: 5 draw calls in total. */
 export function createParticleKit(): ParticleKit {
   const cap = FX.capacity;
-  const foam = buffers(new CircleGeometry(0.5, 10).rotateX(-Math.PI / 2), cap.foam, MODE_UNIFORM, {
+  const foam = buffers(new CircleGeometry(0.5, 9).rotateX(-Math.PI / 2), cap.foam, MODE_UNIFORM, {
     lit: false,
     additive: false,
     opaque: false,

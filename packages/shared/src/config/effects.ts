@@ -3,6 +3,8 @@
  * Colors are sRGB hex. Sizes are world units, times are seconds.
  */
 export const FX = {
+  /** How long a ship turns white when it takes damage. */
+  hitFlashSec: 0.05,
   /** Particle pool sizes; the oldest particle is recycled when a pool is full. */
   capacity: { puff: 1500, fire: 700, spark: 800, debris: 200, foam: 1000 },
   gravity: 16,
@@ -24,9 +26,9 @@ export const FX = {
     smokeDark: 0x2b2d31,
     foam: 0xffffff,
     spray: 0xcfeeff,
-    shieldSpark: 0x6fd8ff,
-    shieldFlash: 0xcff6ff,
-    shieldDeep: 0x2a7dff,
+    shieldSpark: 0x9ff8ff,
+    shieldFlash: 0xe8ffff,
+    shieldDeep: 0x3fd6ea,
     hitSpark: 0xffc65a,
     debrisA: 0x626972,
     debrisB: 0x2e3238,
@@ -50,9 +52,9 @@ export const FX = {
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
-  shellTrail: { everySec: 0.01, life: 0.18, streak: 0.3 },
+  shellTrail: { everySec: 0.01, life: 0.13, streak: 0.15 },
   /** Yellowish glow of compressed air at the nose of a shell. */
-  shellNose: { size: 0.5, life: 0.07 },
+  shellNose: { size: 0.32, life: 0.06 },
 
   /** Ship-to-ship collisions; counts scale with the closing speed. */
   collision: { sparksBase: 8, sparksPerSpeed: 0.8, sparksMax: 30, chips: 5, splashAbove: 6 },
@@ -81,15 +83,15 @@ export const FX = {
 
   /** Foam trail behind moving ships. */
   wake: {
-    spacing: 0.9,
-    life: 2.4,
-    startSize: 0.55,
-    endSize: 2.3,
-    alpha: 0.55,
+    spacing: 0.7,
+    life: 3,
+    startSize: 0.9,
+    endSize: 3.4,
+    alpha: 0.95,
     /** Sideways speed of the two V arms. */
-    armSpeed: 1.2,
-    bowSpacing: 1.4,
-    bowLife: 0.7,
+    armSpeed: 1.4,
+    bowSpacing: 1,
+    bowLife: 0.9,
     /** Below this fraction of vMax the bow wave is not drawn. */
     bowMinSpeed: 0.35,
   },

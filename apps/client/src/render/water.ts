@@ -107,10 +107,10 @@ export class Water {
     this.material = new ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeep: { value: new Color(0x083f63) },
-        uShallow: { value: new Color(0x2b9cbf) },
+        uDeep: { value: new Color(0x031a33) },
+        uShallow: { value: new Color(0x0b4f86) },
         uFoam: { value: new Color(0xe6f6fb) },
-        uSky: { value: new Color(0x9fd3ea) },
+        uSky: { value: new Color(0x2c76a8) },
         uSun: { value: SUN },
         uCenter: { value: new Vector2() },
         uSlope: { value: 2.6 },

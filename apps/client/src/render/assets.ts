@@ -1,4 +1,5 @@
 import {
+  BackSide,
   Box3,
   BoxGeometry,
   BufferGeometry,
@@ -15,6 +16,7 @@ import {
   MeshStandardMaterial,
   Object3D,
   PropertyBinding,
+  ShaderMaterial,
   RingGeometry,
   Quaternion,
   Vector3,
@@ -32,9 +34,13 @@ export type Team = 'blue' | 'red';
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
-const TEAM_TINT: Record<Team, number> = { blue: 0x86d6f2, red: 0xf7a79c };
+const TEAM_TINT: Record<Team, number> = { blue: 0x1fa3ff, red: 0xe8182f };
+/** Glow ring and accent color of each team (sRGB). */
+const TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
+/** Outline thickness around the hull, in world units. */
+const OUTLINE_WORLD = 0.13;
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
-const TEAM_BOOST = 1.95;
+const TEAM_BOOST = 2;
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
@@ -160,7 +166,7 @@ function merge(parts: BufferGeometry[]): BufferGeometry {
 /** Lambert material whose mid-grey texels are tinted with the team color. */
 function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLambertMaterial {
   const mat = new MeshLambertMaterial(
-    flash ? { map, emissive: 0xffffff, emissiveIntensity: 0.7 } : { map },
+    flash ? { map, emissive: 0xffffff, emissiveIntensity: 0.4 } : { map },
   );
   const tint = new Color(TEAM_TINT[team]);
   mat.onBeforeCompile = (shader) => {
@@ -175,6 +181,10 @@ function teamMaterial(map: Texture | null, team: Team, flash: boolean): MeshLamb
         float ts = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
         float tm = smoothstep(0.17, 0.21, tl) * (1.0 - smoothstep(0.47, 0.51, tl)) * (1.0 - smoothstep(0.03, 0.08, ts));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * ${TEAM_BOOST.toFixed(2)}, tm);`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uTeam * tm * 0.22;',
       );
   };
   mat.customProgramCacheKey = () => 'team-tint';
@@ -216,7 +226,7 @@ export class AssetProvider {
     vertexColors: true,
     flatShading: true,
     emissive: 0xffffff,
-    emissiveIntensity: 0.7,
+    emissiveIntensity: 0.4,
   });
   private readonly shadowGeo = new CircleGeometry(1, 20).rotateX(-Math.PI / 2);
   private readonly shadowMat = new MeshBasicMaterial({
@@ -226,6 +236,12 @@ export class AssetProvider {
     depthWrite: false,
   });
   /** Foam where the hull meets the water. */
+  /** Glowing team ring on the water under each ship. */
+  private readonly glowRingGeo = new RingGeometry(0.93, 1, 56).rotateX(-Math.PI / 2);
+  private readonly glowMats: Record<Team, MeshBasicMaterial> = {
+    blue: this.makeGlow(TEAM_RING.blue),
+    red: this.makeGlow(TEAM_RING.red),
+  };
   private readonly ringGeo = new RingGeometry(0.8, 1, 28).rotateX(-Math.PI / 2);
   private readonly ringMat = new MeshBasicMaterial({
     color: 0xffffff,
@@ -271,7 +287,7 @@ export class AssetProvider {
   private makeNeutral(map: Texture | null): TeamMaterials {
     return {
       normal: new MeshLambertMaterial({ map }),
-      flash: new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 }),
+      flash: new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.4 }),
     };
   }
 
@@ -296,6 +312,34 @@ export class AssetProvider {
       }
     }
     return this.buildPlaceholder(modelKey, team);
+  }
+
+  private makeGlow(color: number): MeshBasicMaterial {
+    return new MeshBasicMaterial({ color, transparent: true, depthWrite: false, opacity: 0.95 });
+  }
+
+  /** Adds the glowing team ring under the ship. */
+  private addTeamRing(model: ShipModel, length: number, team: Team): void {
+    const radius = Math.max(2.4, length * 0.56);
+    const ring = new Mesh(this.glowRingGeo, this.glowMats[team]);
+    ring.scale.set(radius, 1, radius);
+    ring.renderOrder = 2;
+    model.addDecal(ring, 0.3);
+  }
+
+  /** Back-face copy pushed out along the normals by a fixed world-space thickness. */
+  private outlineFor(mesh: Mesh): Mesh {
+    // Local units differ per mesh (quantized geometry, node scales), so convert the thickness.
+    const scale = mesh.matrixWorld.getMaxScaleOnAxis() || 1;
+    const mat = new ShaderMaterial({
+      uniforms: { uT: { value: OUTLINE_WORLD / scale }, uColor: { value: new Color(0x020a14) } },
+      vertexShader:
+        'uniform float uT;\nvoid main() {\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * uT, 1.0);\n}',
+      fragmentShader:
+        'uniform vec3 uColor;\nvoid main() {\n  gl_FragColor = vec4(uColor, 1.0);\n  #include <colorspace_fragment>\n}',
+      side: BackSide,
+    });
+    return new Mesh(mesh.geometry, mat);
   }
 
   private foamRing(length: number, width: number): Mesh {
@@ -394,6 +438,9 @@ export class AssetProvider {
       });
     }
 
+    // Thin dark outline around the hull (inverted-hull trick), so ships pop off the sea.
+    for (const part of hullParts) part.add(this.outlineFor(part));
+
     // Weapons keep their own colors; only the hull gets the team tint.
     const weaponParts = new Set<Object3D>();
     for (const rig of turrets) rig.node.traverse((o) => weaponParts.add(o));
@@ -405,6 +452,7 @@ export class AssetProvider {
     model.root.add(fit);
     model.addDecal(this.shadow(spec.length, box.max.z - box.min.z), 0.2);
     model.addDecal(this.foamRing(spec.length, box.max.z - box.min.z), 0.26);
+    this.addTeamRing(model, spec.length, team);
     return model;
   }
 
@@ -439,6 +487,7 @@ export class AssetProvider {
     model.root.add(hull, turret);
     model.addDecal(this.shadow(5, 1.9), 0.2);
     model.addDecal(this.foamRing(5, 1.9), 0.26);
+    this.addTeamRing(model, 5, team);
     return model;
   }
 

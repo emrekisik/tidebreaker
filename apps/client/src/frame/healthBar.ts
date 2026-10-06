@@ -1,6 +1,8 @@
 import { Group, Mesh } from 'three';
 import type { PerspectiveCamera, Scene } from 'three';
 import type { BarKit } from '../render/barKit.ts';
+
+type Team = 'blue' | 'red';
 import { GhostTracker } from './ghost.ts';
 
 const WIDTH = 5;
@@ -16,21 +18,21 @@ export class HealthBar {
   private readonly hullTrack = new GhostTracker();
   private readonly shieldTrack = new GhostTracker();
 
-  constructor(scene: Scene, kit: BarKit) {
+  constructor(scene: Scene, kit: BarKit, team: Team) {
     const bg = new Mesh(kit.bgGeo, kit.bgMat);
-    this.hullGhost = new Mesh(kit.fillGeo, kit.ghostMat);
-    this.shieldGhost = new Mesh(kit.fillGeo, kit.ghostMat);
-    this.hull = new Mesh(kit.fillGeo, kit.hullMat);
-    this.shield = new Mesh(kit.fillGeo, kit.shieldMat);
+    this.hullGhost = new Mesh(kit.hullGeo, kit.ghostMat);
+    this.shieldGhost = new Mesh(kit.shieldGeo, kit.ghostMat);
+    this.hull = new Mesh(kit.hullGeo, kit.hullMat[team]);
+    this.shield = new Mesh(kit.shieldGeo, kit.shieldMat);
     bg.renderOrder = 10;
     this.hullGhost.renderOrder = 11;
     this.shieldGhost.renderOrder = 11;
     this.hull.renderOrder = 12;
     this.shield.renderOrder = 12;
-    this.hull.position.set(0, -0.23, 0.01);
-    this.hullGhost.position.set(0, -0.23, 0.005);
-    this.shield.position.set(0, 0.23, 0.01);
-    this.shieldGhost.position.set(0, 0.23, 0.005);
+    this.hull.position.set(0, -0.14, 0.01);
+    this.hullGhost.position.set(0, -0.14, 0.005);
+    this.shield.position.set(0, 0.2, 0.01);
+    this.shieldGhost.position.set(0, 0.2, 0.005);
     this.group.add(bg, this.hullGhost, this.shieldGhost, this.hull, this.shield);
     scene.add(this.group);
   }

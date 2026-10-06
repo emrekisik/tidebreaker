@@ -201,7 +201,7 @@ export class Effects {
         C.shieldSpark,
       );
     } else {
-      this.flash(x, 1.4, y, 1.7, 0.1, C.white, C.fire);
+      this.flash(x, 1.4, y, 1.3, 0.05, C.white, C.fire);
     }
     const n = shield ? I.shieldSparks : I.sparks;
     for (let i = 0; i < n; i++) {

@@ -15,7 +15,7 @@ export interface WeaponDef {
   spreadDeg: number;
   /** Fraction of `projectileSpeed` the shot leaves the barrel with (1 = constant speed). */
   startSpeedPct: number;
-  /** Seconds to accelerate from the start speed to `projectileSpeed` (0 = constant speed). */
+  /** Seconds to ease (quadratically) from the start speed to `projectileSpeed` (0 = constant speed). */
   accelSec: number;
   visual: ProjectileVisual;
 }
@@ -74,12 +74,13 @@ export const WEAPONS = {
     damage: 15,
     intervalSec: 2,
     range: 55,
-    projectileSpeed: 42,
+    projectileSpeed: 48,
     radius: 0.3,
     spreadDeg: 2.5,
-    // Rockets leave the tube slowly and build up speed (kept mild so they stay readable).
-    startSpeedPct: 0.55,
-    accelSec: 0.7,
+    // Rockets crawl out of the tube and keep building speed (quadratic ease-in), so they are
+    // slow at the start and fast near the target.
+    startSpeedPct: 0.25,
+    accelSec: 1.4,
     visual: 'rocket',
   },
 } as const satisfies Record<string, WeaponDef>;

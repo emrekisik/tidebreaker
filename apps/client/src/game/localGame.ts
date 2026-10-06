@@ -1,6 +1,7 @@
 import type { Scene } from 'three';
 import {
   DEG2RAD,
+  FX,
   MAX_PROJECTILES,
   Mulberry32,
   ProjectileSet,
@@ -108,7 +109,7 @@ export class LocalGame implements HitSink, CollisionSink {
         spawn.x + t.x,
         spawn.y + t.y,
         t.heading,
-        new HealthBar(scene, bars),
+        new HealthBar(scene, bars, 'red'),
       );
     }
   }
@@ -223,7 +224,7 @@ export class LocalGame implements HitSink, CollisionSink {
     killed: boolean,
   ): void {
     const target = this.entities[targetId - PLAYER_ID];
-    if (target) target.flashSeconds = 0.12;
+    if (target) target.flashSeconds = FX.hitFlashSec;
     if (killed && ownerId === PLAYER_ID) this.kills++;
     if (target) this.events.onHit(x, y, damage, shieldHit, killed, target);
   }
@@ -246,8 +247,8 @@ export class LocalGame implements HitSink, CollisionSink {
     const shake = Math.min(1.6, impact * 0.07);
     a.shake = Math.max(a.shake, shake);
     b.shake = Math.max(b.shake, shake);
-    if (damageA > 0) a.flashSeconds = 0.12;
-    if (damageB > 0) b.flashSeconds = 0.12;
+    if (damageA > 0) a.flashSeconds = FX.hitFlashSec;
+    if (damageB > 0) b.flashSeconds = FX.hitFlashSec;
     // The player gets the credit when a ship they rammed goes down.
     if (killedA && b === this.player) this.kills++;
     if (killedB && a === this.player) this.kills++;

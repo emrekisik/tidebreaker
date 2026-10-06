@@ -165,9 +165,12 @@ describe('rocket launch profile', () => {
       set.step(0.05, [], sink);
       speeds.push(Math.hypot(set.vx[0]!, set.vy[0]!));
     }
-    expect(speeds[0]!).toBeGreaterThan(rocket.projectileSpeed * rocket.startSpeedPct);
-    expect(speeds[0]!).toBeLessThan(rocket.projectileSpeed * 0.7);
-    for (let i = 1; i < 14; i++) expect(speeds[i]!).toBeGreaterThanOrEqual(speeds[i - 1]!);
+    const start = rocket.projectileSpeed * rocket.startSpeedPct;
+    expect(speeds[0]!).toBeGreaterThanOrEqual(start);
+    expect(speeds[0]!).toBeLessThan(start * 1.2); // still crawling after the first step
+    for (let i = 1; i < 28; i++) expect(speeds[i]!).toBeGreaterThanOrEqual(speeds[i - 1]!);
+    // Convex: the gain per step keeps growing (slow start, fast finish).
+    expect(speeds[20]! - speeds[19]!).toBeGreaterThan(speeds[5]! - speeds[4]!);
     expect(speeds[29]!).toBeCloseTo(rocket.projectileSpeed, 3);
   });
 
