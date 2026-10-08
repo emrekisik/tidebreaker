@@ -1,6 +1,7 @@
 import { FX, Mulberry32, TRAINING, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
 import type { ProjectileSet, ProjectileVisual } from '@tidebreaker/shared';
 import type { ParticleKit } from '../render/particleKit.ts';
+import type { WakeMap } from '../render/wakeMap.ts';
 import { WAVE_MAX } from '../render/waves.ts';
 import type { ShipEntity } from './entity.ts';
 import { ParticlePool } from './particles.ts';
@@ -22,10 +23,13 @@ function clamp(v: number, lo: number, hi: number): number {
 export class Effects {
   private readonly puff: ParticlePool;
   private readonly fire: ParticlePool;
+  private readonly glow: ParticlePool;
   private readonly spark: ParticlePool;
+  private readonly tracer: ParticlePool;
   private readonly debris: ParticlePool;
   private readonly foam: ParticlePool;
   private readonly rng = new Mulberry32(0x51ed1ab5);
+  private readonly wakeMap: WakeMap;
   private readonly foamY = WAVE_MAX + FX.foamLift;
   /** Scratch result of spotPosition (avoids allocating a vector). */
   private spotX = 0;
@@ -35,10 +39,13 @@ export class Effects {
   /** weapon index -> 0 bullet, 1 shell, 2 rocket (same order as ProjectileVisual) */
   private readonly kindOfWeapon: Uint8Array;
 
-  constructor(kit: ParticleKit, projectileCapacity: number) {
+  constructor(kit: ParticleKit, projectileCapacity: number, wakeMap: WakeMap) {
+    this.wakeMap = wakeMap;
     this.puff = new ParticlePool(kit.puff, -100);
     this.fire = new ParticlePool(kit.fire, -100);
+    this.glow = new ParticlePool(kit.glow, -100);
     this.spark = new ParticlePool(kit.spark, -100);
+    this.tracer = new ParticlePool(kit.tracer, -100);
     this.debris = new ParticlePool(kit.debris, -0.4);
     this.foam = new ParticlePool(kit.foam, -100);
     this.trailCarry = new Float32Array(projectileCapacity);
@@ -52,7 +59,9 @@ export class Effects {
   update(dt: number): void {
     this.puff.update(dt);
     this.fire.update(dt);
+    this.glow.update(dt);
     this.spark.update(dt);
+    this.tracer.update(dt);
     this.debris.update(dt);
     this.foam.update(dt);
     // Chunks that fell into the sea throw up a little splash.
@@ -178,8 +187,10 @@ export class Effects {
   }
 
   /** A shot hit a ship: flash, streaking sparks, hull chips and a lick of fire. */
-  impact(x: number, y: number, shield: boolean): void {
+  impact(x: number, y: number, shield: boolean, visual: ProjectileVisual): void {
     const I = FX.impact;
+    const k = FX.impactScale[visual];
+    const sk = Math.sqrt(k);
     if (shield) {
       this.fire.spawn(
         x,
@@ -188,9 +199,9 @@ export class Effects {
         0,
         0,
         0,
-        0.2,
-        3,
-        4.6,
+        0.2 + 0.05 * k,
+        3 * k,
+        4.6 * k,
         0,
         0,
         C.shieldFlash,
@@ -201,21 +212,21 @@ export class Effects {
         C.shieldSpark,
       );
     } else {
-      this.flash(x, 1.4, y, 1.3, 0.05, C.white, C.fire);
+      this.flash(x, 1.4, y, I.flash * sk, 0.05 + 0.02 * k, C.white, C.fire);
     }
-    const n = shield ? I.shieldSparks : I.sparks;
+    const n = Math.round((shield ? I.shieldSparks : I.sparks) * k);
     for (let i = 0; i < n; i++) {
       const a = this.r(0, Math.PI * 2);
-      const sp = this.r(0.35, 1) * I.speed;
+      const sp = this.r(0.35, 1) * I.speed * sk;
       this.spark.spawn(
         x,
         1.3,
         y,
         Math.cos(a) * sp,
-        this.r(2, 7),
+        this.r(2, 7) * sk,
         Math.sin(a) * sp,
-        I.life * this.r(0.7, 1.3),
-        0.13,
+        I.life * this.r(0.7, 1.3) * sk,
+        0.2 * sk,
         0.03,
         FX.gravity,
         0.5,
@@ -228,10 +239,10 @@ export class Effects {
       );
     }
     if (!shield) {
-      for (let i = 0; i < I.chips; i++) {
+      for (let i = 0; i < Math.round(I.chips * k); i++) {
         const a = this.r(0, Math.PI * 2);
         const sp = this.r(2, 6);
-        const size = this.r(0.1, 0.2);
+        const size = this.r(0.1, 0.2) * sk;
         const hex = this.rng.next() < 0.5 ? C.debrisA : C.debrisB;
         this.debris.spawn(
           x,
@@ -259,9 +270,9 @@ export class Effects {
         this.r(-0.4, 0.4),
         this.r(2, 3.2),
         this.r(-0.4, 0.4),
-        0.32,
-        0.65,
-        0.12,
+        0.32 + 0.06 * k,
+        0.65 * k,
+        0.12 * k,
         0,
         0.4,
         C.fireHot,
@@ -279,9 +290,9 @@ export class Effects {
       FX.wind.x * 0.5,
       this.r(0.8, 1.6),
       FX.wind.z * 0.5,
-      1.0,
-      0.4,
-      1.3,
+      0.8 + 0.2 * k,
+      0.4 * k,
+      1.3 * k,
       0,
       1,
       C.smokeMid,
@@ -290,6 +301,28 @@ export class Effects {
       0,
       0,
     );
+    if (!shield && k > 1.5) {
+      // Big hits (cannon shells, rockets) also throw up a short orange fireball.
+      this.glow.spawn(
+        x,
+        1.4,
+        y,
+        0,
+        0.6,
+        0,
+        0.28,
+        I.fireball * sk * 1.4,
+        I.fireball * sk * 2.2,
+        0,
+        0.5,
+        C.fireHot,
+        C.fireDeep,
+        0.9,
+        0,
+        0,
+        C.fire,
+      );
+    }
   }
 
   /** A shot landed in the water: a column of spray, droplets, a foam ring and a slow ripple. */
@@ -535,6 +568,7 @@ export class Effects {
     const B = FX.bulletTrail;
     const S = FX.shellTrail;
     const N = FX.shellNose;
+    const G = FX.shellGlow;
     for (let i = 0; i < set.highWater; i++) {
       if (set.active[i] === 0) continue;
       const w = set.weapon[i]!;
@@ -554,7 +588,7 @@ export class Effects {
         const dz = vz / sp;
         if (kind === 0) {
           // Glowing streak that trails behind the tracer.
-          this.spark.spawn(
+          this.tracer.spawn(
             px,
             1.2,
             pz,
@@ -574,7 +608,7 @@ export class Effects {
           );
         } else if (kind === 1) {
           // Cannon: a thick, glowing streak like the machine gun's, plus a little air-glow at the nose.
-          this.spark.spawn(
+          this.tracer.spawn(
             px,
             1.2,
             pz,
@@ -587,12 +621,34 @@ export class Effects {
             0,
             0,
             C.flash,
-            C.fire,
+            C.shellTail,
             0.95,
             0,
             0,
-            C.hitSpark,
+            C.flash,
           );
+          // Soft yellow halo around the shell, like the rocket's exhaust glow. Only every few
+          // ticks, so the additive blobs do not pile up into a white bar over bright water.
+          if (this.rng.next() < G.chance) {
+            this.glow.spawn(
+              px + dx * 0.3,
+              1.2,
+              pz + dz * 0.3,
+              0,
+              0,
+              0,
+              G.life,
+              G.size,
+              G.endSize,
+              0,
+              0,
+              C.shellGlow,
+              C.shellTail,
+              G.alpha,
+              0,
+              0,
+            );
+          }
           this.fire.spawn(
             px + dx * 0.8,
             1.2,
@@ -675,7 +731,7 @@ export class Effects {
             0,
             C.fireHot,
           );
-          this.fire.spawn(nx, py, nz, 0, 0, 0, 0.1, 2.4, 0.8, 0, 0, C.glow, C.fireDeep, 0.24, 0, 0);
+          this.glow.spawn(nx, py, nz, 0, 0, 0, 0.1, 3.2, 1.2, 0, 0, C.glow, C.fireDeep, 0.5, 0, 0);
         }
       }
       this.trailCarry[i] = carry;
@@ -781,7 +837,8 @@ export class Effects {
     const length = def.length;
     const width = this.widthOf(e);
 
-    if (s.alive && s.speed > 0.8) this.wake(e, dt, length, width);
+    if (s.alive && Math.abs(s.speed) > 0.8) this.wake(e, dt, length, width);
+    else e.wakeReady = false;
 
     const frac = s.hull / def.hull;
     const D = FX.damage;
@@ -900,7 +957,7 @@ export class Effects {
       C.fire,
     );
     if (this.rng.next() < 0.5) {
-      this.fire.spawn(
+      this.glow.spawn(
         px,
         1.3,
         pz,
@@ -908,13 +965,13 @@ export class Effects {
         0.8,
         0,
         0.45,
-        4 * k,
-        2 * k,
+        5 * k,
+        2.5 * k,
         0,
         0,
         C.glow,
         C.fireDeep,
-        0.22,
+        0.4,
         0,
         0,
       );
@@ -942,7 +999,11 @@ export class Effects {
     }
   }
 
-  /** Foam behind the stern (center line plus a spreading V) and at the bow. */
+  /**
+   * Ship wake, stamped into the foam map: a continuous turbulent trail behind the stern, foam
+   * along the hull sides at the bow, and two faint Kelvin arms spreading backward. The map fades
+   * and spreads it, so it curves with the ship and dissolves into lace. Bow spray stays particles.
+   */
   private wake(e: ShipEntity, dt: number, length: number, width: number): void {
     const W = FX.wake;
     const s = e.combatant.state;
@@ -950,121 +1011,72 @@ export class Effects {
     const c = Math.cos(p.heading);
     const sn = Math.sin(p.heading);
     const wscale = width / 1.6;
-    const distance = s.speed * dt;
+    const speedFrac = clamp(Math.abs(s.speed) / e.combatant.def.vMax, 0, 1);
+    const half = width * 0.5;
 
-    e.wakeCarry += distance;
-    while (e.wakeCarry >= W.spacing) {
-      e.wakeCarry -= W.spacing;
-      const sx = p.x - c * length * 0.46;
-      const sz = p.y - sn * length * 0.46;
-      const jitter = this.r(-0.1, 0.1) * width;
-      const lx = sx - sn * jitter;
-      const lz = sz + c * jitter;
-      this.foam.spawn(
-        lx,
-        this.foamY,
-        lz,
-        -c * 0.4,
-        0,
-        -sn * 0.4,
-        W.life,
-        W.startSize * wscale,
-        W.endSize * wscale,
-        0,
-        0.8,
-        C.foam,
-        C.foam,
-        W.alpha,
-        0,
-        0,
-      );
-      const arm = W.armSpeed * Math.sqrt(wscale);
-      this.foam.spawn(
-        lx,
-        this.foamY,
-        lz,
-        -sn * arm - c * 0.3,
-        0,
-        c * arm - sn * 0.3,
-        W.life * 0.8,
-        W.startSize * 0.8 * wscale,
-        W.endSize * 0.9 * wscale,
-        0,
-        0.9,
-        C.foam,
-        C.foam,
-        W.alpha * 0.8,
-        0,
-        0,
-      );
-      this.foam.spawn(
-        lx,
-        this.foamY,
-        lz,
-        sn * arm - c * 0.3,
-        0,
-        -c * arm - sn * 0.3,
-        W.life * 0.8,
-        W.startSize * 0.8 * wscale,
-        W.endSize * 0.9 * wscale,
-        0,
-        0.9,
-        C.foam,
-        C.foam,
-        W.alpha * 0.8,
-        0,
-        0,
-      );
+    // Trail: from where the stern was last frame to where it is now (no gaps at any frame rate).
+    const sx = p.x - c * length * W.sternAt;
+    const sz = p.y - sn * length * W.sternAt;
+    let px = e.wakeX;
+    let pz = e.wakeZ;
+    if (!e.wakeReady || (sx - px) * (sx - px) + (sz - pz) * (sz - pz) > 36) {
+      px = sx;
+      pz = sz;
     }
+    e.wakeX = sx;
+    e.wakeZ = sz;
+    e.wakeReady = true;
+    const strength = W.trailMin + (1 - W.trailMin) * speedFrac;
+    this.wakeMap.capsule(px, pz, sx, sz, half * W.trailWidth + 0.3, strength, 0, strength, 0);
 
-    if (s.speed > W.bowMinSpeed * e.combatant.def.vMax) {
-      e.bowCarry += distance;
+    if (speedFrac > W.bowMinSpeed) {
+      const bowStrength = W.bowMin + (1 - W.bowMin) * speedFrac;
+      // Foam hugging the hull sides, thickest at the bow.
+      const fx = p.x + c * length * W.bowAt;
+      const fz = p.y + sn * length * W.bowAt;
+      const mx = p.x + c * length * W.bowFoamEnd;
+      const mz = p.y + sn * length * W.bowFoamEnd;
+      for (let side = -1; side <= 1; side += 2) {
+        const ox = -sn * side;
+        const oz = c * side;
+        this.wakeMap.capsule(
+          fx + ox * half * 0.35,
+          fz + oz * half * 0.35,
+          mx + ox * half * 1.05,
+          mz + oz * half * 1.05,
+          half * W.bowWidth + 0.25,
+          0,
+          bowStrength,
+          0,
+          bowStrength * 0.55,
+        );
+        // Kelvin arm: from the bow, back and outward.
+        const ang = W.armAngle;
+        const reach = length * W.armLength;
+        const ex = fx + ox * half * 0.6 - c * Math.cos(ang) * reach + ox * Math.sin(ang) * reach;
+        const ez = fz + oz * half * 0.6 - sn * Math.cos(ang) * reach + oz * Math.sin(ang) * reach;
+        this.wakeMap.capsule(
+          fx + ox * half * 0.6,
+          fz + oz * half * 0.6,
+          ex,
+          ez,
+          half * W.armWidth + 0.2,
+          0,
+          bowStrength * W.armStrength,
+          0,
+          0,
+        );
+      }
+
+      // Bow spray at speed.
+      e.bowCarry += Math.abs(s.speed) * dt;
       while (e.bowCarry >= W.bowSpacing) {
         e.bowCarry -= W.bowSpacing;
-        const bx = p.x + c * length * 0.42;
-        const bz = p.y + sn * length * 0.42;
-        const side = width * 0.4;
-        this.foam.spawn(
-          bx - sn * side,
-          this.foamY,
-          bz + c * side,
-          -sn * 0.9 - c * 0.5,
-          0,
-          c * 0.9 - sn * 0.5,
-          W.bowLife,
-          0.4 * wscale,
-          1.2 * wscale,
-          0,
-          0.8,
-          C.foam,
-          C.foam,
-          W.alpha,
-          0,
-          0,
-        );
-        this.foam.spawn(
-          bx + sn * side,
-          this.foamY,
-          bz - c * side,
-          sn * 0.9 - c * 0.5,
-          0,
-          -c * 0.9 - sn * 0.5,
-          W.bowLife,
-          0.4 * wscale,
-          1.2 * wscale,
-          0,
-          0.8,
-          C.foam,
-          C.foam,
-          W.alpha,
-          0,
-          0,
-        );
-        // Bow spray at speed.
+        const side = half * 0.5 * (this.rng.next() < 0.5 ? -1 : 1);
         this.puff.spawn(
-          bx,
+          fx - sn * side,
           0.4,
-          bz,
+          fz + c * side,
           c * 1.2 + this.r(-0.4, 0.4),
           this.r(1.5, 3),
           sn * 1.2 + this.r(-0.4, 0.4),

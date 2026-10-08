@@ -35,15 +35,15 @@ export type Team = 'blue' | 'red';
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
 /** Default team paint colors (the Appearance panel can change them at runtime). */
-export const DEFAULT_TEAM_TINT: Record<Team, number> = { blue: 0x7ad6ff, red: 0xff6b78 };
+export const DEFAULT_TEAM_TINT: Record<Team, number> = { blue: 0x72a9e4, red: 0xff6b78 };
 /** Glow ring and accent color of each team (sRGB). */
 export const DEFAULT_TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
 /** Outline thickness around the hull, in world units. */
 const OUTLINE_WORLD = 0.13;
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
-export const DEFAULT_TEAM_BOOST = 2.6;
+export const DEFAULT_TEAM_BOOST = 4;
 /** Self-illumination of the tinted paint (so the team color glows). */
-export const DEFAULT_TEAM_GLOW = 0.3;
+export const DEFAULT_TEAM_GLOW = 0.2;
 
 /** Shared, live-editable team paint settings: materials read these uniforms every frame. */
 export interface TeamStyle {

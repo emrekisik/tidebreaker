@@ -6,7 +6,7 @@ export const FX = {
   /** How long a ship turns white when it takes damage. */
   hitFlashSec: 0.05,
   /** Particle pool sizes; the oldest particle is recycled when a pool is full. */
-  capacity: { puff: 1500, fire: 700, spark: 800, debris: 200, foam: 1000 },
+  capacity: { puff: 1500, fire: 700, spark: 800, tracer: 600, glow: 500, debris: 200, foam: 1000 },
   gravity: 16,
   /** Smoke drifts with the wind (world x/z units per second). */
   wind: { x: 0.9, z: -0.5 },
@@ -20,6 +20,8 @@ export const FX = {
     fire: 0xff7a1f,
     fireDeep: 0xa82208,
     glow: 0xff6a1a,
+    shellTail: 0xffe27a,
+    shellGlow: 0xffd24a,
     ember: 0xff9a3c,
     smokeLight: 0xcfd5da,
     smokeMid: 0x8d949b,
@@ -48,19 +50,31 @@ export const FX = {
    * Rockets lob gently: height = start + a*u - b*u^2 over the flight fraction u (0..1), so they
    * climb a little and then drop toward the target. Purely visual; hits stay 2D.
    */
-  rocketArc: { start: 1.1, a: 7, b: 7.8, pitchBoost: 1.6 },
+  rocketArc: { start: 1.1, a: 12, b: 12.8, pitchBoost: 1.6 },
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
   shellTrail: { everySec: 0.01, life: 0.13, streak: 0.3 },
   /** Yellowish glow of compressed air at the nose of a shell. */
   shellNose: { size: 0.32, life: 0.06 },
+  /** Soft yellow halo around a flying shell (like the rocket's exhaust glow, but yellow). */
+  shellGlow: { size: 2.6, endSize: 1.6, life: 0.07, alpha: 0.4, chance: 0.4 },
 
   /** Ship-to-ship collisions; counts scale with the closing speed. */
   collision: { sparksBase: 8, sparksPerSpeed: 0.8, sparksMax: 30, chips: 5, splashAbove: 6 },
 
   /** Sparks when a shot hits a ship. */
-  impact: { sparks: 10, shieldSparks: 12, speed: 11, life: 0.4, chips: 3 },
+  impact: {
+    sparks: 14,
+    shieldSparks: 16,
+    speed: 13,
+    life: 0.5,
+    chips: 4,
+    flash: 1.6,
+    fireball: 1.5,
+  },
+  /** Impact size multiplier by projectile visual (counts, sizes and speeds scale with it). */
+  impactScale: { bullet: 1, shell: 2.4, rocket: 3.4 },
 
   /** Water splash where a shot lands. Scaled by the weapon (see splashScale). */
   splash: { foam: 3, spray: 8, life: 1.2 },
@@ -81,19 +95,28 @@ export const FX = {
   sinkingSmokeRate: 16,
   sinkingFireRate: 18,
 
-  /** Foam trail behind moving ships. */
+  /**
+   * Ship wake (stamped into the foam map). Positions are fractions of the ship length from its
+   * center (+ = bow); widths are fractions of the hull width; strengths are 0..1.
+   */
   wake: {
-    spacing: 0.7,
-    life: 3,
-    startSize: 0.9,
-    endSize: 3.4,
-    alpha: 0.95,
-    /** Sideways speed of the two V arms. */
-    armSpeed: 1.4,
+    sternAt: 0.46,
+    /** Trail strength at standstill-ish speed (scales up to 1 at top speed) and its width. */
+    trailMin: 0.45,
+    trailWidth: 0.9,
+    bowAt: 0.5,
+    bowFoamEnd: 0.12,
+    bowWidth: 0.3,
+    bowMin: 0.55,
+    /** Below this fraction of vMax there is no bow wave. */
+    bowMinSpeed: 0.3,
+    /** Kelvin arms: half-angle off the ship's track (rad), length (x ship length), width, strength. */
+    armAngle: 0.42,
+    armLength: 2.4,
+    armWidth: 0.2,
+    armStrength: 0.5,
+    /** Meters of travel between bow spray puffs. */
     bowSpacing: 1,
-    bowLife: 0.9,
-    /** Below this fraction of vMax the bow wave is not drawn. */
-    bowMinSpeed: 0.35,
   },
 } as const;
 

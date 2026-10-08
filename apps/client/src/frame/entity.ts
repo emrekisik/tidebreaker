@@ -29,8 +29,11 @@ export class ShipEntity {
   homeY = 0;
   homeHeading = 0;
   /** Fractional effect timers (see Effects.ship). */
-  wakeCarry = 0;
   bowCarry = 0;
+  /** Stern position last frame, so the wake trail has no gaps. */
+  wakeX = 0;
+  wakeZ = 0;
+  wakeReady = false;
   smokeCarry = 0;
   fireCarry = 0;
   /** Where this ship smokes and burns: (forward, sideways) pairs, picked on first damage. */

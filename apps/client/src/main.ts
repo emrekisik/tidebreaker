@@ -22,6 +22,7 @@ import { BarKit } from './render/barKit.ts';
 import { createParticleKit } from './render/particleKit.ts';
 import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
+import { WakeMap } from './render/wakeMap.ts';
 import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
 import { DebugHud } from './ui/debugHud.ts';
@@ -36,6 +37,7 @@ applyI18n(document);
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const stage = new Stage(canvas);
 const water = new Water();
+const wakeMap = new WakeMap();
 stage.scene.add(water.mesh);
 
 const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
@@ -47,10 +49,12 @@ stage.scene.add(
   particleKit.foam.mesh,
   particleKit.puff.mesh,
   particleKit.fire.mesh,
+  particleKit.glow.mesh,
   particleKit.spark.mesh,
+  particleKit.tracer.mesh,
   particleKit.debris.mesh,
 );
-const effects = new Effects(particleKit, MAX_PROJECTILES);
+const effects = new Effects(particleKit, MAX_PROJECTILES, wakeMap);
 
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
 const params = new URLSearchParams(location.search);
@@ -67,9 +71,9 @@ const game = new LocalGame(
     onShot(x, y, angle, weaponIdx) {
       effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     },
-    onHit(x, y, damage, shieldHit, killed, target) {
+    onHit(x, y, damage, shieldHit, killed, target, weaponIdx) {
       damageNumbers.show(stage.camera, x, y, damage, shieldHit);
-      effects.impact(x, y, shieldHit);
+      effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
       if (killed) {
         const t = target.combatant;
         effects.explode(t.state.x, t.state.y, t.def.length);
@@ -150,12 +154,15 @@ function update(nowMs: number): void {
   const timeSec = nowMs / 1000;
   for (const e of game.entities) e.render(alpha, dtSec, stage.camera, timeSec);
   projectileView.update(game.projectiles, STEP_SEC, alpha);
+  wakeMap.begin(rig.focusX, rig.focusZ, dtSec);
   for (const e of game.entities) effects.ship(e, dtSec);
   effects.trails(game.projectiles, dtSec, STEP_SEC * (1 - alpha));
   effects.update(dtSec);
 
   const p = game.player.pose;
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
+  wakeMap.render(stage.renderer);
+  water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
   stage.render();
 
@@ -181,6 +188,8 @@ if (debug) {
     particleKit,
     stage,
     water,
+    wakeMap,
+    effects,
     advance(frames: number, frameMs = 16.7): void {
       for (let i = 0; i < frames; i++) {
         update(lastMs + frameMs);

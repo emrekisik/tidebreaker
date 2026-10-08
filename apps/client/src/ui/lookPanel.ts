@@ -15,18 +15,18 @@ export interface Look {
 }
 
 export const DEFAULT_LOOK: Look = {
-  oceanDeep: 0x031a33,
-  oceanShallow: 0x0b4f86,
-  blue: 0x7ad6ff,
+  oceanDeep: 0x0b6989,
+  oceanShallow: 0x13a0dd,
+  blue: 0x72a9e4,
   red: 0xff6b78,
   ringBlue: 0x23b4ff,
   ringRed: 0xff2a45,
-  boost: 2.6,
-  glow: 0.3,
+  boost: 4,
+  glow: 0.2,
   outline: false,
 };
 
-const STORAGE_KEY = 'tidebreaker.look';
+const STORAGE_KEY = 'tidebreaker.look.v2';
 
 const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
 

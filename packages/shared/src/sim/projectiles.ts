@@ -39,6 +39,7 @@ export interface HitSink {
     damage: number,
     shieldHit: boolean,
     killed: boolean,
+    weaponIdx: number,
   ): void;
   /** A projectile ran out of range without hitting anything (it lands in the water). */
   onExpire(x: number, y: number, weaponIdx: number): void;
@@ -208,6 +209,7 @@ export class ProjectileSet implements ProjectileSink {
           damage,
           (flags & HIT_SHIELD) !== 0,
           (flags & HIT_KILLED) !== 0,
+          this.weapon[i]!,
         );
         this.release(i);
         continue;

@@ -3,6 +3,7 @@ import {
   BoxGeometry,
   BufferGeometry,
   CircleGeometry,
+  PlaneGeometry,
   DoubleSide,
   IcosahedronGeometry,
   InstancedBufferAttribute,
@@ -34,6 +35,10 @@ export interface ParticleKit {
   fire: ParticleBuffers;
   /** Unlit, additive streaks (sparks, embers). */
   spark: ParticleBuffers;
+  /** Soft round additive glows (billboards): halos, fireballs. */
+  glow: ParticleBuffers;
+  /** Unlit, alpha-blended streaks: tracer trails keep their color on bright water. */
+  tracer: ParticleBuffers;
   debris: ParticleBuffers;
   /** Flat foam on the water surface. */
   foam: ParticleBuffers;
@@ -78,7 +83,38 @@ void main() {
 }
 `;
 
+// Camera-facing quad with a soft radial falloff; the particle scale is the quad size.
+const GLOW_VERTEX = /* glsl */ `
+attribute vec3 aColor;
+attribute float aAlpha;
+varying vec3 vColor;
+varying float vAlpha;
+varying vec2 vUv;
+void main() {
+  vec4 center = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  float size = length(instanceMatrix[0].xyz);
+  vec4 mv = viewMatrix * center;
+  mv.xy += position.xy * size;
+  vColor = aColor;
+  vAlpha = aAlpha;
+  vUv = uv;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const GLOW_FRAGMENT = /* glsl */ `
+varying vec3 vColor;
+varying float vAlpha;
+varying vec2 vUv;
+void main() {
+  float d = clamp(1.0 - length(vUv - 0.5) * 2.0, 0.0, 1.0);
+  gl_FragColor = vec4(vColor, vAlpha * d * d);
+  #include <colorspace_fragment>
+}
+`;
+
 interface MaterialOptions {
+  billboard?: boolean;
   lit: boolean;
   additive: boolean;
   opaque: boolean;
@@ -92,8 +128,8 @@ function material(o: MaterialOptions): ShaderMaterial {
       uLit: { value: o.lit ? 1 : 0 },
       uSoft: { value: o.soft ? 1 : 0 },
     },
-    vertexShader: VERTEX,
-    fragmentShader: FRAGMENT,
+    vertexShader: o.billboard ? GLOW_VERTEX : VERTEX,
+    fragmentShader: o.billboard ? GLOW_FRAGMENT : FRAGMENT,
     transparent: !o.opaque,
     depthWrite: o.opaque,
     side: DoubleSide,
@@ -119,7 +155,7 @@ function buffers(
   return { mesh, color, alpha, mode };
 }
 
-/** Meshes for all particle pools: 5 draw calls in total. */
+/** Meshes for all particle pools: 7 draw calls in total. */
 export function createParticleKit(): ParticleKit {
   const cap = FX.capacity;
   const foam = buffers(new CircleGeometry(0.5, 9).rotateX(-Math.PI / 2), cap.foam, MODE_UNIFORM, {
@@ -141,9 +177,22 @@ export function createParticleKit(): ParticleKit {
     opaque: false,
     soft: false,
   });
+  const glow = buffers(new PlaneGeometry(1, 1), cap.glow, MODE_UNIFORM, {
+    billboard: true,
+    lit: false,
+    additive: true,
+    opaque: false,
+    soft: false,
+  });
   const spark = buffers(new OctahedronGeometry(0.5, 0), cap.spark, MODE_STREAK, {
     lit: false,
     additive: true,
+    opaque: false,
+    soft: false,
+  });
+  const tracer = buffers(new OctahedronGeometry(0.5, 0), cap.tracer, MODE_STREAK, {
+    lit: false,
+    additive: false,
     opaque: false,
     soft: false,
   });
@@ -153,5 +202,5 @@ export function createParticleKit(): ParticleKit {
     opaque: true,
     soft: false,
   });
-  return { puff, fire, spark, debris, foam };
+  return { puff, fire, glow, spark, tracer, debris, foam };
 }

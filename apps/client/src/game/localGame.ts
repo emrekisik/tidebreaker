@@ -36,6 +36,7 @@ export interface GameEvents {
     shieldHit: boolean,
     killed: boolean,
     target: ShipEntity,
+    weaponIdx: number,
   ): void;
   /** A projectile ended in the water. */
   onMiss(x: number, y: number, weaponIdx: number): void;
@@ -222,11 +223,12 @@ export class LocalGame implements HitSink, CollisionSink {
     damage: number,
     shieldHit: boolean,
     killed: boolean,
+    weaponIdx: number,
   ): void {
     const target = this.entities[targetId - PLAYER_ID];
     if (target) target.flashSeconds = FX.hitFlashSec;
     if (killed && ownerId === PLAYER_ID) this.kills++;
-    if (target) this.events.onHit(x, y, damage, shieldHit, killed, target);
+    if (target) this.events.onHit(x, y, damage, shieldHit, killed, target, weaponIdx);
   }
 
   onCollision(

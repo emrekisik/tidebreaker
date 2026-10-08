@@ -24,7 +24,7 @@ export class Stage {
       powerPreference: 'high-performance',
     });
     this.renderer.setPixelRatio(Math.min(dpr, 2));
-    this.scene.background = new Color(0x031a33);
+    this.scene.background = new Color(0x0b6989);
 
     this.camera = new PerspectiveCamera(CAMERA.fovDeg, 1, CAMERA.near, CAMERA.far);
 
