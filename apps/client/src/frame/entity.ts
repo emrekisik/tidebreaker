@@ -30,6 +30,8 @@ export class ShipEntity {
   homeHeading = 0;
   /** Fractional effect timers (see Effects.ship). */
   bowCarry = 0;
+  /** Travel since the last scattered wake blob. */
+  blobCarry = 0;
   /** Stern position last frame, so the wake trail has no gaps. */
   wakeX = 0;
   wakeZ = 0;

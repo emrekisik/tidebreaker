@@ -199,9 +199,9 @@ export class Effects {
         0,
         0,
         0,
-        0.2 + 0.05 * k,
-        3 * k,
-        4.6 * k,
+        0.15 + 0.03 * k,
+        I.shieldFlash[0] * sk,
+        I.shieldFlash[1] * sk,
         0,
         0,
         C.shieldFlash,
@@ -214,10 +214,10 @@ export class Effects {
     } else {
       this.flash(x, 1.4, y, I.flash * sk, 0.05 + 0.02 * k, C.white, C.fire);
     }
-    const n = Math.round((shield ? I.shieldSparks : I.sparks) * k);
+    const n = Math.round(shield ? I.shieldSparks * sk : I.sparks * k);
     for (let i = 0; i < n; i++) {
       const a = this.r(0, Math.PI * 2);
-      const sp = this.r(0.35, 1) * I.speed * sk;
+      const sp = this.r(0.35, 1) * I.speed * sk * (shield ? 0.6 : 1);
       this.spark.spawn(
         x,
         1.3,
@@ -225,8 +225,8 @@ export class Effects {
         Math.cos(a) * sp,
         this.r(2, 7) * sk,
         Math.sin(a) * sp,
-        I.life * this.r(0.7, 1.3) * sk,
-        0.2 * sk,
+        I.life * this.r(0.7, 1.3) * sk * (shield ? 0.7 : 1),
+        0.2 * sk * (shield ? 0.7 : 1),
         0.03,
         FX.gravity,
         0.5,
@@ -1000,9 +1000,9 @@ export class Effects {
   }
 
   /**
-   * Ship wake, stamped into the foam map: a continuous turbulent trail behind the stern, foam
-   * along the hull sides at the bow, and two faint Kelvin arms spreading backward. The map fades
-   * and spreads it, so it curves with the ship and dissolves into lace. Bow spray stays particles.
+   * Ship wake, stamped into the foam map as scattered blobs: a ragged turbulent trail behind the
+   * stern, loose foam along the bow sides and a faint, broken Kelvin spread. The map fades and
+   * spreads it, so it curves with the ship and dissolves into lace. Bow spray stays particles.
    */
   private wake(e: ShipEntity, dt: number, length: number, width: number): void {
     const W = FX.wake;
@@ -1014,7 +1014,7 @@ export class Effects {
     const speedFrac = clamp(Math.abs(s.speed) / e.combatant.def.vMax, 0, 1);
     const half = width * 0.5;
 
-    // Trail: from where the stern was last frame to where it is now (no gaps at any frame rate).
+    // Core of the trail: from where the stern was last frame to where it is now.
     const sx = p.x - c * length * W.sternAt;
     const sz = p.y - sn * length * W.sternAt;
     let px = e.wakeX;
@@ -1027,47 +1027,44 @@ export class Effects {
     e.wakeZ = sz;
     e.wakeReady = true;
     const strength = W.trailMin + (1 - W.trailMin) * speedFrac;
-    this.wakeMap.capsule(px, pz, sx, sz, half * W.trailWidth + 0.3, strength, 0, strength, 0);
+    this.wakeMap.capsule(px, pz, sx, sz, half * W.trailWidth + 0.2, strength, 0, strength, 0);
 
-    if (speedFrac > W.bowMinSpeed) {
-      const bowStrength = W.bowMin + (1 - W.bowMin) * speedFrac;
-      // Foam hugging the hull sides, thickest at the bow.
-      const fx = p.x + c * length * W.bowAt;
-      const fz = p.y + sn * length * W.bowAt;
-      const mx = p.x + c * length * W.bowFoamEnd;
-      const mz = p.y + sn * length * W.bowFoamEnd;
-      for (let side = -1; side <= 1; side += 2) {
+    // Scattered blobs, one set per `blobSpacing` of travel: ragged trail edges, bow-side foam and
+    // a broken Kelvin spread. Random placement keeps the shape from reading as geometric.
+    e.blobCarry += Math.abs(s.speed) * dt;
+    const fx = p.x + c * length * W.bowAt;
+    const fz = p.y + sn * length * W.bowAt;
+    while (e.blobCarry >= W.blobSpacing) {
+      e.blobCarry -= W.blobSpacing;
+      const back = this.r(0, 1);
+      const lat = this.r(-1, 1) * half * W.blobSpread;
+      const bx = sx + (px - sx) * back - sn * lat;
+      const bz = sz + (pz - sz) * back + c * lat;
+      const rv = strength * this.r(0.4, 0.9);
+      this.wakeMap.capsule(bx, bz, bx, bz, half * this.r(0.25, 0.6) + 0.25, rv, 0, rv, 0);
+      if (speedFrac > W.bowMinSpeed) {
+        const bowStrength = W.bowMin + (1 - W.bowMin) * speedFrac;
+        const side = this.rng.next() < 0.5 ? -1 : 1;
         const ox = -sn * side;
         const oz = c * side;
-        this.wakeMap.capsule(
-          fx + ox * half * 0.35,
-          fz + oz * half * 0.35,
-          mx + ox * half * 1.05,
-          mz + oz * half * 1.05,
-          half * W.bowWidth + 0.25,
-          0,
-          bowStrength,
-          0,
-          bowStrength * 0.55,
-        );
-        // Kelvin arm: from the bow, back and outward.
-        const ang = W.armAngle;
-        const reach = length * W.armLength;
-        const ex = fx + ox * half * 0.6 - c * Math.cos(ang) * reach + ox * Math.sin(ang) * reach;
-        const ez = fz + oz * half * 0.6 - sn * Math.cos(ang) * reach + oz * Math.sin(ang) * reach;
-        this.wakeMap.capsule(
-          fx + ox * half * 0.6,
-          fz + oz * half * 0.6,
-          ex,
-          ez,
-          half * W.armWidth + 0.2,
-          0,
-          bowStrength * W.armStrength,
-          0,
-          0,
-        );
+        // Loose foam on the hull sides near the bow.
+        const along = this.r(0.1, 0.5) * length;
+        const out = half * this.r(0.85, 1.35);
+        const hx = p.x + c * along + ox * out;
+        const hz = p.y + sn * along + oz * out;
+        const g = bowStrength * this.r(0.5, 1);
+        this.wakeMap.capsule(hx, hz, hx, hz, half * this.r(0.2, 0.4) + 0.2, 0, g, 0, g);
+        // Broken Kelvin spread: dots scattered around the two arm directions.
+        const reach = this.r(0.25, 1) * length * W.armLength;
+        const ang = W.armAngle * this.r(0.6, 1.4);
+        const kx = fx + ox * half * 0.6 - c * Math.cos(ang) * reach + ox * Math.sin(ang) * reach;
+        const kz = fz + oz * half * 0.6 - sn * Math.cos(ang) * reach + oz * Math.sin(ang) * reach;
+        const ka = bowStrength * W.armStrength * this.r(0.6, 1);
+        this.wakeMap.capsule(kx, kz, kx, kz, half * this.r(0.15, 0.3) + 0.2, 0, ka, 0, ka);
       }
+    }
 
+    if (speedFrac > W.bowMinSpeed) {
       // Bow spray at speed.
       e.bowCarry += Math.abs(s.speed) * dt;
       while (e.bowCarry >= W.bowSpacing) {

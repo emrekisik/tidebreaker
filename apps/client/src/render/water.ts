@@ -113,10 +113,10 @@ void main() {
   vec2 wk = texture2D(uWake, wuv).rg * (edge.x * edge.y);
   float wl = vnoise(p * 2.3 + vec2(uTime * 0.12, -uTime * 0.09)) * 0.55
            + vnoise(p * 5.9 - vec2(uTime * 0.2, uTime * 0.13)) * 0.45;
-  float trail = smoothstep(0.1, 0.5, wk.r * (0.5 + 1.0 * wl));
-  float bow = smoothstep(0.08, 0.4, wk.g * (0.6 + 0.8 * wl));
-  col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.6, 0.0, 0.6));
-  col = mix(col, uFoam, clamp(trail * 0.95 + bow * 0.9, 0.0, 0.97));
+  float trail = smoothstep(0.16, 0.55, wk.r * (0.3 + 1.4 * wl));
+  float bow = smoothstep(0.14, 0.5, wk.g * (0.3 + 1.4 * wl));
+  col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.4, 0.0, 0.4));
+  col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8, 0.0, 0.9));
 
   // Fade into the haze before the edge of the plane.
   float d = length(vWorld.xz - uCenter);

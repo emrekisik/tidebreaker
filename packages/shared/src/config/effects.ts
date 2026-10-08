@@ -50,7 +50,7 @@ export const FX = {
    * Rockets lob gently: height = start + a*u - b*u^2 over the flight fraction u (0..1), so they
    * climb a little and then drop toward the target. Purely visual; hits stay 2D.
    */
-  rocketArc: { start: 1.1, a: 12, b: 12.8, pitchBoost: 1.6 },
+  rocketArc: { start: 1.1, a: 17, b: 17.8, pitchBoost: 1.6 },
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
@@ -65,13 +65,15 @@ export const FX = {
 
   /** Sparks when a shot hits a ship. */
   impact: {
-    sparks: 14,
-    shieldSparks: 16,
+    sparks: 11,
+    shieldSparks: 7,
     speed: 13,
     life: 0.5,
     chips: 4,
     flash: 1.6,
     fireball: 1.5,
+    /** Shield hit flash: start and end size (scaled by the weapon). */
+    shieldFlash: [1.1, 1.8],
   },
   /** Impact size multiplier by projectile visual (counts, sizes and speeds scale with it). */
   impactScale: { bullet: 1, shell: 2.4, rocket: 3.4 },
@@ -96,25 +98,26 @@ export const FX = {
   sinkingFireRate: 18,
 
   /**
-   * Ship wake (stamped into the foam map). Positions are fractions of the ship length from its
-   * center (+ = bow); widths are fractions of the hull width; strengths are 0..1.
+   * Ship wake (stamped into the foam map as scattered blobs, so it looks ragged, not geometric).
+   * Positions are fractions of the ship length from its center (+ = bow); widths are fractions of
+   * the hull width; strengths are 0..1.
    */
   wake: {
     sternAt: 0.46,
-    /** Trail strength at standstill-ish speed (scales up to 1 at top speed) and its width. */
-    trailMin: 0.45,
-    trailWidth: 0.9,
+    /** Trail strength at low speed (scales up to 1 at top speed), width of the core, and spread of the ragged blobs. */
+    trailMin: 0.3,
+    trailWidth: 0.5,
+    blobSpread: 1.1,
+    /** Meters of travel between scattered blobs (one trail blob and one bow blob each). */
+    blobSpacing: 0.5,
     bowAt: 0.5,
-    bowFoamEnd: 0.12,
-    bowWidth: 0.3,
-    bowMin: 0.55,
+    bowMin: 0.5,
     /** Below this fraction of vMax there is no bow wave. */
     bowMinSpeed: 0.3,
-    /** Kelvin arms: half-angle off the ship's track (rad), length (x ship length), width, strength. */
+    /** Kelvin arms (scattered): half-angle off the ship's track (rad), length (x ship length), strength. */
     armAngle: 0.42,
-    armLength: 2.4,
-    armWidth: 0.2,
-    armStrength: 0.5,
+    armLength: 2.2,
+    armStrength: 0.45,
     /** Meters of travel between bow spray puffs. */
     bowSpacing: 1,
   },
