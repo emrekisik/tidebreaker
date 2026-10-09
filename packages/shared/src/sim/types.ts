@@ -70,3 +70,8 @@ export interface Combatant {
   /** 0 = blue, 1 = red, NO_TEAM = none. Teammates never hurt each other. */
   team: number;
 }
+
+/** A combatant for slot-based worlds (the server): state is created once and reused. */
+export function createCombatant(id: number, def: ShipDef, team: number): Combatant {
+  return { id, state: createShipState(def, 0, 0, 0), def, team };
+}

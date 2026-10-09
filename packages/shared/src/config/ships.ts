@@ -228,3 +228,6 @@ export const SHIPS = {
 } as const satisfies Record<string, ShipDef>;
 
 export type ShipId = keyof typeof SHIPS;
+
+/** Stable numeric ids (index into this list): the class a player picks on the wire. */
+export const SHIP_IDS = Object.keys(SHIPS) as ShipId[];

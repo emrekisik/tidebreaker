@@ -9,6 +9,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@tidebreaker/shared": "workspace:*"
+    "@tidebreaker/shared": "workspace:*",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
   }
 }
