@@ -31,6 +31,7 @@ import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
+import { Minimap } from './ui/minimap.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
 
 setLanguage(detectLanguage());
@@ -152,6 +153,15 @@ debugHud?.setMapInfo(
   `map seed ${mapSeed}  hash ${mapHash(worldMap).toString(16)}  ${worldMap.islandCount} islands, ${worldMap.reefCount} reefs`,
 );
 
+const minimapEl = document.getElementById('minimap') as HTMLElement;
+const minimap = new Minimap(minimapEl, worldMap);
+const enemyStates = game.entities.slice(1).map((e) => e.combatant.state);
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && !e.repeat) {
+    minimap.toggle();
+    minimapEl.classList.toggle('big');
+  }
+});
 const stormEl = document.getElementById('storm') as HTMLElement;
 let lastStorm = -1;
 let aim = 0;
@@ -192,6 +202,7 @@ function update(nowMs: number): void {
   water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
   islands.update(timeSec);
+  minimap.update(ps, enemyStates, stage.camera);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;

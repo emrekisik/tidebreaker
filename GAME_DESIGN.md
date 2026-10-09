@@ -570,7 +570,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
 - **Can/kalkan çubukları:** kaybedilen kısım **beyaz** kalır ve erir (Dota 2 tarzı). **Her hasar kendi parçasıdır:** 0,1 sn bekler, sonra 0,9 sn'de yumuşakça erir; sürekli hasarda beyaz kısım sınırsız uzamaz, hasar hızıyla orantılı bir uzunlukta dengelenir. Hem gemi üstü çubuklarda hem oyuncu HUD'ında.
-- **HUD:** kalkan ve gövde çubuğu, score/gold, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
+- **HUD:** kalkan ve gövde çubuğu, score/gold, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (Faz 1b'de ilk sürümü eklendi: sol altta küçük, `M` ile büyür; tüm harita, adalar türüne göre işaretli, resifler, kıyı bandı, mesafe halkaları, 500 birimlik ölçek çubuğu, kameranın gördüğü alan, oyuncu oku ve düşman noktaları. İlerideki fazlarda AOI/limanlar/sandık ışınlarıyla genişler) (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
 - **Ölüm ekranı:** özet + "Tekrar Oyna" (aynı isim).
 - Yerelleştirme: `tr` ve `en` metin dosyaları (JSON). Kullanıcı adı: Unicode harf/rakam/boşluk/`_`/`-`, 1–16 karakter.
 

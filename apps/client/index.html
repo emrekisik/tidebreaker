@@ -207,6 +207,26 @@
         border-radius: 6px;
         resize: none;
       }
+      #minimap {
+        left: 12px;
+        bottom: 12px;
+        padding: 4px;
+        border-radius: 8px;
+        background: rgba(5, 13, 22, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+      }
+      #minimap canvas {
+        display: block;
+        border-radius: 5px;
+      }
+      #minimap.big {
+        left: 50%;
+        top: 50%;
+        bottom: auto;
+        transform: translate(-50%, -50%);
+        background: rgba(5, 13, 22, 0.8);
+        padding: 8px;
+      }
       #storm {
         inset: 0;
         opacity: 0;
@@ -259,6 +279,7 @@
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="minimap" class="overlay"></div>
     <div id="storm" class="overlay"><span data-i18n="hud.storm"></span></div>
     <div id="dmg-layer" class="overlay"></div>
     <div id="hint" class="overlay" data-i18n="hint.controls"></div>

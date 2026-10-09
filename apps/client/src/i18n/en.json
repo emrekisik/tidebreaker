@@ -1,6 +1,11 @@
 {
   "hud.storm": "Storm at the edge of the world — turn back!",
-  "hint.controls": "W gas · S brake/reverse · A/D rudder · mouse aim · left click fire · right click gas · wheel zoom",
+  "map.port": "Port",
+  "map.fort": "Pirate fort",
+  "map.treasure": "Treasure island",
+  "map.flat": "Island",
+  "map.unit": "units",
+  "hint.controls": "W gas · S brake/reverse · A/D rudder · mouse aim · left click fire · right click gas · wheel zoom · M map",
   "hud.hull": "Hull",
   "hud.shield": "Shield",
   "hud.sunk": "Sunk",

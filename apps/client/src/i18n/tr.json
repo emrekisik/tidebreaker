@@ -1,6 +1,11 @@
 {
   "hud.storm": "Haritanın kenarında fırtına var — geri dön!",
-  "hint.controls": "W gaz · S fren/geri · A/D dümen · fare nişan · sol tık ateş · sağ tık gaz · tekerlek zoom",
+  "map.port": "Liman",
+  "map.fort": "Korsan kalesi",
+  "map.treasure": "Hazine adası",
+  "map.flat": "Ada",
+  "map.unit": "birim",
+  "hint.controls": "W gaz · S fren/geri · A/D dümen · fare nişan · sol tık ateş · sağ tık gaz · tekerlek zoom · M harita",
   "hud.hull": "Gövde",
   "hud.shield": "Kalkan",
   "hud.sunk": "Batırılan",
