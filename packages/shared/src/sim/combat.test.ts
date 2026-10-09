@@ -242,7 +242,7 @@ describe('ProjectileSet', () => {
   it('does not travel past its range', () => {
     const set = new ProjectileSet(8);
     const { sink } = recorder();
-    const far = target(2, 52, 0); // beyond range 46 plus the hull circles
+    const far = target(2, weapon.range + 6, 0); // beyond the range plus the hull circles
     set.spawn(0, 0, 0, weapon.projectileSpeed, weapon.range, weapon.radius, 10, 1, 0);
     for (let i = 0; i < 40; i++) set.step(0.05, [far], sink);
     expect(far.state.shield).toBe(def.shield);

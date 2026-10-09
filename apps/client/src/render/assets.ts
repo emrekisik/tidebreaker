@@ -331,20 +331,21 @@ export class AssetProvider {
     };
   }
 
-  createShip(modelKey: string, team: Team): ShipModel {
+  /** `ring`: draws the glowing team ring under the ship (only the player's own ship has one). */
+  createShip(modelKey: string, team: Team, ring = false): ShipModel {
     const loaded = this.loaded.get(modelKey);
     if (!loaded && MODEL_SPECS[modelKey] && !this.failures.has(modelKey)) {
       this.failures.set(modelKey, 'not loaded');
     }
     if (loaded) {
       try {
-        return this.buildFromGltf(loaded, team);
+        return this.buildFromGltf(loaded, team, ring);
       } catch (err) {
         this.failures.set(modelKey, err instanceof Error ? err.message : String(err));
         console.warn(`Model "${modelKey}" could not be built, using the placeholder.`, err);
       }
     }
-    return this.buildPlaceholder(modelKey, team);
+    return this.buildPlaceholder(modelKey, team, ring);
   }
 
   /** Team paint color (sRGB hex). */
@@ -413,7 +414,7 @@ export class AssetProvider {
     return shadow;
   }
 
-  private buildFromGltf(loaded: LoadedModel, team: Team): ShipModel {
+  private buildFromGltf(loaded: LoadedModel, team: Team, ring: boolean): ShipModel {
     const mats = loaded.materials[team];
     const { spec } = loaded;
     const scene = loaded.scene.clone(true);
@@ -510,11 +511,11 @@ export class AssetProvider {
     model.root.add(fit);
     model.addDecal(this.shadow(spec.length, box.max.z - box.min.z), 0.2);
     model.addDecal(this.foamRing(spec.length, box.max.z - box.min.z), 0.26);
-    this.addTeamRing(model, spec.length, team);
+    if (ring) this.addTeamRing(model, spec.length, team);
     return model;
   }
 
-  private buildPlaceholder(modelKey: string, team: Team): ShipModel {
+  private buildPlaceholder(modelKey: string, team: Team, ring: boolean): ShipModel {
     const cacheKey = `${modelKey}:${team}`;
     let geos = this.cache.get(cacheKey);
     if (!geos) {
@@ -545,7 +546,7 @@ export class AssetProvider {
     model.root.add(hull, turret);
     model.addDecal(this.shadow(5, 1.9), 0.2);
     model.addDecal(this.foamRing(5, 1.9), 0.26);
-    this.addTeamRing(model, 5, team);
+    if (ring) this.addTeamRing(model, 5, team);
     return model;
   }
 

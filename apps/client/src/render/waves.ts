@@ -42,10 +42,10 @@ function wave(angleDeg: number, wavelength: number, amplitude: number, sharp: nu
 }
 
 const WAVES: readonly Wave[] = [
-  wave(20, 46, 0.17, 1.7),
-  wave(100, 27, 0.1, 2),
-  wave(-55, 16, 0.055, 2.2),
-  wave(160, 10.5, 0.03, 2.4),
+  wave(20, 46, 0.24, 1.7),
+  wave(100, 27, 0.14, 2),
+  wave(-55, 16, 0.077, 2.2),
+  wave(160, 10.5, 0.042, 2.4),
 ];
 
 /** Highest possible crest; foam and shadows are placed relative to this. */

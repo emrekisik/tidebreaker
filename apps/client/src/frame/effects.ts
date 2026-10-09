@@ -291,8 +291,8 @@ export class Effects {
       this.r(0.8, 1.6),
       FX.wind.z * 0.5,
       0.8 + 0.2 * k,
-      0.4 * k,
-      1.3 * k,
+      0.4 * k * (shield ? 1 : 1.35),
+      1.3 * k * (shield ? 1 : 1.35),
       0,
       1,
       C.smokeMid,
@@ -1065,6 +1065,24 @@ export class Effects {
     }
 
     if (speedFrac > W.bowMinSpeed) {
+      // A short, steady fringe of foam on each side of the bow (re-stamped every frame, so it
+      // never blinks). The map's noise breaks it up, so it stays loose instead of a straight line.
+      const gf = (W.bowMin + (1 - W.bowMin) * speedFrac) * W.fringeStrength;
+      for (let side = -1; side <= 1; side += 2) {
+        const ox = -sn * side * half;
+        const oz = c * side * half;
+        this.wakeMap.capsule(
+          fx - c * length * 0.04 + ox * 0.75,
+          fz - sn * length * 0.04 + oz * 0.75,
+          fx - c * length * W.fringeLength + ox * 1.15,
+          fz - sn * length * W.fringeLength + oz * 1.15,
+          half * 0.45 + 0.25,
+          0,
+          gf,
+          0,
+          gf * 0.6,
+        );
+      }
       // Bow spray at speed.
       e.bowCarry += Math.abs(s.speed) * dt;
       while (e.bowCarry >= W.bowSpacing) {

@@ -27,7 +27,7 @@ export const WEAPONS = {
   machine_gun: {
     damage: 2,
     intervalSec: 0.15,
-    range: 36,
+    range: 45,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 3,
@@ -39,7 +39,7 @@ export const WEAPONS = {
   cannon_t3: {
     damage: 16,
     intervalSec: 0.75,
-    range: 46,
+    range: 58,
     projectileSpeed: 60,
     radius: 0.25,
     spreadDeg: 1.5,
@@ -50,7 +50,7 @@ export const WEAPONS = {
   cannon_t4: {
     damage: 18,
     intervalSec: 0.8,
-    range: 50,
+    range: 63,
     projectileSpeed: 60,
     radius: 0.28,
     spreadDeg: 1.5,
@@ -61,7 +61,7 @@ export const WEAPONS = {
   cannon_t5: {
     damage: 22,
     intervalSec: 0.8,
-    range: 56,
+    range: 70,
     projectileSpeed: 60,
     radius: 0.32,
     spreadDeg: 1.2,
@@ -73,7 +73,7 @@ export const WEAPONS = {
   rocket: {
     damage: 15,
     intervalSec: 2,
-    range: 55,
+    range: 70,
     projectileSpeed: 66,
     radius: 0.3,
     spreadDeg: 2.5,

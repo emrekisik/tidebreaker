@@ -70,8 +70,8 @@ export const FX = {
     speed: 13,
     life: 0.5,
     chips: 4,
-    flash: 1.6,
-    fireball: 1.5,
+    flash: 2.4,
+    fireball: 2.3,
     /** Shield hit flash: start and end size (scaled by the weapon). */
     shieldFlash: [1.1, 1.8],
   },
@@ -117,7 +117,10 @@ export const FX = {
     /** Kelvin arms (scattered): half-angle off the ship's track (rad), length (x ship length), strength. */
     armAngle: 0.42,
     armLength: 2.2,
-    armStrength: 0.45,
+    armStrength: 0.4,
+    /** Short foam fringe hugging each side of the bow (continuous, so it does not flicker). */
+    fringeLength: 0.3,
+    fringeStrength: 0.65,
     /** Meters of travel between bow spray puffs. */
     bowSpacing: 1,
   },

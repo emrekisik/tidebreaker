@@ -114,7 +114,7 @@ void main() {
   float wl = vnoise(p * 2.3 + vec2(uTime * 0.12, -uTime * 0.09)) * 0.55
            + vnoise(p * 5.9 - vec2(uTime * 0.2, uTime * 0.13)) * 0.45;
   float trail = smoothstep(0.16, 0.55, wk.r * (0.3 + 1.4 * wl));
-  float bow = smoothstep(0.14, 0.5, wk.g * (0.3 + 1.4 * wl));
+  float bow = smoothstep(0.1, 0.42, wk.g * (0.55 + 0.9 * wl));
   col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.4, 0.0, 0.4));
   col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8, 0.0, 0.9));
 

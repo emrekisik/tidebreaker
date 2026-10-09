@@ -94,7 +94,7 @@ export class LocalGame implements HitSink, CollisionSink {
     const spawn = TRAINING.playerSpawn;
     const playerDef = SHIPS[TRAINING.playerShip as ShipId];
     this.player = this.addShip(
-      assets.createShip(playerModelKey ?? playerDef.modelKey, 'blue'),
+      assets.createShip(playerModelKey ?? playerDef.modelKey, 'blue', true),
       playerDef,
       spawn.x,
       spawn.y,
@@ -130,7 +130,7 @@ export class LocalGame implements HitSink, CollisionSink {
 
   /** Visual-only: swaps the player's model. Sim data (speed, hit shape, mounts) is unchanged. */
   setPlayerModel(modelKey: string): void {
-    const model = this.assets.createShip(modelKey, 'blue');
+    const model = this.assets.createShip(modelKey, 'blue', true);
     this.scene.remove(this.player.model.root);
     this.scene.add(model.root);
     this.player.setModel(model);

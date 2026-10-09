@@ -28,7 +28,7 @@ const CAPACITY = 256;
 
 /** Foam channel lifetimes (seconds): R = turbulent trail, G = bow wave and Kelvin arms. */
 const TAU_TRAIL = 1.7;
-const TAU_BOW = 0.3;
+const TAU_BOW = 0.5;
 /** Sideways spread of the trail per second (the trail widens as it ages). */
 const DIFFUSION = 26;
 

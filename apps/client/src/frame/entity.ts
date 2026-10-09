@@ -9,7 +9,7 @@ import { waveHeight, waveSlope } from '../render/waves.ts';
 const slope = new Float32Array(2);
 /** How strongly ships follow the waves (1 = exactly). Tilt is exaggerated so it reads from above. */
 const BOB = 0.5;
-const TILT = 1.3;
+const TILT = 1.0;
 
 /** A ship in the scene: sim state plus its interpolated visual. */
 export class ShipEntity {
