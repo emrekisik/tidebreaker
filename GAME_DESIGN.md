@@ -87,16 +87,16 @@ Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat y�
 ## 4. Dünya
 
 ### 4.1 Harita
-- Kare harita, **1500 × 1500 birim** (1 birim ≈ 1 metre, stilize; ilk tasarımda 2400 idi, oynanırken çok büyük gelince küçültüldü). Merkez (750, 750). Sınırlarda görünmez yumuşak duvar: kenardan 70 birim içinde hız sönümü (`MAP.boundary.damp`) ve içeri doğru itme (`push`), en uçta sert kıskaç; oyuncunun gemisi banda girince ekranın kenarları kararır ve "fırtına" uyarısı çıkar (`boundaryDepth`).
+- Kare harita, **1100 × 1100 birim** (1 birim ≈ 1 metre, stilize; ilk tasarımda 2400 idi, oynanırken çok büyük gelince iki kez küçültüldü). Merkez (550, 550). Sınırlarda görünmez yumuşak duvar: kenardan 60 birim içinde hız sönümü (`MAP.boundary.damp`) ve içeri doğru itme (`push`), en uçta sert kıskaç; oyuncunun gemisi banda girince ekranın kenarları kararır ve "fırtına" uyarısı çıkar (`boundaryDepth`).
 - Harita **seed'den deterministik üretilir**. Sunucu yalnızca seed'i gönderir, istemci aynı kodla (`shared`) aynı haritayı üretir. Üretim kodu hem Node'da hem tarayıcıda aynı sonucu vermelidir (hash testi, §14).
 - Koordinat sistemi: simülasyon 2D `(x, y)`. three.js dünyası `(x, 0, y)`. **Heading** θ radyan, +x'ten +y'ye doğru ölçülür, model ileri yönü +x'tir ve `mesh.rotation.y = -θ` uygulanır (sık yapılan hata: işareti unutmak).
 
 ### 4.2 Bölgeler (risk–ödül)
 | Bölge | Merkeze uzaklık | Sandık/varil/hazine çarpanı | Korsan yoğunluğu |
 |---|---|---|---|
-| Dış (Güvenli Sular) | > 510 | ×1.0 | düşük |
-| Orta (Ticaret Yolları) | 270–510 | ×1.5 | orta |
-| İç (Korsan Suları) | < 270 | ×2.5 | yüksek, kaleler, boss |
+| Dış (Güvenli Sular) | > 375 | ×1.0 | düşük |
+| Orta (Ticaret Yolları) | 200–375 | ×1.5 | orta |
+| İç (Korsan Suları) | < 200 | ×2.5 | yüksek, kaleler, boss |
 
 ### 4.3 Adalar
 Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 kaya). Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 12–30; liman ≥ 18, kale ≥ 20, çünkü binalar sığmalı).
@@ -743,7 +743,7 @@ Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıc�
 3. **Gemi teması:** stilize "karma modern" (sahil güvenlik botundan fırkateyne). Korsanlar sandal/tekne/brik karışımı. Dönem netleşirse modeller buna göre.
 4. **Hesap/kalıcılık:** v1'de yok. Sadece isim.
 5. **Kontroller:** klavye + fare (W gaz, S fren, A/D dümen). Mobil desteklenmez.
-6. **Oda kapasitesi:** 50 oyuncu + 10–40 korsan. Harita 1500×1500 (kalabalık yoğunluğu için ileride yeniden ölçülecek).
+6. **Oda kapasitesi:** 50 oyuncu + 10–40 korsan. Harita 1100×1100 (kalabalık yoğunluğu için ileride yeniden ölçülecek).
 7. **Doldurma botları:** kapalı.
 8. **Para kazanma:** v1'de yok. Reklam/portal SDK sonra. (Faz 10)
 9. **Bölge:** ilk sunucu EU.
@@ -779,8 +779,8 @@ export const MAX_PICKUPS = 512;
 export const TICK_BUSY_GATE = 0.65;
 
 // world.ts
-export const WORLD_SIZE = 1500;
-export const ZONES = { innerRadius: 270, midRadius: 510, mult: { outer: 1.0, mid: 1.5, inner: 2.5 } };
+export const WORLD_SIZE = 1100;
+export const ZONES = { innerRadius: 200, midRadius: 375, mult: { outer: 1.0, mid: 1.5, inner: 2.5 } };
 export const ISLANDS = { total: 14, ports: 3, forts: 3, treasure: 3, plain: 5, reefClusters: 25 };
 export const PORT = { safeRadius: 70, immunitySec: 12, immunityResetSec: 30, regenMult: 4 };
 

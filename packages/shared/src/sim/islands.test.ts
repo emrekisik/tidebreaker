@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAP, WORLD_SIZE } from '../config/world.ts';
+import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { SHIPS } from '../config/ships.ts';
 import { Mulberry32 } from '../math/rng.ts';
 import { generateMap } from '../world/generate.ts';
@@ -110,7 +110,7 @@ describe('ship vs island', () => {
 
 describe('world edge', () => {
   it('slows ships and keeps them inside the world', () => {
-    const s = createShipState(def, WORLD_SIZE - 300, 1200, 0); // full speed toward the east edge
+    const s = createShipState(def, WORLD_SIZE - 300, WORLD_CENTER, 0); // full speed toward the east edge
     let nearEdgeSpeed: number = def.vMax;
     let closest = Infinity;
     for (let i = 0; i < 600; i++) {
@@ -127,10 +127,10 @@ describe('world edge', () => {
   });
 
   it('is invisible in open water and total at the edge', () => {
-    expect(boundaryDepth(1200, 1200)).toBe(0);
-    expect(boundaryDepth(0, 1200)).toBe(1);
-    expect(boundaryDepth(MAP.boundary.width / 2, 1200)).toBeCloseTo(0.5, 5);
-    const s = createShipState(def, 1200, 1200, 0);
+    expect(boundaryDepth(WORLD_CENTER, WORLD_CENTER)).toBe(0);
+    expect(boundaryDepth(0, WORLD_CENTER)).toBe(1);
+    expect(boundaryDepth(MAP.boundary.width / 2, WORLD_CENTER)).toBeCloseTo(0.5, 5);
+    const s = createShipState(def, WORLD_CENTER, WORLD_CENTER, 0);
     applyWorldBounds(s, DT);
     expect(s.kx).toBe(0);
     expect(s.speed).toBe(0);
