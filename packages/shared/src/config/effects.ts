@@ -108,21 +108,15 @@ export const FX = {
     trailMin: 0.3,
     trailWidth: 0.5,
     blobSpread: 1.1,
-    /** Meters of travel between scattered blobs (one trail blob and one bow blob each). */
+    /** Meters of travel between scattered blobs (one trail blob each). */
     blobSpacing: 0.5,
     bowAt: 0.5,
     bowMin: 0.5,
     /** Below this fraction of vMax there is no bow wave. */
     bowMinSpeed: 0.3,
-    /** Kelvin arms (scattered): half-angle off the ship's track (rad), length (x ship length), strength. */
-    armAngle: 0.42,
-    armLength: 2.2,
-    armStrength: 0.4,
     /** Short foam fringe hugging each side of the bow (continuous, so it does not flicker). */
     fringeLength: 0.3,
     fringeStrength: 0.65,
-    /** Meters of travel between bow spray puffs. */
-    bowSpacing: 1,
   },
 } as const;
 

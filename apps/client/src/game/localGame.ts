@@ -160,7 +160,7 @@ export class LocalGame implements HitSink, CollisionSink {
   }
 
   /** One fixed simulation tick (GAME_DESIGN.md §11.2 order, reduced to what exists so far). */
-  step(steer: number, throttle: number, aim: number, fire: boolean): void {
+  step(steer: number, throttle: number, aim: number, aimDist: number, fire: boolean): void {
     for (const e of this.entities) {
       const s = e.combatant.state;
       e.pose.capture(s.x, s.y, s.heading);
@@ -187,8 +187,19 @@ export class LocalGame implements HitSink, CollisionSink {
     const p = this.player;
     const ps = p.combatant.state;
     p.aim = aim;
+    p.aimDist = aimDist;
     if (ps.alive) {
-      updateMounts(ps, p.combatant.def, PLAYER_ID, aim, fire, STEP_SEC, this.rng, this.shotSink);
+      updateMounts(
+        ps,
+        p.combatant.def,
+        PLAYER_ID,
+        aim,
+        fire,
+        STEP_SEC,
+        this.rng,
+        this.shotSink,
+        aimDist,
+      );
     }
 
     this.projectiles.step(STEP_SEC, this.combatants, this);

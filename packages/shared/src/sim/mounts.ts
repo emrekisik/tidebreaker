@@ -1,5 +1,5 @@
 import type { MountDef, ShipDef } from '../config/ships.ts';
-import { SALVO_GAP_SEC, WEAPONS, weaponIndex } from '../config/weapons.ts';
+import { MOUNT_CONVERGE_MIN, SALVO_GAP_SEC, WEAPONS, weaponIndex } from '../config/weapons.ts';
 import { DEG2RAD, angleDiff } from '../math/angle.ts';
 import type { ShipState } from './types.ts';
 
@@ -33,10 +33,28 @@ export function mountCanFire(ship: ShipState, mount: MountDef, aim: number): boo
 }
 
 /**
+ * World angle a mount at (mountX, mountY) should fire at so its shot passes through the aim point:
+ * the point `aimDist` units from the ship center (shipX, shipY) along `aim`. With `aimDist` <= 0
+ * the mount just fires along `aim` (parallel shots).
+ */
+export function convergedAngle(
+  shipX: number,
+  shipY: number,
+  aim: number,
+  aimDist: number,
+  mountX: number,
+  mountY: number,
+): number {
+  if (!(aimDist > 0)) return aim;
+  const d = Math.max(aimDist, MOUNT_CONVERGE_MIN);
+  return Math.atan2(shipY + Math.sin(aim) * d - mountY, shipX + Math.cos(aim) * d - mountX);
+}
+
+/**
  * Ticks mount cooldowns and fires ready mounts whose arc contains `aim` (GAME_DESIGN.md §5.3).
  * Every weapon has its own reload; at most one mount fires per `SALVO_GAP_SEC`, in mount order,
- * so volleys roll out one barrel after another. Shots spawn at the barrel tip. Returns the
- * number of shots fired.
+ * so volleys roll out one barrel after another. Shots spawn at the barrel tip and converge on the
+ * aim point `aimDist` away (0 = parallel). Returns the number of shots fired.
  */
 export function updateMounts(
   ship: ShipState,
@@ -47,6 +65,7 @@ export function updateMounts(
   dt: number,
   rng: Rng,
   sink: ProjectileSink,
+  aimDist = 0,
 ): number {
   let shots = 0;
   ship.salvoCooldown = Math.max(0, ship.salvoCooldown - dt);
@@ -70,7 +89,9 @@ export function updateMounts(
     // starboard = forward rotated +90 degrees (heading goes from +x toward +y).
     const px = ship.x + cosH * mount.offset[0] - sinH * mount.offset[1];
     const py = ship.y + sinH * mount.offset[0] + cosH * mount.offset[1];
-    const angle = aim + (rng.next() * 2 - 1) * weapon.spreadDeg * DEG2RAD;
+    const angle =
+      convergedAngle(ship.x, ship.y, aim, aimDist, px, py) +
+      (rng.next() * 2 - 1) * weapon.spreadDeg * DEG2RAD;
     sink.spawn(
       px + Math.cos(angle) * mount.muzzle,
       py + Math.sin(angle) * mount.muzzle,

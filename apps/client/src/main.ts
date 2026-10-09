@@ -10,7 +10,7 @@ import {
 import type { ShipId } from '@tidebreaker/shared';
 import type { Color } from 'three';
 import { FixedStep } from './frame/fixedStep.ts';
-import { aimAngleFromScreen } from './frame/aim.ts';
+import { aimFromScreen } from './frame/aim.ts';
 import { CameraRig } from './frame/cameraRig.ts';
 import { Effects } from './frame/effects.ts';
 import { ProjectileView } from './frame/projectileView.ts';
@@ -132,6 +132,8 @@ const debug = params.get('debug') === '1';
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 
 let aim = 0;
+let aimDist = 0;
+const aimOut = new Float32Array(2);
 let lastMs = performance.now();
 
 function update(nowMs: number): void {
@@ -145,9 +147,11 @@ function update(nowMs: number): void {
   const steps = fixedStep.advance(frameMs);
   const ps = game.player.combatant.state;
   for (let i = 0; i < steps; i++) {
-    const a = aimAngleFromScreen(stage.camera, input.ndcX, input.ndcY, ps.x, ps.y);
-    if (!Number.isNaN(a)) aim = a;
-    game.step(input.steer, input.throttle, aim, input.fire);
+    if (aimFromScreen(stage.camera, input.ndcX, input.ndcY, ps.x, ps.y, aimOut)) {
+      aim = aimOut[0]!;
+      aimDist = aimOut[1]!;
+    }
+    game.step(input.steer, input.throttle, aim, aimDist, input.fire);
   }
 
   const alpha = fixedStep.alpha;

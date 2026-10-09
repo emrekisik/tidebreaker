@@ -385,7 +385,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 |---|---|---|
 | 0x01 | `HELLO` | `u8 protoVersion` |
 | 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 skinId` |
-| 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim` (8 bayt) |
+| 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim, u8 aimDist` (9 bayt; `aimDist` = gemiden imlece uzaklık, birim, 0–255) |
 | 0x04 | `UPGRADE` | `u8 statId (0..4)` |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` |
 | 0x06 | `PING` | `u32 clientTimeMs` |
@@ -534,7 +534,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.2 Su
 - Kameranın altında kayan **tek plane** (dünyayı kaplayan dev mesh yok, 200×200 segment). Vertex shader'da **keskin tepeli** dalgalar: her bileşen `2a·(s^p − ortalama)`, s = (1+sin)/2; p > 1 olduğu için tepeler dar ve sivri, çukurlar geniş ve düz (gerçek rüzgâr dalgası gibi). 4 bileşen, derin su dispersiyonuna göre hızlar (uzun dalga daha hızlı). Aynı sabitler JS'te de kullanılır (gemiler tam çizilen dalgada sallanır).
 - Fragment shader: eğim dalganın kendisinden analitik hesaplanır (üçgenden değil), üstüne vertex ızgarasının çözemediği ince dalgacıklar (analitik "chop") ve hafif gürültü eklenir; güneş parıltısı, ufukta gökyüzü yansıması (fresnel), ince dantelli beyaz köpük (whitecap) ve ince tepelerden geçen ışık tonu vardır.
-- **Gemi izi (köpük haritası):** kameraya bağlı 200×200 birimlik, 1024² yarım-hassasiyetli (half-float) bir render hedefi (`WakeMap`). Her kare: eski içerik kameraya göre kaydırılır, sönümlenir ve hafifçe yayılır (iz zamanla genişleyip dağılır); sonra gemiler yumuşak "kapsül" damgaları basar (max karışım). R kanalı = kıç türbülansı (uzun ömürlü), G kanalı = baş dalgası ve Kelvin kolları (kısa ömürlü). Su shader'ı haritayı okuyup gürültüyle delerek dantelli köpük çizer; iz kesintisizdir, gemiyle birlikte kıvrılır. Damgalar dağınık rastgele noktalardır (düzgün çizgi/ok şekli yok); baş tarafı sıçrama parçacıkları ayrıca vardır.
+- **Gemi izi (köpük haritası):** kameraya bağlı 200×200 birimlik, 1024² yarım-hassasiyetli (half-float) bir render hedefi (`WakeMap`). Her kare: eski içerik kameraya göre kaydırılır, sönümlenir ve hafifçe yayılır (iz zamanla genişleyip dağılır); sonra gemiler yumuşak "kapsül" damgaları basar (max karışım). R kanalı = kıç türbülansı (uzun ömürlü), G kanalı = baş dalgası ve Kelvin kolları (kısa ömürlü). Su shader'ı haritayı okuyup gürültüyle delerek dantelli köpük çizer; iz kesintisizdir, gemiyle birlikte kıvrılır. Kıç damgaları dağınık rastgele noktalardır (düzgün çizgi/ok şekli yok); baş tarafı sıçrama parçacıkları ayrıca vardır.
 
 ### 12.2b Efektler (low-poly, kozmetik)
 - Tüm efektler **havuzlu parçacıklardır** (7 `InstancedMesh`: duman/su (lit, alfa), ateş ve parlamalar (additive), **yumuşak yuvarlak glow** (billboard, additive: mermi halesi, roket egzozu, yangın ışıması), hız yönünde uzayan kıvılcımlar (additive), **iz çizgileri (tracer, normal karışım: parlak suda rengini korur)**, dönen enkaz, yumuşak kenarlı köpük). Düz renkli, kenarlı (flat-shaded), toplam 7 çizim çağrısı. Ayarlar `config/effects.ts`. Ateş üç renk durağıyla (beyaz-sarı → turuncu → koyu kırmızı) solar. Enkaz suya düşünce sıçrama yapar. Gemi gövdesinin su çizgisinde köpük halkası vardır.
@@ -578,7 +578,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Sesler: top, isabet, batma, sandık toplama, upgrade, sınıf atlama, su ambiyansı, UI tıkları. Mesafeyle ses azaltma basit gain.
 
 ### 12.8 Girdi
-- Klavye + fare: pointer lock gerekmez. Nişan, ekran koordinatından zemin düzlemine ışın ile hesaplanır, `u16 aim` olarak gönderilir.
+- Klavye + fare: pointer lock gerekmez. Nişan, ekran koordinatından zemin düzlemine ışın ile hesaplanır, `u16 aim` (açı) ve `u8 aimDist` (uzaklık) olarak gönderilir. Gövdeye yayılmış topların mermileri imleç noktasında **kesişir** (paralel gitmez); `aimDist` en az `MOUNT_CONVERGE_MIN` alınır.
 - Sekme görünmezse girdi gönderimi `setInterval` ile devam eder (AFK kuralı geçerli).
 
 ---

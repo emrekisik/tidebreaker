@@ -25,6 +25,7 @@ import type { Texture } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { convergedAngle } from '@tidebreaker/shared';
 import { MODEL_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
@@ -134,12 +135,20 @@ export class ShipModel {
     }
   }
 
-  /** Turns every turret toward `aim` (sim angle) for a hull heading of `heading`. */
-  aimTurrets(heading: number, aim: number): void {
+  /**
+   * Turns every turret toward the aim point: `aimDist` units from the ship at (x, y) along `aim`
+   * (sim angle), seen from the turret's own pivot, for a hull heading of `heading`.
+   */
+  aimTurrets(x: number, y: number, heading: number, aim: number, aimDist: number): void {
+    const cosH = Math.cos(heading);
+    const sinH = Math.sin(heading);
     for (let i = 0; i < this.turrets.length; i++) {
       const rig = this.turrets[i]!;
-      // World yaw of a three.js node is -angle, so the relative turn is (heading - aim).
-      this.tmp.setFromAxisAngle(rig.axis, heading - aim + rig.restYaw);
+      const px = x + cosH * rig.forward - sinH * rig.starboard;
+      const py = y + sinH * rig.forward + cosH * rig.starboard;
+      const angle = convergedAngle(x, y, aim, aimDist, px, py);
+      // World yaw of a three.js node is -angle, so the relative turn is (heading - angle).
+      this.tmp.setFromAxisAngle(rig.axis, heading - angle + rig.restYaw);
       rig.node.quaternion.copy(this.tmp).multiply(rig.rest);
     }
   }

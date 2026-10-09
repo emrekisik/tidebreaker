@@ -1001,7 +1001,7 @@ export class Effects {
 
   /**
    * Ship wake, stamped into the foam map as scattered blobs: a ragged turbulent trail behind the
-   * stern, loose foam along the bow sides and a faint, broken Kelvin spread. The map fades and
+   * stern and a steady foam fringe along the bow sides. The map fades and
    * spreads it, so it curves with the ship and dissolves into lace. Bow spray stays particles.
    */
   private wake(e: ShipEntity, dt: number, length: number, width: number): void {
@@ -1010,7 +1010,6 @@ export class Effects {
     const p = e.pose;
     const c = Math.cos(p.heading);
     const sn = Math.sin(p.heading);
-    const wscale = width / 1.6;
     const speedFrac = clamp(Math.abs(s.speed) / e.combatant.def.vMax, 0, 1);
     const half = width * 0.5;
 
@@ -1042,26 +1041,6 @@ export class Effects {
       const bz = sz + (pz - sz) * back + c * lat;
       const rv = strength * this.r(0.4, 0.9);
       this.wakeMap.capsule(bx, bz, bx, bz, half * this.r(0.25, 0.6) + 0.25, rv, 0, rv, 0);
-      if (speedFrac > W.bowMinSpeed) {
-        const bowStrength = W.bowMin + (1 - W.bowMin) * speedFrac;
-        const side = this.rng.next() < 0.5 ? -1 : 1;
-        const ox = -sn * side;
-        const oz = c * side;
-        // Loose foam on the hull sides near the bow.
-        const along = this.r(0.1, 0.5) * length;
-        const out = half * this.r(0.85, 1.35);
-        const hx = p.x + c * along + ox * out;
-        const hz = p.y + sn * along + oz * out;
-        const g = bowStrength * this.r(0.5, 1);
-        this.wakeMap.capsule(hx, hz, hx, hz, half * this.r(0.2, 0.4) + 0.2, 0, g, 0, g);
-        // Broken Kelvin spread: dots scattered around the two arm directions.
-        const reach = this.r(0.25, 1) * length * W.armLength;
-        const ang = W.armAngle * this.r(0.6, 1.4);
-        const kx = fx + ox * half * 0.6 - c * Math.cos(ang) * reach + ox * Math.sin(ang) * reach;
-        const kz = fz + oz * half * 0.6 - sn * Math.cos(ang) * reach + oz * Math.sin(ang) * reach;
-        const ka = bowStrength * W.armStrength * this.r(0.6, 1);
-        this.wakeMap.capsule(kx, kz, kx, kz, half * this.r(0.15, 0.3) + 0.2, 0, ka, 0, ka);
-      }
     }
 
     if (speedFrac > W.bowMinSpeed) {
@@ -1081,30 +1060,6 @@ export class Effects {
           gf,
           0,
           gf * 0.6,
-        );
-      }
-      // Bow spray at speed.
-      e.bowCarry += Math.abs(s.speed) * dt;
-      while (e.bowCarry >= W.bowSpacing) {
-        e.bowCarry -= W.bowSpacing;
-        const side = half * 0.5 * (this.rng.next() < 0.5 ? -1 : 1);
-        this.puff.spawn(
-          fx - sn * side,
-          0.4,
-          fz + c * side,
-          c * 1.2 + this.r(-0.4, 0.4),
-          this.r(1.5, 3),
-          sn * 1.2 + this.r(-0.4, 0.4),
-          0.5,
-          0.18 * wscale,
-          0.05,
-          10,
-          0,
-          C.foam,
-          C.spray,
-          0.7,
-          0,
-          0,
         );
       }
     }

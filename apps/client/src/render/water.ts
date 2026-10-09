@@ -142,7 +142,7 @@ export class Water {
         uSky: { value: new Color(0x2c76a8) },
         uSun: { value: SUN },
         uCenter: { value: new Vector2() },
-        uSlope: { value: 5.5 },
+        uSlope: { value: 7 },
         uWaveMax: { value: WAVE_MAX },
         uWake: { value: null },
         uWakeOrigin: { value: new Vector2() },

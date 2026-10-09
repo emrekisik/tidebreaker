@@ -271,3 +271,44 @@ describe('ProjectileSet', () => {
     expect(set.activeCount).toBe(2);
   });
 });
+
+describe('converging mounts', () => {
+  // Two machine guns far apart along the hull (bow and stern), 360 degree arcs.
+  const base = SHIPS.gunboat.mounts[0]!;
+  const wide = {
+    ...SHIPS.gunboat,
+    mounts: [
+      { ...base, offset: [6, 0] as [number, number], arcDeg: 180 },
+      { ...base, offset: [-6, 0] as [number, number], arcDeg: 180 },
+    ],
+  };
+
+  function fireOnce(aimDist: number): { x: number; y: number; angle: number }[] {
+    const s = createShipState(wide, 0, 0, 0);
+    const shots: { x: number; y: number; angle: number }[] = [];
+    const sink = {
+      spawn(x: number, y: number, angle: number) {
+        shots.push({ x, y, angle });
+      },
+    };
+    for (let i = 0; i < 6; i++)
+      updateMounts(s, wide, 1, Math.PI / 2, true, 0.05, zeroRng, sink, aimDist);
+    return shots;
+  }
+
+  it('shots of far-apart mounts cross at the aim point', () => {
+    const dist = 30;
+    const shots = fireOnce(dist);
+    expect(shots.length).toBeGreaterThanOrEqual(2);
+    // aim = +y, so the target is (0, 30). Each ray must pass through it.
+    for (const sh of shots.slice(0, 2)) {
+      const t = (30 - sh.y) / Math.sin(sh.angle);
+      expect(sh.x + Math.cos(sh.angle) * t).toBeCloseTo(0, 0);
+    }
+  });
+
+  it('stays parallel when no aim distance is given', () => {
+    const shots = fireOnce(0);
+    expect(shots[0]!.angle).toBeCloseTo(shots[1]!.angle, 6);
+  });
+});

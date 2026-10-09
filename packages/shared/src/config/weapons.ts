@@ -20,6 +20,12 @@ export interface WeaponDef {
   visual: ProjectileVisual;
 }
 
+/**
+ * Mounts spread over the hull aim at the point under the cursor, so their shots converge there
+ * instead of flying parallel. The aim distance is clamped to at least this many units.
+ */
+export const MOUNT_CONVERGE_MIN = 8;
+
 /** Minimum time between two shots of the same ship, so mounts fire one after another. */
 export const SALVO_GAP_SEC = 0.1;
 

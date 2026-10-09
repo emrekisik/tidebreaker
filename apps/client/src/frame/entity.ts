@@ -19,6 +19,8 @@ export class ShipEntity {
   readonly pose = new PoseInterp();
   /** World-space aim angle of the turret (sim radians). */
   aim = 0;
+  /** Distance from the ship to the aim point (turrets converge there). */
+  aimDist = 0;
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
@@ -29,7 +31,6 @@ export class ShipEntity {
   homeY = 0;
   homeHeading = 0;
   /** Fractional effect timers (see Effects.ship). */
-  bowCarry = 0;
   /** Travel since the last scattered wake blob. */
   blobCarry = 0;
   /** Stern position last frame, so the wake trail has no gaps. */
@@ -100,7 +101,7 @@ export class ShipEntity {
       root.rotation.z,
     );
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
-    this.model.aimTurrets(this.pose.heading, this.aim);
+    this.model.aimTurrets(this.pose.x, this.pose.y, this.pose.heading, this.aim, this.aimDist);
 
     this.flashSeconds = this.flashSeconds > dtSec ? this.flashSeconds - dtSec : 0;
     this.model.setFlash(this.flashSeconds > 0);
