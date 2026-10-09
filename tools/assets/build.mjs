@@ -24,7 +24,7 @@ if (ifNeeded && !existsSync(srcDir)) {
   process.exit(0);
 }
 
-const SKIP = new Set(['aircraft_carrier.glb']);
+const SKIP = new Set();
 const ATLAS_PX = 256;
 
 await MeshoptEncoder.ready;

@@ -105,6 +105,15 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
       'TopLauncher.02',
     ],
   },
+  // The team base: stationary, defended by its own turrets (GAME_DESIGN.md §4.5).
+  aircraft_carrier: {
+    file: 'aircraft_carrier.glb',
+    hullNode: 'aircraft_carrier',
+    bow: '+z',
+    length: 60,
+    draft: -0.1,
+    aimNodes: ['aircraft_carrier.MachineGun1', 'aircraft_carrier.MachineGun2'],
+  },
   submarine: {
     file: 'submarine.glb',
     hullNode: 'submarnie',

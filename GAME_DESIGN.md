@@ -20,7 +20,7 @@
 
 ## 1. Vizyon ve tasarım sütunları
 
-**Tek cümle:** Starblast.io'nun denizde geçen, 3D low-poly gemi savaşı versiyonu. Adını yaz, oyna, korsanları ve rakipleri batır, gemini geliştir, daha büyük sınıfa geç.
+**Tek cümle:** İki takımın birbirinin **uçak gemisini** (üssünü) batırmaya çalıştığı, denizde geçen, 3D low-poly takım savaşı. Adını yaz, oyna, takımınla düşman uçak gemisini yok et. (Tür ilhamı: Starblast.io'nun .io kolaylığı; oyun modu bizim.)
 
 **Sütunlar**
 
@@ -114,7 +114,18 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 ka
 - Resifler: küçük dairesel engeller (yarıçap 4–8), görsel olarak kayalık.
 
 ### 4.4 Doğuş (spawn)
-- 8 aday nokta seçilir (dış/orta bölge, adalardan ≥ 20 birim uzak). Düşmanlara min. mesafesi en büyük olan seçilir. Korsan kalelerine ≥ 100 birim.
+- Oyuncular **kendi takımının uçak gemisinin** çevresinde doğar ve yeniden doğar (bkz. §4.5). Doğuş noktası uçak gemisinin düşmana bakan tarafındaki bir halkadan seçilir; mevcut gemilere en uzak aday alınır.
+- (FFA için tasarlanan "8 aday nokta" kuralı kullanılmıyor.)
+
+### 4.5 Oyun modu: takım savaşı ve uçak gemisi
+**Amaç:** Karşı takımın uçak gemisini yok etmek. Her takımın üssü kendi uçak gemisinin bulunduğu yerdir.
+- **Takımlar:** 0 = mavi, 1 = kırmızı. Oda kapasitesi başlangıçta 20 oyuncu (takım başına 10, `MATCH.maxPlayers`). Yeni oyuncu oyuncu sayısı az olan takıma atanır (eşitse mavi). Takım seçimi yok.
+- **Uçak gemileri** (`aircraft_carrier` modeli, `MATCH.carriers`): haritanın iki karşıt kenarına demirli (mavi batı, kırmızı doğu), **hareketsiz**, yüksek can + kalkan (`hull 4000`, `shield 1500`, başlangıç tahmini). Gemi çarpışmalarında **itilemez** (sonsuz kütle), çarpan taraf hasar alır. Çevresinde ada üretilmez (`MAP.baseClear`).
+- **Otomatik savunma:** uçak gemisinin tareti (modelde iki taret düğümü) menzildeki en yakın **düşman** gemiyi kendi seçer, hedefin hızına göre öne nişan alıp ateş eder (sabit hızlı mermi için yaklaşık önden vurma). Silah: `carrier_gun` (hasar 8, 0,25 sn, menzil 60, hız 75). Dost ateşi yoktur.
+- **Maç akışı:** uçak gemisinin canı 0'a inince o takım yenilir. Galip takım duyurulur, 15 sn ara verilir, sonra yeni tur başlar: iki uçak gemisi tam canla yenilenir, herkes kendi uçak gemisinde yeniden doğar. Harita aynı kalır (seed sabit).
+- **Ölüm ve yeniden doğuş:** batan oyuncu `respawnSec` (5 sn) sonra kendi uçak gemisinde otomatik yeniden doğar (yeniden `PLAY` gerekmez). Sınıfını değiştirmek için yeniden `PLAY` gönderebilir.
+- **Dost ateşi / çarpışma:** takım arkadaşının mermisi hasar vermez. Takım arkadaşlarıyla gemi–gemi çarpışmasında itme olur, hasar olmaz.
+- **Gemi sınıfı (geçici):** ilerleme sistemi (puan, altın, T1–T5) takım modu için yeniden tasarlanana kadar oyuncu `PLAY` sırasında **herhangi bir sınıfı seçer** (test ve denge için). Altın/yükseltme, korsanlar, limanlar, kaleler, hazine adaları ve tüccar bu fazda yok; takım oyununa nasıl uyarlanacakları Faz 4–5'te ayrıca konuşulacak (§6, §7, §8 FFA varsayımıyla yazıldı).
 
 ---
 
@@ -385,7 +396,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | Tip | Ad | Alanlar |
 |---|---|---|
 | 0x01 | `HELLO` | `u8 protoVersion` |
-| 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 skinId` |
+| 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 shipId` (`shipId` = `SHIP_IDS` sırası; Faz 2'de serbest sınıf seçimi, ileride ilerleme) |
 | 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim, u8 aimDist` (9 bayt; `aimDist` = gemiden imlece uzaklık, birim, 0–255) |
 | 0x04 | `UPGRADE` | `u8 statId (0..4)` |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` |
@@ -396,32 +407,34 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | Tip | Ad | Alanlar |
 |---|---|---|
 | 0x81 | `WELCOME` | `u8 protoVersion, u32 mapSeed, u8 tickRate, u8 snapshotEvery, u32 serverTimeMs, u32 configHash` |
+| 0x8A | `JOINED` | `PLAY`'e yanıt: `u16 entityId, u8 team, u8 shipId`; her yeniden doğuşta da gönderilir |
+| 0x8B | `MATCH` | `u8 state (0 oynanıyor, 1 bitti), u8 winnerTeam, u8 restartSec, u16 killsBlue, u16 killsRed` (değişince ve 1 sn'de bir) |
 | 0x82 | `SNAPSHOT` | aşağıda |
 | 0x83 | `EVENTS` | `u32 tick, u8 count, event[]` |
 | 0x84 | `LEADERBOARD` | Her 1 sn: en iyi 10 (`u16 id, u32 score, name`) + kendi sıran |
-| 0x85 | `YOU_DIED` | `killerName, u32 score, u16 kills, u16 surviveSec` |
+| 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
 | 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 gold, u8 tier, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (canTierUp)` |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
-**El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → ilk `SNAPSHOT` (spawn). Öldükten sonra bağlantı açık kalır, yeniden `PLAY` gönderilir.
+**El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
 
 ### 10.3 `SNAPSHOT` düzeni
 ```
 u8  type=0x82
 u32 serverTick
 u16 lastInputSeq          // reconciliation için
--- self (tam hassasiyet) --
-f32 x, f32 y, f32 heading, f32 speed, u16 hull, u16 shield
+-- self (tam hassasiyet; reconciliation için kx/ky/spin de gerekir) --
+f32 x, f32 y, f32 heading, f32 speed, f32 kx, f32 ky, f32 spin, u16 hull, u16 shield
 -- varlık listeleri (AOI farkı) --
 u8 nEnter, u8 nUpdate, u8 nLeave   // 255'i aşarsa birden çok mesaja böl
-ENTER[]:  u16 id, u8 kind, u8 tier/subtype, u8 factionColor, x u16, y u16, heading u8, u8 hp%, (oyuncuysa) u8 nameLen+name
+ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%, u8 shield%, (oyuncuysa) u8 nameLen+name
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, u8 speed, u8 hp%, u8 shield%        // 9 bayt
 LEAVE[]:  u16 id
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
-- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 coin, 8 mayın, 9 power-up.
+- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 coin, 8 mayın, 9 power-up, **10 uçak gemisi**.
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
 - Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`.
@@ -433,10 +446,11 @@ LEAVE[]:  u16 id
 |---|---|
 | `PROJECTILE_SPAWN` | `u16 projId, u16 ownerId, u8 weaponId, x u16, y u16, angle u16` (doğuş tick'i mesaj başlığındaki `tick`) |
 | `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED), x u16, y u16` |
-| `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (shieldHit)` (efektler için) |
+| `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `PICKUP` | `u16 entityId, u16 byId, u16 value` |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
+| `BUMP` | `u16 shipId, u16 otherId (0xFFFF = ada/resif), x u16, y u16, u8 impact×8` (çarpışma efektleri ve sarsıntı) |
 
 İstemci mermiyi **kendisi simüle eder** (düz çizgi, sabit hız, `weapon` config'inden hız/menzil), `PROJECTILE_END` gelince yok eder. Böylece 1000 mermi bile sürekli bant genişliği harcamaz.
 
@@ -681,11 +695,11 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **Durum:** kod ve testler tamam; oynanış hissi (ada kayması, sınır, kıyı görünümü) kullanıcı testi bekliyor. Ölçüm: `docs/perf.md`.
 
 ### Faz 2: Yetkili sunucu + ağ çekirdeği
-**Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/INPUT/SNAPSHOT/PING/PONG`, tick döngüsü, sunucuda `stepShip`, **tam** varlık listesi gönderimi (AOI henüz yok), istemci prediction + reconciliation + interpolasyon + saat senkronu, `tools/netem`, debug HUD'ye ağ metrikleri.
-**KK:** iki tarayıcı birbirini görür · 150 ms ± 30 ms jitter + ara sıra 300 ms takılmada kendi gemi akıcı, kalıcı geri sıçrama yok · reconciliation hatası debug HUD'de görünür ve çoğunlukla < 0.05 birim · entegrasyon testi geçer.
+**Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/JOINED/INPUT/SNAPSHOT/EVENTS/MATCH/PING/PONG`, tick döngüsü, sunucuda `stepShip` + ada/gemi çarpışmaları, **tam** varlık listesi gönderimi (ENTER/UPDATE/LEAVE biçiminde, ama herkes herkesi görür; AOI Faz 6), istemci prediction + reconciliation + interpolasyon + saat senkronu, **takımlar + uçak gemileri + otomatik savunma + maç döngüsü (§4.5)**, **olay tabanlı mermiler** (`PROJECTILE_SPAWN/END`), swept vuruş, kalkan/gövde, batma ve otomatik yeniden doğuş (Faz 3'ten öne çekildi), isim + Oyna menüsü (geçici sınıf seçimi), `tools/netem`, debug HUD'ye ağ metrikleri. Çevrimdışı sandbox `?offline=1` ile kalır.
+**KK:** iki tarayıcı birbirini görür, birbirine ateş edebilir, düşman uçak gemisini batırınca tur biter ve yeniden başlar · 150 ms ± 30 ms jitter + ara sıra 300 ms takılmada kendi gemi akıcı, kalıcı geri sıçrama yok · reconciliation hatası debug HUD'de görünür ve çoğunlukla < 0.05 birim · mermi bant genişliği mermi sayısıyla artmaz · entegrasyon testi (bağlan, hareket et, ateş et, öl, yeniden doğ, uçak gemisini batır) geçer.
 
 ### Faz 3: Savaş
-**Görevler:** mount sistemi, T1–T2 silahları, **olay tabanlı mermiler** (`PROJECTILE_SPAWN/END`), swept vuruş, kalkan/gövde/rejen, batma, ganimet saçılması, `YOU_DIED`, yeniden doğuş, öldürme akışı, spawn koruması, combat-log koruması.
+**Görevler:** (olay tabanlı mermiler, swept vuruş, kalkan/gövde, batma, yeniden doğuş Faz 2'de yapıldı) kalan: rejen, ganimet saçılması, öldürme akışı, spawn koruması, combat-log koruması, silah/denge ayarı.
 **KK:** iki oyuncu birbirini batırabilir · tünelleme testi geçer · mermi bant genişliği mermi sayısıyla artmaz (ölç) · ölüm/yeniden doğuş döngüsü entegrasyon testinde.
 
 ### Faz 4: Ekonomi ve ilerleme
@@ -713,7 +727,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** gerçek alan adında `wss` ile 10+ kişi oynayabilir · deploy tek komut · `/status` izleniyor.
 
 ### Faz 10: Sonrası (backlog)
-Sınıf dallanması (T4+), takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik (SQLite), kozmetik skin'ler, doldurma botları, portal SDK'ları (CrazyGames/Poki vb.), analitik, ek bölgeler, Electron ile Steam, WebTransport.
+Sınıf dallanması (T4+), Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik (SQLite), kozmetik skin'ler, doldurma botları, portal SDK'ları (CrazyGames/Poki vb.), analitik, ek bölgeler, Electron ile Steam, WebTransport.
 
 ---
 
@@ -739,7 +753,7 @@ Sınıf dallanması (T4+), takım modu, Kraken/fırtına olayları, fener ele ge
 Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıcıya sor.
 
 1. **Oyun adı/marka:** "Tidebreaker.io" yer tutucu. Marka/alan adı kontrolü yapılmadı.
-2. **Mod:** v1 tek mod, **herkes herkese (FFA)**, PvP her yerde (limanlar hariç). Takım modu backlog.
+2. **Mod:** v1 tek mod, **iki takımlı uçak gemisi savaşı** (§4.5). FFA ve ilerleme/ekonomi sistemleri takım moduna göre yeniden değerlendirilecek.
 3. **Gemi teması:** stilize "karma modern" (sahil güvenlik botundan fırkateyne). Korsanlar sandal/tekne/brik karışımı. Dönem netleşirse modeller buna göre.
 4. **Hesap/kalıcılık:** v1'de yok. Sadece isim.
 5. **Kontroller:** klavye + fare (W gaz, S fren, A/D dümen). Mobil desteklenmez.
@@ -755,7 +769,7 @@ Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıc�
 
 ## 20. v1 dışı (kapsam dışı)
 
-Hesap sistemi, satın alma, serbest chat, rüzgâr/yelken fiziği, sınıf dallanması, takım modu, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik, kozmetikler, doldurma botları, WebTransport, Steam/Electron, çoklu harita.
+Hesap sistemi, satın alma, serbest chat, rüzgâr/yelken fiziği, sınıf dallanması, Kraken/fırtına olayları, fener ele geçirme, kalıcı liderlik, kozmetikler, doldurma botları, WebTransport, Steam/Electron, çoklu harita.
 
 ---
 
