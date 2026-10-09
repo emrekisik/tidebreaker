@@ -151,6 +151,11 @@ export class ProjectileSet implements ProjectileSink {
     return slot;
   }
 
+  /** Removes one projectile (the client does this when the server reports its end). */
+  remove(slot: number): void {
+    if (this.active[slot] === 1) this.release(slot);
+  }
+
   /** Removes every projectile (new round). */
   clear(): void {
     for (let i = 0; i < this.highWater; i++) if (this.active[i] === 1) this.release(i);

@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { ISLAND_TYPES, MAP, WORLD_SIZE } from '@tidebreaker/shared';
-import type { WorldMap } from '@tidebreaker/shared';
+import { ISLAND_TYPES, MAP, TEAM_BLUE, WORLD_SIZE } from '@tidebreaker/shared';
+import type { Combatant, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
@@ -194,7 +194,7 @@ export class Minimap {
   }
 
   /** Redraws the dynamic layer: ships and the camera's view area. */
-  update(player: MapShip, others: readonly MapShip[], camera: PerspectiveCamera): void {
+  update(player: MapShip, others: readonly Combatant[], camera: PerspectiveCamera): void {
     const px = this.canvas.width;
     const g = this.ctx;
     const s = px / WORLD_SIZE;
@@ -229,11 +229,25 @@ export class Minimap {
     }
 
     const r = Math.max(2.5, px * 0.011);
-    g.fillStyle = '#ff4d5a';
     for (const o of others) {
-      if (!o.alive) continue;
+      const st = o.state;
+      if (!st.alive) continue;
+      g.fillStyle = o.team === TEAM_BLUE ? '#4aa8ff' : '#ff4d5a';
+      if (o.def.vMax === 0) {
+        // A carrier: its hull seen from above, in its team color, with a white outline.
+        g.save();
+        g.translate(st.x * s, st.y * s);
+        g.rotate(st.heading);
+        const len = o.def.length * s;
+        g.fillRect(-len / 2, -len * 0.18, len, len * 0.36);
+        g.strokeStyle = '#fff';
+        g.lineWidth = 1.5;
+        g.strokeRect(-len / 2, -len * 0.18, len, len * 0.36);
+        g.restore();
+        continue;
+      }
       g.beginPath();
-      g.arc(o.x * s, o.y * s, r, 0, Math.PI * 2);
+      g.arc(st.x * s, st.y * s, r, 0, Math.PI * 2);
       g.fill();
     }
     // The player: a blue arrow pointing where the ship heads.

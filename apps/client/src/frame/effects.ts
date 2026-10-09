@@ -35,7 +35,8 @@ export class Effects {
   private spotX = 0;
   private spotZ = 0;
   /** Fractional smoke-trail time per projectile slot. */
-  private readonly trailCarry: Float32Array;
+  /** Fractional smoke-trail time per projectile slot, one array per projectile layer. */
+  private readonly trailCarries: Float32Array[] = new Array<Float32Array>();
   /** weapon index -> 0 bullet, 1 shell, 2 rocket (same order as ProjectileVisual) */
   private readonly kindOfWeapon: Uint8Array;
 
@@ -48,7 +49,10 @@ export class Effects {
     this.tracer = new ParticlePool(kit.tracer, -100);
     this.debris = new ParticlePool(kit.debris, -0.4);
     this.foam = new ParticlePool(kit.foam, -100);
-    this.trailCarry = new Float32Array(projectileCapacity);
+    this.trailCarries.push(
+      new Float32Array(projectileCapacity),
+      new Float32Array(projectileCapacity),
+    );
     this.kindOfWeapon = new Uint8Array(WEAPON_IDS.length);
     for (let i = 0; i < WEAPON_IDS.length; i++) {
       const v = WEAPONS[WEAPON_IDS[i]!].visual;
@@ -660,7 +664,8 @@ export class Effects {
   }
 
   /** Trails behind projectiles in flight. `back` = seconds between the last sim step and the drawn frame. */
-  trails(set: ProjectileSet, dt: number, back: number): void {
+  trails(set: ProjectileSet, dt: number, back: number, layer = 0): void {
+    const carries = this.trailCarries[layer]!;
     const R = FX.rocketTrail;
     const B = FX.bulletTrail;
     const S = FX.shellTrail;
@@ -671,7 +676,7 @@ export class Effects {
       const w = set.weapon[i]!;
       const kind = this.kindOfWeapon[w]!;
       const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : R.everySec;
-      let carry = this.trailCarry[i]! + dt;
+      let carry = carries[i]! + dt;
       while (carry >= every) {
         carry -= every;
         const vx = set.vx[i]!;
@@ -831,7 +836,7 @@ export class Effects {
           this.glow.spawn(nx, py, nz, 0, 0, 0, 0.1, 3.2, 1.2, 0, 0, C.glow, C.fireDeep, 0.5, 0, 0);
         }
       }
-      this.trailCarry[i] = carry;
+      carries[i] = carry;
     }
   }
 

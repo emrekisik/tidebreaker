@@ -135,6 +135,15 @@ export class ShipModel {
     }
   }
 
+  /** Turns turret i toward its own world angle (turrets that choose their own targets). */
+  aimTurretsEach(heading: number, angles: Float32Array): void {
+    for (let i = 0; i < this.turrets.length; i++) {
+      const rig = this.turrets[i]!;
+      this.tmp.setFromAxisAngle(rig.axis, heading - angles[i]! + rig.restYaw);
+      rig.node.quaternion.copy(this.tmp).multiply(rig.rest);
+    }
+  }
+
   /**
    * Turns every turret toward the aim point: `aimDist` units from the ship at (x, y) along `aim`
    * (sim angle), seen from the turret's own pivot, for a hull heading of `heading`.

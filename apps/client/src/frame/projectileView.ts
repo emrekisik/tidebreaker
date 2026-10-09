@@ -27,10 +27,21 @@ export class ProjectileView {
     }
   }
 
-  /** Positions are rendered between the previous and current sim step using `alpha`. */
+  /** Draws one set (offline sandbox). */
   update(set: ProjectileSet, stepSec: number, alpha: number): void {
-    const back = stepSec * (1 - alpha);
+    this.begin();
+    this.add(set, stepSec, alpha);
+    this.end();
+  }
+
+  /** Starts a frame that draws several sets (online: other players' shots and your own). */
+  begin(): void {
     this.counts.fill(0);
+  }
+
+  /** Positions are rendered between the previous and current sim step using `alpha`. */
+  add(set: ProjectileSet, stepSec: number, alpha: number): void {
+    const back = stepSec * (1 - alpha);
     for (let i = 0; i < set.highWater; i++) {
       if (set.active[i] === 0) continue;
       const m = this.meshOfWeapon[set.weapon[i]!]!;
@@ -80,6 +91,9 @@ export class ProjectileView {
       arr[o + 13] = HEIGHT;
       arr[o + 14] = set.y[i]! - vy * back;
     }
+  }
+
+  end(): void {
     for (let m = 0; m < this.meshes.length; m++) {
       const mesh = this.meshes[m]!;
       mesh.count = this.counts[m]!;

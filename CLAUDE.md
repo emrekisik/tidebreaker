@@ -49,11 +49,12 @@ Initial load <= 2.5 MB (JS <= ~350 KB gz) · client >= 60 fps on a mid-range des
 pnpm dev          # server + client with hot reload
 pnpm build        # production build (client bundle size check included)
 pnpm test         # vitest (unit, property, integration)
-pnpm bench        # vitest bench (hot-path micro-benchmarks)
+pnpm bench        # server tick cost with a full room (hot-path benchmark)
 pnpm lint         # eslint (including hot-path rules)
 pnpm typecheck    # tsc --noEmit across the workspace
 pnpm loadtest     # N fake clients against a local room, prints tick p99 / bandwidth
-pnpm netem        # WS proxy adding latency / jitter / stalls
+pnpm netem        # WS proxy adding latency / jitter / stalls (then open the game with ?server=ws://localhost:9002)
+pnpm bot          # a simple bot opponent that joins a running server (pnpm bot --name X --ship corvette)
 pnpm balance-sim  # economy pacing simulation
 pnpm assets:build # optimize GLB models (gltf-transform)
 pnpm e2e          # Playwright smoke test

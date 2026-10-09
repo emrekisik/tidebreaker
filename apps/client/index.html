@@ -271,14 +271,187 @@
           margin-top: -42px;
         }
       }
+      #menu {
+        inset: 0;
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(3, 14, 24, 0.55);
+        transition: opacity 0.4s;
+      }
+      #menu-card {
+        width: 340px;
+        padding: 24px 26px;
+        border-radius: 14px;
+        background: rgba(7, 22, 36, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #menu-card h1 {
+        margin: 0;
+        font-size: 30px;
+        letter-spacing: 0.04em;
+      }
+      #menu-card .sub {
+        margin: 0;
+        font-size: 13px;
+        opacity: 0.8;
+      }
+      #menu-card label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 12px;
+        opacity: 0.9;
+      }
+      #menu-card input,
+      #menu-card select {
+        font: inherit;
+        font-size: 16px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(0, 0, 0, 0.35);
+        color: #fff;
+      }
+      #menu-play {
+        font: inherit;
+        font-size: 18px;
+        font-weight: 700;
+        padding: 10px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        color: #fff;
+        background: linear-gradient(#2e9bff, #1b6fd0);
+      }
+      #menu-play:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      #menu-note {
+        min-height: 18px;
+        font-size: 13px;
+      }
+      #menu-note.error {
+        color: #ff8f8f;
+      }
+      #menu-offline {
+        font-size: 12px;
+        color: #9fd0ff;
+      }
+      #match {
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        background: rgba(5, 13, 22, 0.6);
+      }
+      #match .side {
+        width: 230px;
+        font-size: 11px;
+      }
+      #match .side .track {
+        height: 12px;
+        margin-top: 3px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.15);
+        overflow: hidden;
+      }
+      #match .side .track.thin {
+        height: 5px;
+      }
+      #match .side.blue .fill {
+        background: #4aa8ff;
+      }
+      #match .side.red .fill {
+        background: #ff5a68;
+      }
+      #match .side .fill.shield {
+        background: #8ff6ff;
+      }
+      #match .fill {
+        height: 100%;
+        width: 100%;
+      }
+      #m-kills {
+        font-size: 22px;
+        font-weight: 700;
+        min-width: 70px;
+        text-align: center;
+      }
+      #banner {
+        top: 30%;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        transition: opacity 0.25s;
+      }
+      #banner-title {
+        font-size: 44px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-shadow: 0 3px 12px #000;
+      }
+      #banner-sub {
+        margin-top: 6px;
+        font-size: 20px;
+      }
+      /* Start screen: only the sea and the menu. */
+      body.in-menu #hud,
+      body.in-menu #hint,
+      body.in-menu #sunk,
+      body.in-menu #picker,
+      body.in-menu #minimap,
+      body.in-menu #storm {
+        display: none;
+      }
       .hidden {
         opacity: 0;
         visibility: hidden;
       }
     </style>
   </head>
-  <body>
+  <body class="in-menu">
     <canvas id="game"></canvas>
+    <div id="menu" class="overlay hidden">
+      <form id="menu-card" autocomplete="off">
+        <h1>Tidebreaker</h1>
+        <p class="sub" data-i18n="menu.goal"></p>
+        <label><span data-i18n="menu.name"></span><input id="menu-name" maxlength="16" /></label>
+        <label
+          ><span data-i18n="menu.ship"></span
+          ><select id="menu-ship"></select
+        ></label>
+        <button id="menu-play" type="submit" data-i18n="menu.play"></button>
+        <div id="menu-note"></div>
+        <a id="menu-offline" href="?offline=1" data-i18n="menu.offline"></a>
+      </form>
+    </div>
+    <div id="match" class="overlay hidden">
+      <div class="side blue">
+        <span data-i18n="match.blue"></span> <span data-i18n="match.carrier"></span>
+        <div class="track"><div id="m-blue-hull" class="fill"></div></div>
+        <div class="track thin"><div id="m-blue-shield" class="fill shield"></div></div>
+      </div>
+      <div id="m-kills">0 : 0</div>
+      <div class="side red">
+        <span data-i18n="match.red"></span> <span data-i18n="match.carrier"></span>
+        <div class="track"><div id="m-red-hull" class="fill"></div></div>
+        <div class="track thin"><div id="m-red-shield" class="fill shield"></div></div>
+      </div>
+    </div>
+    <div id="banner" class="overlay hidden">
+      <div id="banner-title"></div>
+      <div id="banner-sub"></div>
+    </div>
     <div id="minimap" class="overlay"></div>
     <div id="storm" class="overlay"><span data-i18n="hud.storm"></span></div>
     <div id="dmg-layer" class="overlay"></div>

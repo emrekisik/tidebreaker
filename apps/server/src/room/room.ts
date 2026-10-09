@@ -47,10 +47,10 @@ const BACKPRESSURE_KICK_MS = 5000;
 const RATE_BURST = 120;
 const RATE_PER_SEC = 60;
 const RATE_KICK_VIOLATIONS = 300;
-const INPUT_QUEUE = 8;
+const INPUT_QUEUE = 16;
 /** Steps of saved-up credit a player may hold, and the queue length kept after a stall. */
-const CREDIT_MAX = 3;
-const CATCH_UP_KEEP = 5;
+const CREDIT_MAX = 12;
+const CATCH_UP_KEEP = 14;
 /** New players are refused while the tick loop is this busy (fraction of the tick budget). */
 const BUSY_LIMIT = 0.65;
 

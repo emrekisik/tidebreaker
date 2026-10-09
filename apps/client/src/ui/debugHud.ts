@@ -9,10 +9,16 @@ export class DebugHud {
   private lastTicks = 0;
   private tickRate = 0;
   private mapInfo = '';
+  private extra = '';
 
   constructor(el: HTMLElement) {
     this.el = el;
     el.classList.remove('hidden');
+  }
+
+  /** Extra lines (online: ping, bandwidth, prediction error). */
+  setExtra(text: string): void {
+    this.extra = text;
   }
 
   setMapInfo(text: string): void {
@@ -39,6 +45,10 @@ export class DebugHud {
       `fps ${this.fpsEma.toFixed(0)}  frame ${this.frameMsEma.toFixed(1)} ms\n` +
       `tick ${this.tickRate.toFixed(1)} Hz  projectiles ${projectiles}\n` +
       `draw calls ${info.calls}  triangles ${info.triangles}\n` +
-      this.mapInfo;
+      this.mapInfo +
+      (this.extra
+        ? `
+${this.extra}`
+        : '');
   }
 }

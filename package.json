@@ -13,8 +13,11 @@
     "dev": "concurrently -n server,client -c blue,green \"pnpm --filter @tidebreaker/server dev\" \"pnpm --filter @tidebreaker/client dev\"",
     "build": "pnpm -r --filter \"./apps/*\" build",
     "test": "vitest run",
+    "bench": "pnpm --filter @tidebreaker/server exec tsx src/tools/benchTick.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "bot": "pnpm --filter @tidebreaker/server exec tsx src/tools/bot.ts",
+    "netem": "pnpm --filter @tidebreaker/server exec tsx src/tools/netem.ts",
     "assets:build": "node tools/assets/build.mjs",
     "typecheck": "pnpm -r typecheck"
   },

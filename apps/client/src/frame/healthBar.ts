@@ -37,6 +37,11 @@ export class HealthBar {
     scene.add(this.group);
   }
 
+  /** Takes the bar out of the scene (the ship is gone). */
+  remove(scene: Scene): void {
+    scene.remove(this.group);
+  }
+
   update(
     camera: PerspectiveCamera,
     x: number,

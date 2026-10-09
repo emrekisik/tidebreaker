@@ -21,6 +21,11 @@ export class ShipEntity {
   aim = 0;
   /** Distance from the ship to the aim point (turrets converge there). */
   aimDist = 0;
+  /** Prediction smoothing: added to the drawn position (world units). */
+  visualOffsetX = 0;
+  visualOffsetY = 0;
+  /** When set, every turret aims at its own angle (the carrier's turrets pick their own targets). */
+  mountAims: Float32Array | null = null;
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
@@ -61,6 +66,8 @@ export class ShipEntity {
   render(alpha: number, dtSec: number, camera: PerspectiveCamera, timeSec: number): void {
     const s = this.combatant.state;
     this.pose.resolve(s.x, s.y, s.heading, alpha);
+    this.pose.x += this.visualOffsetX;
+    this.pose.y += this.visualOffsetY;
 
     let sink = 0;
     if (s.alive) {
@@ -101,7 +108,8 @@ export class ShipEntity {
       root.rotation.z,
     );
     // Turret yaw is relative to the hull: world yaw is -aim, hull yaw is -heading.
-    this.model.aimTurrets(this.pose.x, this.pose.y, this.pose.heading, this.aim, this.aimDist);
+    if (this.mountAims) this.model.aimTurretsEach(this.pose.heading, this.mountAims);
+    else this.model.aimTurrets(this.pose.x, this.pose.y, this.pose.heading, this.aim, this.aimDist);
 
     this.flashSeconds = this.flashSeconds > dtSec ? this.flashSeconds - dtSec : 0;
     this.model.setFlash(this.flashSeconds > 0);

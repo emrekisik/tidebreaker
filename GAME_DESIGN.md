@@ -459,7 +459,8 @@ LEAVE[]:  u16 id
 - **Kendi gemi (prediction):** girdi hemen yerel `stepShip`'e uygulanır, `seq` numarasıyla geçmiş halkasına (≤ 64) yazılır ve sunucuya gönderilir.
 - **Reconciliation:** `SNAPSHOT` gelince self durumu sunucudan alınır, `lastInputSeq`'ten sonraki girdiler yeniden oynatılır. Hata < 0.05 birimse yok say; 0.05–5 birim arası 100 ms'de yumuşakça düzelt; > 5 birimse anında ışınla.
 - **Diğer varlıklar (interpolasyon):** her varlık için son birkaç snapshot tutulur, render zamanı `tahminiSunucuZamanı − 150 ms`. Doğrusal enterpolasyon, heading için en kısa yol. Veri bittiyse en çok 250 ms ekstrapolasyon.
-- **Saat senkronu:** `PING/PONG` ile RTT ölçülür, sunucu zaman farkı hareketli ortalamayla düzeltilir (ani sıçrama yok).
+- **Saat senkronu:** sunucu zamanı = `tick × 50 ms`. Her snapshot "T anındaki dünya" der; `T − varış zamanı` farkının **en büyük** değeri (en az gecikmeli paket) alınır ve yavaşça (örnek başına ≤ 0,5 ms) o değere kaydırılır, ani sıçrama olmaz. `PING/PONG` yalnızca RTT göstergesi içindir.
+- **Zaman çizelgesi:** diğer oyuncular, gemiler, mermi doğuşları/bitişleri ve vuruş olayları `sunucuZamanı − 150 ms`'de gösterilir (olaylar kendi `tick`'inde işlenir). **Kendi gemin ve kendi mermilerin şimdiki zamanda** çizilir: kendi mermin olay gelince hemen görünür, gecikmesi kadar ileri sarılır (`ProjectileSet.advance`). Kendi gemini ilgilendiren olaylar (vuruş, batma, çarpışma) hemen uygulanır.
 - **Kozmetik tahmin:** ateş edince namlu ışığı ve ses hemen çalar. Mermi nesnesi sunucu `PROJECTILE_SPAWN` olayından gelir (hayalet mermi yok).
 
 ### 10.6 İlgi alanı yönetimi (AOI)
@@ -492,7 +493,7 @@ function loop() {
 Her tick'in süresi ölçülür (`tickBusyMs`), halka tamponda tutulur (§11.6).
 
 ### 11.2 Tick sırası (sabit ve belgelenmiş)
-1. Gelen girdi kuyruğunu işle (her oyuncu için **en son geçerli** `INPUT`; boşsa önceki girdiyi tekrarla)
+1. Gelen girdileri işle: **girdi tabanlı adım**. Her oyuncunun gemisi, kuyruktan aldığı **her `INPUT` için tam bir `stepShip` adımı** atar (adım uydurulmaz, boşsa gemi bu tick hareket etmez). Böylece istemci, sunucunun henüz görmediği girdileri birebir yeniden oynatabilir (reconciliation). Hız hilesine karşı oyuncu tick başına 1 adım kredi kazanır (kullanılmayan krediler en çok 12 adım birikir; takılma sonrası yığılan girdileri bu kredi eritir). Kuyruk 16 girdiyle sınırlıdır; fazlası atılır.
 2. `UPGRADE` / `TIER_UP` isteklerini uygula (doğrula: gold, cap, eşik)
 3. AI düşün (5 Hz dilimli) → korsan girdileri üret
 4. Gemi hareketi + çarpışmalar (ada, gemi–gemi, sınır)
@@ -696,6 +697,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 
 ### Faz 2: Yetkili sunucu + ağ çekirdeği
 **Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/JOINED/INPUT/SNAPSHOT/EVENTS/MATCH/PING/PONG`, tick döngüsü, sunucuda `stepShip` + ada/gemi çarpışmaları, **tam** varlık listesi gönderimi (ENTER/UPDATE/LEAVE biçiminde, ama herkes herkesi görür; AOI Faz 6), istemci prediction + reconciliation + interpolasyon + saat senkronu, **takımlar + uçak gemileri + otomatik savunma + maç döngüsü (§4.5)**, **olay tabanlı mermiler** (`PROJECTILE_SPAWN/END`), swept vuruş, kalkan/gövde, batma ve otomatik yeniden doğuş (Faz 3'ten öne çekildi), isim + Oyna menüsü (geçici sınıf seçimi), `tools/netem`, debug HUD'ye ağ metrikleri. Çevrimdışı sandbox `?offline=1` ile kalır.
+**Durum:** yapıldı; `tools`: `pnpm bot` (basit rakip bot), `pnpm netem` (kötü ağ), `pnpm bench` (sunucu tick süresi: 20 oyuncu ateş ederken ortalama 0,15 ms, p99 0,3 ms). Netem altında (RTT ≈ 190 ms + takılmalar) tahmin hatası çoğu saniye 0, nadiren 0,5–0,7 birim, çizilen gemide görünür sıçrama yok.
 **KK:** iki tarayıcı birbirini görür, birbirine ateş edebilir, düşman uçak gemisini batırınca tur biter ve yeniden başlar · 150 ms ± 30 ms jitter + ara sıra 300 ms takılmada kendi gemi akıcı, kalıcı geri sıçrama yok · reconciliation hatası debug HUD'de görünür ve çoğunlukla < 0.05 birim · mermi bant genişliği mermi sayısıyla artmaz · entegrasyon testi (bağlan, hareket et, ateş et, öl, yeniden doğ, uçak gemisini batır) geçer.
 
 ### Faz 3: Savaş

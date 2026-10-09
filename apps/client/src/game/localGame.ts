@@ -29,6 +29,7 @@ import type {
 } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
+import type { GameSession, ProjectileLayer } from './session.ts';
 import type { AssetProvider } from '../render/assets.ts';
 import type { BarKit } from '../render/barKit.ts';
 
@@ -43,6 +44,8 @@ export interface GameEvents {
     killed: boolean,
     target: ShipEntity,
     weaponIdx: number,
+    /** Online: only hits that involve the player show a damage number. */
+    showNumber?: boolean,
   ): void;
   /** A projectile ended in the water. */
   onMiss(x: number, y: number, weaponIdx: number): void;
@@ -70,12 +73,13 @@ const PLAYER_ID = 1;
  * Offline sandbox world: the player (blue) and a fleet of stationary enemy ships (red). All rules
  * come from `@tidebreaker/shared`, the same code the authoritative server will run later.
  */
-export class LocalGame implements HitSink, CollisionSink, IslandSink {
+export class LocalGame implements HitSink, CollisionSink, IslandSink, GameSession {
   readonly player: ShipEntity;
   readonly entities: ShipEntity[] = [];
   readonly combatants: Combatant[] = [];
   readonly projectiles = new ProjectileSet(MAX_PROJECTILES);
-  readonly map: WorldMap;
+  readonly layers: ProjectileLayer[] = [{ set: this.projectiles, alpha: 0 }];
+  readonly land: WorldMap;
   /** Islands and reefs as seen by projectiles. */
   private readonly obstacles: Obstacles;
   kills = 0;
@@ -102,7 +106,7 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
     playerModelKey?: string,
   ) {
     this.events = events;
-    this.map = map;
+    this.land = map;
     this.obstacles = { segmentHit: (a, b, c, d) => segmentVsWorld(map, a, b, c, d) };
     this.scene = scene;
     this.assets = assets;
@@ -179,6 +183,11 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
     return entity;
   }
 
+  /** The sandbox has no network clock: just the progress to the next fixed step. */
+  frame(_nowMs: number, _dtSec: number, fixedAlpha: number): void {
+    this.layers[0]!.alpha = fixedAlpha;
+  }
+
   /** One fixed simulation tick (GAME_DESIGN.md §11.2 order, reduced to what exists so far). */
   step(steer: number, throttle: number, aim: number, aimDist: number, fire: boolean): void {
     for (const e of this.entities) {
@@ -206,7 +215,7 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
     for (const e of this.entities) {
       const s = e.combatant.state;
       if (!s.alive) continue;
-      collideIslands(this.map, s, e.combatant.def, e.combatant.id, this);
+      collideIslands(this.land, s, e.combatant.def, e.combatant.id, this);
       applyWorldBounds(s, STEP_SEC);
     }
 
