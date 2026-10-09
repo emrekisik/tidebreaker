@@ -174,4 +174,4 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 3485252439, 1337: 555550558, 987654: 2398636467 };
+const PINNED: Record<number, number> = { 1: 4241066436, 1337: 1051272581, 987654: 1095218237 };

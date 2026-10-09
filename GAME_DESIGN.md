@@ -99,7 +99,7 @@ Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat y�
 | İç (Korsan Suları) | < 450 | ×2.5 | yüksek, kaleler, boss |
 
 ### 4.3 Adalar
-Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 25–70).
+Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 18–45).
 
 | Ada tipi | Adet | İşlev |
 |---|---|---|
@@ -556,7 +556,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Vuruş alınca küçük sarsıntı, batma sırasında yavaş zoom-out.
 
 ### 12.4 Adalar ve dünya görünümü
-- Ada geometrisi **çalışma anında procedural** üretilir (seed'den): çarpışma çokgeninden halkalar (sualtı taban, kum, çimen alt, çimen üst, kaya tepe + kapak), düz gölgeli (flat) alçak poligon, vertex renkleri; tür başına küçük renk farkı. Tüm adalar ve resifler **tek mesh** (1 çizim çağrısı); kıyı köpüğü ve sığ su bantları ikinci bir saydam mesh (1 çizim çağrısı). **İndirme yok.** Sahil çizgisi çarpışma çokgeninin ~0,5 birim içindedir, gemiler hep suda kalır.
+- Ada geometrisi **çalışma anında procedural** üretilir (seed + ada numarasından, deterministik; indirme yok): çarpışma çokgeninden polar ızgara arazi (kum plajı → çimen → çıplak kaya → karlı tepe; yükseklik gürültü + sivri tepeler, düz gölgeli düşük poligon, yüz başına renk), üstünde **çam ve yuvarlak ağaçlar**, kayalar ve kaya sivri uçları. Tür farkı: **liman** = kulübe kümesi (kırmızı çatılı), **kale** = düz tepede surlar, 4 kule ve kule/keep, **hazine** = geniş kum, az ağaç, **düz ada** = en yüksek dağlar. Resifler küçük sivri kaya yığınlarıdır (çarpışma dairesiyle aynı boyda). Her ada kendi mesh çifti (kara + saydam kıyı köpüğü/sığ su bantları) olduğu için ekran dışı adalar atlanır; görünen ada başına 2 çizim çağrısı. Sığ su: kıyıdan dalgalı, düzensiz açık turkuaz bantlar. Sahil çizgisi çarpışma çokgeninin ~1 birim içindedir, gemiler hep suda kalır. Adalar küçük tutulur (yarıçap 18–45).
 - Limanda iskele, kalede kule/duvar prefab'ları basit kutu birleşimleri ya da küçük GLB.
 
 ### 12.5 Asset hattı (3D low-poly GLB)

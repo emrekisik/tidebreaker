@@ -6,7 +6,7 @@ export const MAP = {
   /** Island counts by type (flat = plain obstacle islands). */
   counts: { port: 3, fort: 3, treasure: 3, flat: 5 },
   /** Island size: base radius and number of polygon corners. */
-  radius: { min: 25, max: 70 },
+  radius: { min: 18, max: 45 },
   corners: { min: 12, max: 18 },
   /** Shape wobble: amplitudes of the 2nd/3rd/5th radial harmonics and per-corner jitter. */
   wobble: { h2: 0.18, h3: 0.12, h5: 0.07, jitter: 0.05, minRadiusFrac: 0.55 },

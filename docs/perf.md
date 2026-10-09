@@ -17,11 +17,11 @@ Senaryo: eğitim haritası (14 ada + 48 resif), 8 gemi hareket halinde, oyuncu t
 | **Sahne GPU süresi (sonra)** | **≈ 0,25 ms** | **≈ 0,8 ms** |
 | Köpük (iz) haritası geçişi | ≈ 0,03 ms | ≈ 0,05 ms |
 | CPU, tam oyun karesi (sim + efekt + çizim komutları) | 0,15–0,5 ms | 0,3–0,5 ms |
-| Çizim çağrısı | 89–99 | 88–99 |
-| Üçgen | ≈ 110 bin | ≈ 110 bin |
+| Çizim çağrısı | 89–103 | 88–103 |
+| Üçgen | ≈ 110–145 bin (ada görünürken) | aynı |
 | JS heap (1800 kare yoğun savaş) | ≈ 30 MB, büyümüyor | |
 
-Sahne süresinin **%90'ından fazlası su shader'ıdır** (piksel bound: süre piksel sayısıyla neredeyse doğrusal artıyor). Adalar, gemiler, parçacıklar ve mermiler birlikte ≈ 0,05–0,1 ms.
+Sahne süresinin **%90'ından fazlası su shader'ıdır** (piksel bound: süre piksel sayısıyla neredeyse doğrusal artıyor). Adalar (ağaçlı, ayrıntılı sürüm dahil) ≈ 0,1 ms; gemiler, parçacıklar ve mermiler her biri ≈ 0,05–0,1 ms.
 
 Yapılan tek optimizasyon: köpük gürültüsü (beyaz köpük ve gemi izi) yalnızca köpüğün çıkabileceği yerlerde hesaplanıyor. Su süresini yaklaşık **%35 düşürdü**. Görüntü aynı.
 

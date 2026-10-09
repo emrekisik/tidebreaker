@@ -49,7 +49,7 @@ const mapSeed =
   Number.isFinite(seedParam) && params.has('seed') ? seedParam >>> 0 : TRAINING.mapSeed;
 const worldMap = generateMap(mapSeed);
 const islands = new IslandView(worldMap);
-stage.scene.add(islands.land, islands.shore);
+stage.scene.add(...islands.objects);
 
 const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
 stage.scene.add(...projectileMeshes);
@@ -234,7 +234,7 @@ if (debug) {
           wakeMap,
           groups: {
             water: [water.mesh],
-            islands: [islands.land, islands.shore],
+            islands: islands.objects,
             ships: game.entities.map((e) => e.model.root),
             particles: [
               particleKit.foam.mesh,
