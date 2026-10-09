@@ -87,19 +87,19 @@ Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat y�
 ## 4. Dünya
 
 ### 4.1 Harita
-- Kare harita, **2400 × 2400 birim** (1 birim ≈ 1 metre, stilize). Merkez (1200, 1200). Sınırlarda görünmez yumuşak duvar: kenardan 90 birim içinde hız sönümü (`MAP.boundary.damp`) ve içeri doğru itme (`push`), en uçta sert kıskaç; oyuncunun gemisi banda girince ekranın kenarları kararır ve "fırtına" uyarısı çıkar (`boundaryDepth`).
+- Kare harita, **1500 × 1500 birim** (1 birim ≈ 1 metre, stilize; ilk tasarımda 2400 idi, oynanırken çok büyük gelince küçültüldü). Merkez (750, 750). Sınırlarda görünmez yumuşak duvar: kenardan 70 birim içinde hız sönümü (`MAP.boundary.damp`) ve içeri doğru itme (`push`), en uçta sert kıskaç; oyuncunun gemisi banda girince ekranın kenarları kararır ve "fırtına" uyarısı çıkar (`boundaryDepth`).
 - Harita **seed'den deterministik üretilir**. Sunucu yalnızca seed'i gönderir, istemci aynı kodla (`shared`) aynı haritayı üretir. Üretim kodu hem Node'da hem tarayıcıda aynı sonucu vermelidir (hash testi, §14).
 - Koordinat sistemi: simülasyon 2D `(x, y)`. three.js dünyası `(x, 0, y)`. **Heading** θ radyan, +x'ten +y'ye doğru ölçülür, model ileri yönü +x'tir ve `mesh.rotation.y = -θ` uygulanır (sık yapılan hata: işareti unutmak).
 
 ### 4.2 Bölgeler (risk–ödül)
 | Bölge | Merkeze uzaklık | Sandık/varil/hazine çarpanı | Korsan yoğunluğu |
 |---|---|---|---|
-| Dış (Güvenli Sular) | > 850 | ×1.0 | düşük |
-| Orta (Ticaret Yolları) | 450–850 | ×1.5 | orta |
-| İç (Korsan Suları) | < 450 | ×2.5 | yüksek, kaleler, boss |
+| Dış (Güvenli Sular) | > 510 | ×1.0 | düşük |
+| Orta (Ticaret Yolları) | 270–510 | ×1.5 | orta |
+| İç (Korsan Suları) | < 270 | ×2.5 | yüksek, kaleler, boss |
 
 ### 4.3 Adalar
-Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 18–45).
+Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 kaya). Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 12–30; liman ≥ 18, kale ≥ 20, çünkü binalar sığmalı).
 
 | Ada tipi | Adet | İşlev |
 |---|---|---|
@@ -556,7 +556,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Vuruş alınca küçük sarsıntı, batma sırasında yavaş zoom-out.
 
 ### 12.4 Adalar ve dünya görünümü
-- Ada geometrisi **çalışma anında procedural** üretilir (seed + ada numarasından, deterministik; indirme yok): çarpışma çokgeninden polar ızgara arazi (kum plajı → çimen → çıplak kaya → karlı tepe; yükseklik gürültü + sivri tepeler, düz gölgeli düşük poligon, yüz başına renk), üstünde **çam ve yuvarlak ağaçlar**, kayalar ve kaya sivri uçları. Tür farkı: **liman** = kulübe kümesi (kırmızı çatılı), **kale** = düz tepede surlar, 4 kule ve kule/keep, **hazine** = geniş kum, az ağaç, **düz ada** = en yüksek dağlar. Resifler küçük sivri kaya yığınlarıdır (çarpışma dairesiyle aynı boyda). Her ada kendi mesh çifti (kara + saydam kıyı köpüğü/sığ su bantları) olduğu için ekran dışı adalar atlanır; görünen ada başına 2 çizim çağrısı. Sığ su: kıyıdan dalgalı, düzensiz açık turkuaz bantlar. Sahil çizgisi çarpışma çokgeninin ~1 birim içindedir, gemiler hep suda kalır. Adalar küçük tutulur (yarıçap 18–45).
+- Ada geometrisi **çalışma anında procedural** üretilir (seed + ada numarasından, deterministik; indirme yok): çarpışma çokgeninden polar ızgara arazi (kum plajı → çimen → çıplak kaya → karlı tepe; yükseklik gürültü + sivri tepeler, düz gölgeli düşük poligon, yüz başına renk), üstünde **çam ve yuvarlak ağaçlar**, kayalar ve kaya sivri uçları. Tür farkı: **liman** = kulübe kümesi (kırmızı çatılı), **kale** = düz tepede surlar, 4 kule ve kule/keep, **hazine** = geniş kum, az ağaç, **düz ada** = en yüksek dağlar. Resifler küçük sivri kaya yığınlarıdır (çarpışma dairesiyle aynı boyda). Her ada kendi mesh çifti (kara + saydam kıyı köpüğü/sığ su bantları) olduğu için ekran dışı adalar atlanır; görünen ada başına 2 çizim çağrısı. Sığ su: kıyıdan dalgalı, düzensiz açık turkuaz bantlar. Sahil çizgisi çarpışma çokgeninin ~1 birim içindedir, gemiler hep suda kalır. Adalar küçük tutulur (yarıçap 12–30).
 - Limanda iskele, kalede kule/duvar prefab'ları basit kutu birleşimleri ya da küçük GLB.
 
 ### 12.5 Asset hattı (3D low-poly GLB)
@@ -743,7 +743,7 @@ Aşağıdakiler için **varsayım yapıldı**. Değişiklik gerekirse kullanıc�
 3. **Gemi teması:** stilize "karma modern" (sahil güvenlik botundan fırkateyne). Korsanlar sandal/tekne/brik karışımı. Dönem netleşirse modeller buna göre.
 4. **Hesap/kalıcılık:** v1'de yok. Sadece isim.
 5. **Kontroller:** klavye + fare (W gaz, S fren, A/D dümen). Mobil desteklenmez.
-6. **Oda kapasitesi:** 50 oyuncu + 10–40 korsan. Harita 2400×2400.
+6. **Oda kapasitesi:** 50 oyuncu + 10–40 korsan. Harita 1500×1500 (kalabalık yoğunluğu için ileride yeniden ölçülecek).
 7. **Doldurma botları:** kapalı.
 8. **Para kazanma:** v1'de yok. Reklam/portal SDK sonra. (Faz 10)
 9. **Bölge:** ilk sunucu EU.
@@ -779,8 +779,8 @@ export const MAX_PICKUPS = 512;
 export const TICK_BUSY_GATE = 0.65;
 
 // world.ts
-export const WORLD_SIZE = 2400;
-export const ZONES = { innerRadius: 450, midRadius: 850, mult: { outer: 1.0, mid: 1.5, inner: 2.5 } };
+export const WORLD_SIZE = 1500;
+export const ZONES = { innerRadius: 270, midRadius: 510, mult: { outer: 1.0, mid: 1.5, inner: 2.5 } };
 export const ISLANDS = { total: 14, ports: 3, forts: 3, treasure: 3, plain: 5, reefClusters: 25 };
 export const PORT = { safeRadius: 70, immunitySec: 12, immunityResetSec: 30, regenMult: 4 };
 

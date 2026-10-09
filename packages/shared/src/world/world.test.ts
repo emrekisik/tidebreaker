@@ -75,11 +75,11 @@ describe('map generation', () => {
       for (let i = 0; i < m.islandCount; i++) {
         const d = Math.hypot(m.islandX[i]! - WORLD_CENTER, m.islandY[i]! - WORLD_CENTER);
         const type = ISLAND_TYPES[m.islandType[i]!]!;
-        if (type === 'port') expect(d).toBeGreaterThan(450);
-        if (type === 'fort') expect(d).toBeLessThan(850);
+        if (type === 'port') expect(d).toBeGreaterThan(MAP.regions.inner);
+        if (type === 'fort') expect(d).toBeLessThan(MAP.regions.outer);
         if (type === 'treasure') {
-          expect(d).toBeGreaterThan(450);
-          expect(d).toBeLessThan(850);
+          expect(d).toBeGreaterThan(MAP.regions.inner);
+          expect(d).toBeLessThan(MAP.regions.outer);
         }
       }
     }
@@ -174,4 +174,4 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 4241066436, 1337: 1051272581, 987654: 1095218237 };
+const PINNED: Record<number, number> = { 1: 323037774, 1337: 2077924192, 987654: 2321979217 };

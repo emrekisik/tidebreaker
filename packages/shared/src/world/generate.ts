@@ -25,10 +25,10 @@ interface Island {
  * jitter and a radius made of a few random harmonics. Star-shaped, so it never self-intersects.
  * Returns the corners as (x, y) pairs plus the bounding radius.
  */
-function outline(rng: Mulberry32): { pts: number[]; bound: number } {
+function outline(rng: Mulberry32, minRadius: number): { pts: number[]; bound: number } {
   const W = MAP.wobble;
   const rnd = (a: number, b: number): number => a + (b - a) * rng.next();
-  const base = rnd(MAP.radius.min, MAP.radius.max);
+  const base = rnd(minRadius, MAP.radius.max);
   const n = MAP.corners.min + Math.floor(rng.next() * (MAP.corners.max - MAP.corners.min + 1));
   const p2 = rnd(0, TAU);
   const p3 = rnd(0, TAU);
@@ -65,7 +65,10 @@ export function generateMap(seed: number): WorldMap {
 
   /** Tries to place one island; `where` proposes a center. Gives up quietly on a crowded map. */
   function place(type: number, where: () => { x: number; y: number }): void {
-    const shape = outline(rng);
+    const name = ISLAND_TYPES[type]!;
+    const minRadius =
+      name === 'port' ? MAP.radius.port : name === 'fort' ? MAP.radius.fort : MAP.radius.min;
+    const shape = outline(rng, minRadius);
     for (let relax = 0; relax < 5; relax++) {
       const gap = MAP.islandGap * (1 - relax * 0.25);
       for (let attempt = 0; attempt < MAP.attempts; attempt++) {

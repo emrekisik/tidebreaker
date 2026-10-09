@@ -89,7 +89,7 @@ export class Minimap {
     // Distance rings from the center help to judge how far things are.
     g.strokeStyle = 'rgba(255,255,255,0.12)';
     g.lineWidth = 1;
-    for (const r of [450, 850]) {
+    for (const r of [MAP.regions.inner, MAP.regions.outer]) {
       g.beginPath();
       g.arc(px / 2, px / 2, r * s, 0, Math.PI * 2);
       g.stroke();
