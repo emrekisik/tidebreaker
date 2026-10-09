@@ -430,7 +430,7 @@ f32 x, f32 y, f32 heading, f32 speed, f32 kx, f32 ky, f32 spin, u16 hull, u16 sh
 -- varlık listeleri (AOI farkı) --
 u8 nEnter, u8 nUpdate, u8 nLeave   // 255'i aşarsa birden çok mesaja böl
 ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%, u8 shield%, (oyuncuysa) u8 nameLen+name
-UPDATE[]: u16 id, u16 x, u16 y, u8 heading, u8 speed, u8 hp%, u8 shield%        // 9 bayt
+UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
 LEAVE[]:  u16 id
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
