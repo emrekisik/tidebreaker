@@ -48,6 +48,9 @@ const RATE_BURST = 120;
 const RATE_PER_SEC = 60;
 const RATE_KICK_VIOLATIONS = 300;
 const INPUT_QUEUE = 8;
+/** Steps of saved-up credit a player may hold, and the queue length kept after a stall. */
+const CREDIT_MAX = 3;
+const CATCH_UP_KEEP = 5;
 /** New players are refused while the tick loop is this busy (fraction of the tick budget). */
 const BUSY_LIMIT = 0.65;
 
@@ -78,6 +81,8 @@ class Client {
   readonly qFire = new Uint8Array(INPUT_QUEUE);
   qHead = 0;
   qCount = 0;
+  /** Input steps this player may still take (see Room.consumeInputs). */
+  credit = 1;
   /** Which entities this client has been told about (and in which spawn generation). */
   readonly known: Uint8Array;
   readonly knownGen: Uint16Array;
@@ -210,27 +215,34 @@ export class Room {
     this.tickBusyEma += (busy - this.tickBusyEma) * 0.05;
   }
 
-  /** Each tick every player's simulation takes the next queued input (or repeats the last one). */
+  /**
+   * Movement is driven by the player's inputs, one step per input (never an invented step), so the
+   * client can replay exactly what the server has not seen. A player earns one step of credit per
+   * tick (a few can be saved), which lets a burst after a hiccup catch up but stops a client from
+   * speeding up by sending inputs too fast.
+   */
   private consumeInputs(): void {
     const w = this.world;
     for (const c of this.clients) {
       if (c.stage !== Stage.Playing || c.slot < 0) continue;
-      // Too far behind (a burst after a stall): drop the oldest, keep the freshest few.
-      while (c.qCount > 3) {
+      c.credit = Math.min(CREDIT_MAX, c.credit + 1);
+      // Far behind after a long stall: skip the oldest, keep the freshest few.
+      while (c.qCount > CATCH_UP_KEEP) {
         c.qHead = (c.qHead + 1) % INPUT_QUEUE;
         c.qCount--;
       }
-      if (c.qCount === 0) continue;
-      const i = c.qHead;
       const s = c.slot;
-      w.lastSeq[s] = c.qSeq[i]!;
-      w.inSteer[s] = c.qSteer[i]!;
-      w.inThrottle[s] = c.qThrottle[i]!;
-      w.inAim[s] = c.qAim[i]!;
-      w.inAimDist[s] = c.qDist[i]!;
-      w.inFire[s] = c.qFire[i]!;
-      c.qHead = (c.qHead + 1) % INPUT_QUEUE;
-      c.qCount--;
+      while (c.qCount > 0 && c.credit >= 1) {
+        const i = c.qHead;
+        w.lastSeq[s] = c.qSeq[i]!;
+        w.inAim[s] = c.qAim[i]!;
+        w.inAimDist[s] = c.qDist[i]!;
+        w.inFire[s] = c.qFire[i]!;
+        w.moveShip(s, c.qSteer[i]!, c.qThrottle[i]!);
+        c.qHead = (c.qHead + 1) % INPUT_QUEUE;
+        c.qCount--;
+        c.credit -= 1;
+      }
     }
   }
 

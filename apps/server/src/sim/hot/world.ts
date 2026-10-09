@@ -248,28 +248,25 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
   // ---- one tick (GAME_DESIGN.md §11.2)
 
+  /**
+   * Moves one player's ship by exactly one step with one input (tick order 1). The room calls this
+   * once per input it takes from the player's queue, so the ship's simulation advances input by
+   * input: the client can replay exactly the inputs the server has not seen yet. Dead ships and
+   * carriers do not move.
+   */
+  moveShip(slot: number, steer: number, throttle: number): void {
+    if (slot < CARRIER_SLOTS || this.used[slot] === 0) return;
+    const c = this.slots[slot]!;
+    if (!c.state.alive) return;
+    stepShip(c.state, steer, throttle, c.def.vMax, c.def.turnRateDeg * DEG2RAD, STEP_SEC);
+  }
+
   step(): void {
     const dt = STEP_SEC;
     this.tick++;
     this.events.begin(this.tick);
     this.diedCount = 0;
     const ended = this.matchState === MATCH_STATE.ENDED;
-
-    // 1. movement of players (the carriers never move)
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
-      if (this.used[i] === 0) continue;
-      const c = this.slots[i]!;
-      const s = c.state;
-      if (!s.alive) continue;
-      stepShip(
-        s,
-        this.inSteer[i]!,
-        this.inThrottle[i]!,
-        c.def.vMax,
-        c.def.turnRateDeg * DEG2RAD,
-        dt,
-      );
-    }
 
     // 4. collisions: ships, islands and reefs, world edge. Protected ships take no damage.
     this.saveProtected();

@@ -56,6 +56,8 @@ export interface HitSink {
   onBlocked(x: number, y: number, weaponIdx: number, slot: number): void;
 }
 
+const NO_TARGETS: readonly Combatant[] = [];
+
 /** Struct-of-arrays projectile storage with a fixed capacity (no allocation after creation). */
 export class ProjectileSet implements ProjectileSink {
   readonly capacity: number;
@@ -163,100 +165,119 @@ export class ProjectileSet implements ProjectileSink {
   /** Advances all projectiles by `dt`, resolving hits against `targets` at the current tick. */
   step(dt: number, targets: readonly Combatant[], hits: HitSink, obstacles?: Obstacles): void {
     for (let i = 0; i < this.highWater; i++) {
-      if (this.active[i] === 0) continue;
-      const x0 = this.x[i]!;
-      const y0 = this.y[i]!;
-      if (this.ramp[i]! > 0) {
-        const age = this.age[i]! + dt;
-        this.age[i] = age;
-        const f = Math.min(1, age / this.ramp[i]!);
-        const target = this.startSpeed[i]! + (this.maxSpeed[i]! - this.startSpeed[i]!) * f * f;
-        const v = Math.sqrt(this.vx[i]! * this.vx[i]! + this.vy[i]! * this.vy[i]!);
-        if (v > 0) {
-          const k = target / v;
-          this.vx[i] = this.vx[i]! * k;
-          this.vy[i] = this.vy[i]! * k;
-        }
-      }
-      let dx = this.vx[i]! * dt;
-      let dy = this.vy[i]! * dt;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const remaining = this.remaining[i]!;
-      let expired = false;
-      if (len >= remaining) {
-        const k = len > 0 ? remaining / len : 0;
-        dx *= k;
-        dy *= k;
-        expired = true;
-      }
+      if (this.active[i] === 1) this.stepOne(i, dt, targets, hits, obstacles);
+    }
+  }
 
-      let bestT = 2;
-      let bestTarget = -1;
-      const projRadius = this.radius[i]!;
-      const owner = this.owner[i]!;
-      const ownerTeam = this.team[i]!;
-      for (let j = 0; j < targets.length; j++) {
-        const target = targets[j]!;
-        const ts = target.state;
-        if (!ts.alive || target.id === owner) continue;
-        if (ownerTeam !== NO_TEAM && target.team === ownerTeam) continue;
-        const cosH = Math.cos(ts.heading);
-        const sinH = Math.sin(ts.heading);
-        const circles = target.def.hitCircles;
-        for (let k = 0; k < circles.length; k++) {
-          const circle = circles[k]!;
-          const t = sweptSegmentCircle(
-            x0,
-            y0,
-            dx,
-            dy,
-            ts.x + cosH * circle.offset,
-            ts.y + sinH * circle.offset,
-            circle.radius + projRadius,
-          );
-          if (t >= 0 && t < bestT) {
-            bestT = t;
-            bestTarget = j;
-          }
-        }
-      }
+  /**
+   * Moves one projectile forward by `steps` ticks without ship hits (obstacles still apply). The
+   * client uses it to catch up a shot that was fired a little while ago.
+   */
+  advance(slot: number, steps: number, dt: number, hits: HitSink, obstacles?: Obstacles): void {
+    for (let k = 0; k < steps && this.active[slot] === 1; k++) {
+      this.stepOne(slot, dt, NO_TARGETS, hits, obstacles);
+    }
+  }
 
-      // Islands and reefs stop a shot too, if they come before the first ship hit.
-      if (obstacles) {
-        const ot = obstacles.segmentHit(x0, y0, x0 + dx, y0 + dy);
-        if (ot >= 0 && ot < bestT) {
-          hits.onBlocked(x0 + dx * ot, y0 + dy * ot, this.weapon[i]!, i);
-          this.release(i);
-          continue;
-        }
+  private stepOne(
+    i: number,
+    dt: number,
+    targets: readonly Combatant[],
+    hits: HitSink,
+    obstacles?: Obstacles,
+  ): void {
+    const x0 = this.x[i]!;
+    const y0 = this.y[i]!;
+    if (this.ramp[i]! > 0) {
+      const age = this.age[i]! + dt;
+      this.age[i] = age;
+      const f = Math.min(1, age / this.ramp[i]!);
+      const target = this.startSpeed[i]! + (this.maxSpeed[i]! - this.startSpeed[i]!) * f * f;
+      const v = Math.sqrt(this.vx[i]! * this.vx[i]! + this.vy[i]! * this.vy[i]!);
+      if (v > 0) {
+        const k = target / v;
+        this.vx[i] = this.vx[i]! * k;
+        this.vy[i] = this.vy[i]! * k;
       }
+    }
+    let dx = this.vx[i]! * dt;
+    let dy = this.vy[i]! * dt;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const remaining = this.remaining[i]!;
+    let expired = false;
+    if (len >= remaining) {
+      const k = len > 0 ? remaining / len : 0;
+      dx *= k;
+      dy *= k;
+      expired = true;
+    }
 
-      if (bestTarget >= 0) {
-        const target = targets[bestTarget]!;
-        const damage = this.damage[i]!;
-        const flags = applyDamage(target.state, damage);
-        hits.onHit(
-          owner,
-          target.id,
-          x0 + dx * bestT,
-          y0 + dy * bestT,
-          damage,
-          (flags & HIT_SHIELD) !== 0,
-          (flags & HIT_KILLED) !== 0,
-          this.weapon[i]!,
-          i,
+    let bestT = 2;
+    let bestTarget = -1;
+    const projRadius = this.radius[i]!;
+    const owner = this.owner[i]!;
+    const ownerTeam = this.team[i]!;
+    for (let j = 0; j < targets.length; j++) {
+      const target = targets[j]!;
+      const ts = target.state;
+      if (!ts.alive || target.id === owner) continue;
+      if (ownerTeam !== NO_TEAM && target.team === ownerTeam) continue;
+      const cosH = Math.cos(ts.heading);
+      const sinH = Math.sin(ts.heading);
+      const circles = target.def.hitCircles;
+      for (let k = 0; k < circles.length; k++) {
+        const circle = circles[k]!;
+        const t = sweptSegmentCircle(
+          x0,
+          y0,
+          dx,
+          dy,
+          ts.x + cosH * circle.offset,
+          ts.y + sinH * circle.offset,
+          circle.radius + projRadius,
         );
-        this.release(i);
-        continue;
+        if (t >= 0 && t < bestT) {
+          bestT = t;
+          bestTarget = j;
+        }
       }
+    }
 
-      this.x[i] = x0 + dx;
-      this.y[i] = y0 + dy;
-      this.remaining[i] = remaining - Math.sqrt(dx * dx + dy * dy);
-      if (expired) {
-        hits.onExpire(this.x[i]!, this.y[i]!, this.weapon[i]!, i);
+    // Islands and reefs stop a shot too, if they come before the first ship hit.
+    if (obstacles) {
+      const ot = obstacles.segmentHit(x0, y0, x0 + dx, y0 + dy);
+      if (ot >= 0 && ot < bestT) {
+        hits.onBlocked(x0 + dx * ot, y0 + dy * ot, this.weapon[i]!, i);
         this.release(i);
+        return;
       }
+    }
+
+    if (bestTarget >= 0) {
+      const target = targets[bestTarget]!;
+      const damage = this.damage[i]!;
+      const flags = applyDamage(target.state, damage);
+      hits.onHit(
+        owner,
+        target.id,
+        x0 + dx * bestT,
+        y0 + dy * bestT,
+        damage,
+        (flags & HIT_SHIELD) !== 0,
+        (flags & HIT_KILLED) !== 0,
+        this.weapon[i]!,
+        i,
+      );
+      this.release(i);
+      return;
+    }
+
+    this.x[i] = x0 + dx;
+    this.y[i] = y0 + dy;
+    this.remaining[i] = remaining - Math.sqrt(dx * dx + dy * dy);
+    if (expired) {
+      hits.onExpire(this.x[i]!, this.y[i]!, this.weapon[i]!, i);
+      this.release(i);
     }
   }
 }
