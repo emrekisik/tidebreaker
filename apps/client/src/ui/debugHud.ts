@@ -8,10 +8,15 @@ export class DebugHud {
   private lastUpdateMs = 0;
   private lastTicks = 0;
   private tickRate = 0;
+  private mapInfo = '';
 
   constructor(el: HTMLElement) {
     this.el = el;
     el.classList.remove('hidden');
+  }
+
+  setMapInfo(text: string): void {
+    this.mapInfo = text;
   }
 
   frame(
@@ -33,6 +38,7 @@ export class DebugHud {
     this.el.textContent =
       `fps ${this.fpsEma.toFixed(0)}  frame ${this.frameMsEma.toFixed(1)} ms\n` +
       `tick ${this.tickRate.toFixed(1)} Hz  projectiles ${projectiles}\n` +
-      `draw calls ${info.calls}  triangles ${info.triangles}`;
+      `draw calls ${info.calls}  triangles ${info.triangles}\n` +
+      this.mapInfo;
   }
 }

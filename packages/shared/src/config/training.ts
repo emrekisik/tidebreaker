@@ -5,6 +5,8 @@ import { WORLD_CENTER } from './world.ts';
  * the real ship classes. Not part of the final game.
  */
 export const TRAINING = {
+  /** Seed of the practice map (the client can override it with `?seed=`). */
+  mapSeed: 1337,
   playerShip: 'coast_guard_boat',
   playerSpawn: { x: WORLD_CENTER, y: WORLD_CENTER, heading: 0 },
   /** Positions are offsets from the player spawn; `heading` in radians (0 = facing +x). */

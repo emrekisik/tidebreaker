@@ -7,6 +7,7 @@ import {
   WEAPONS,
   WEAPON_IDS,
 } from '@tidebreaker/shared';
+import { boundaryDepth, generateMap, mapHash } from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
 import type { Color } from 'three';
 import { FixedStep } from './frame/fixedStep.ts';
@@ -19,6 +20,7 @@ import { applyI18n, detectLanguage, setLanguage } from './i18n/index.ts';
 import { Input } from './input/input.ts';
 import { AssetProvider } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
+import { IslandView } from './render/islands.ts';
 import { createParticleKit } from './render/particleKit.ts';
 import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
@@ -40,6 +42,15 @@ const water = new Water();
 const wakeMap = new WakeMap();
 stage.scene.add(water.mesh);
 
+// The practice map comes from a seed (`?seed=<n>` picks another one).
+const params = new URLSearchParams(location.search);
+const seedParam = Number(params.get('seed'));
+const mapSeed =
+  Number.isFinite(seedParam) && params.has('seed') ? seedParam >>> 0 : TRAINING.mapSeed;
+const worldMap = generateMap(mapSeed);
+const islands = new IslandView(worldMap);
+stage.scene.add(islands.land, islands.shore);
+
 const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
 stage.scene.add(...projectileMeshes);
 const projectileView = new ProjectileView(projectileMeshes, VISUAL_ORDER);
@@ -57,7 +68,6 @@ stage.scene.add(
 const effects = new Effects(particleKit, MAX_PROJECTILES, wakeMap);
 
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
-const params = new URLSearchParams(location.search);
 // `?ship=<model key>` swaps only the player's visual model (preview); the sim is unchanged.
 const previewShip = params.get('ship') ?? undefined;
 const assets = new AssetProvider();
@@ -82,6 +92,13 @@ const game = new LocalGame(
     onMiss(x, y, weaponIdx) {
       effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     },
+    onBlocked(x, y, weaponIdx) {
+      effects.blocked(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+    },
+    onIslandHit(x, y, impact, ship) {
+      effects.shore(x, y, impact);
+      if (ship === game.player) rig.shake(Math.min(0.8, impact * 0.05));
+    },
     onCollision(x, y, impact, a, b, damageA, damageB, killedA, killedB) {
       effects.collision(x, y, impact);
       if (damageA > 0) damageNumbers.show(stage.camera, a.pose.x, a.pose.y, damageA, false);
@@ -94,6 +111,7 @@ const game = new LocalGame(
       if (a === game.player || b === game.player) rig.shake(Math.min(0.9, impact * 0.045));
     },
   },
+  worldMap,
   previewShip,
 );
 
@@ -130,7 +148,12 @@ const fixedStep = new FixedStep(STEP_MS);
 const hud = new Hud();
 const debug = params.get('debug') === '1';
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
+debugHud?.setMapInfo(
+  `map seed ${mapSeed}  hash ${mapHash(worldMap).toString(16)}  ${worldMap.islandCount} islands, ${worldMap.reefCount} reefs`,
+);
 
+const stormEl = document.getElementById('storm') as HTMLElement;
+let lastStorm = -1;
 let aim = 0;
 let aimDist = 0;
 const aimOut = new Float32Array(2);
@@ -168,6 +191,12 @@ function update(nowMs: number): void {
   wakeMap.render(stage.renderer);
   water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
+  islands.update(timeSec);
+  const storm = boundaryDepth(p.x, p.y);
+  if (storm !== lastStorm) {
+    lastStorm = storm;
+    stormEl.style.opacity = String(Math.min(1, storm * 1.25));
+  }
   stage.render();
 
   hud.update(ps, game.player.combatant.def, game.kills, nowMs, dtSec);
@@ -192,8 +221,40 @@ if (debug) {
     particleKit,
     stage,
     water,
+    worldMap,
+    islands,
     wakeMap,
     effects,
+    /** GPU/CPU probe for docs/perf.md: await __tb.probe(1920, 1080). */
+    probe: async (w: number, h: number) => {
+      const { runProbe } = await import('./ui/perfProbe.ts');
+      return runProbe(
+        {
+          stage,
+          wakeMap,
+          groups: {
+            water: [water.mesh],
+            islands: [islands.land, islands.shore],
+            ships: game.entities.map((e) => e.model.root),
+            particles: [
+              particleKit.foam.mesh,
+              particleKit.puff.mesh,
+              particleKit.fire.mesh,
+              particleKit.glow.mesh,
+              particleKit.spark.mesh,
+              particleKit.tracer.mesh,
+              particleKit.debris.mesh,
+            ],
+            projectiles: projectileMeshes,
+          },
+          advance: (frames: number, frameMs = 16.7) => {
+            for (let i = 0; i < frames; i++) update(lastMs + frameMs);
+          },
+        },
+        w,
+        h,
+      );
+    },
     advance(frames: number, frameMs = 16.7): void {
       for (let i = 0; i < frames; i++) {
         update(lastMs + frameMs);

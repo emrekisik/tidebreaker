@@ -8,9 +8,12 @@ import {
   SHIPS,
   STEP_SEC,
   TRAINING,
+  applyWorldBounds,
+  collideIslands,
   createShipState,
   resetShipState,
   resolveCollisions,
+  segmentVsWorld,
   stepShip,
   updateMounts,
 } from '@tidebreaker/shared';
@@ -18,8 +21,11 @@ import type {
   CollisionSink,
   Combatant,
   HitSink,
+  IslandSink,
+  Obstacles,
   ProjectileSink,
   ShipId,
+  WorldMap,
 } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
@@ -40,6 +46,10 @@ export interface GameEvents {
   ): void;
   /** A projectile ended in the water. */
   onMiss(x: number, y: number, weaponIdx: number): void;
+  /** A projectile hit an island or reef. */
+  onBlocked(x: number, y: number, weaponIdx: number): void;
+  /** A ship ran into an island or reef at the given speed (only hard hits are reported). */
+  onIslandHit(x: number, y: number, impact: number, ship: ShipEntity): void;
   /** Two ships collided at (x, y) with the given closing speed. */
   onCollision(
     x: number,
@@ -60,11 +70,14 @@ const PLAYER_ID = 1;
  * Offline sandbox world: the player (blue) and a fleet of stationary enemy ships (red). All rules
  * come from `@tidebreaker/shared`, the same code the authoritative server will run later.
  */
-export class LocalGame implements HitSink, CollisionSink {
+export class LocalGame implements HitSink, CollisionSink, IslandSink {
   readonly player: ShipEntity;
   readonly entities: ShipEntity[] = [];
   readonly combatants: Combatant[] = [];
   readonly projectiles = new ProjectileSet(MAX_PROJECTILES);
+  readonly map: WorldMap;
+  /** Islands and reefs as seen by projectiles. */
+  private readonly obstacles: Obstacles;
   kills = 0;
   ticks = 0;
   private readonly rng = new Mulberry32(0x1d3a5c71);
@@ -84,10 +97,13 @@ export class LocalGame implements HitSink, CollisionSink {
     assets: AssetProvider,
     bars: BarKit,
     events: GameEvents,
+    map: WorldMap,
     /** Visual-only override of the player model (`?ship=<key>` preview). Sim data is unchanged. */
     playerModelKey?: string,
   ) {
     this.events = events;
+    this.map = map;
+    this.obstacles = { segmentHit: (a, b, c, d) => segmentVsWorld(map, a, b, c, d) };
     this.scene = scene;
     this.assets = assets;
 
@@ -183,6 +199,12 @@ export class LocalGame implements HitSink, CollisionSink {
     }
 
     resolveCollisions(this.combatants, this);
+    for (const e of this.entities) {
+      const s = e.combatant.state;
+      if (!s.alive) continue;
+      collideIslands(this.map, s, e.combatant.def, e.combatant.id, this);
+      applyWorldBounds(s, STEP_SEC);
+    }
 
     const p = this.player;
     const ps = p.combatant.state;
@@ -202,7 +224,7 @@ export class LocalGame implements HitSink, CollisionSink {
       );
     }
 
-    this.projectiles.step(STEP_SEC, this.combatants, this);
+    this.projectiles.step(STEP_SEC, this.combatants, this, this.obstacles);
 
     // Sunk ships come back at their starting position after a while.
     for (const e of this.entities) {
@@ -224,6 +246,15 @@ export class LocalGame implements HitSink, CollisionSink {
 
   onExpire(x: number, y: number, weaponIdx: number): void {
     this.events.onMiss(x, y, weaponIdx);
+  }
+
+  onBlocked(x: number, y: number, weaponIdx: number): void {
+    this.events.onBlocked(x, y, weaponIdx);
+  }
+
+  onIslandHit(shipId: number, x: number, y: number, impact: number): void {
+    const e = this.entities[shipId - PLAYER_ID];
+    if (e) this.events.onIslandHit(x, y, impact, e);
   }
 
   onHit(

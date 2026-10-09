@@ -29,6 +29,12 @@ export function sweptSegmentCircle(
   return t >= 0 && t <= 1 ? t : -1;
 }
 
+/** Static things that stop projectiles (islands, reefs). */
+export interface Obstacles {
+  /** First entry of the segment into an obstacle as a fraction 0..1, or -1 for open water. */
+  segmentHit(x0: number, y0: number, x1: number, y1: number): number;
+}
+
 /** Receives hit results from `ProjectileSet.step`. */
 export interface HitSink {
   onHit(
@@ -43,6 +49,8 @@ export interface HitSink {
   ): void;
   /** A projectile ran out of range without hitting anything (it lands in the water). */
   onExpire(x: number, y: number, weaponIdx: number): void;
+  /** A projectile hit an island or reef. */
+  onBlocked(x: number, y: number, weaponIdx: number): void;
 }
 
 /** Struct-of-arrays projectile storage with a fixed capacity (no allocation after creation). */
@@ -139,7 +147,7 @@ export class ProjectileSet implements ProjectileSink {
   }
 
   /** Advances all projectiles by `dt`, resolving hits against `targets` at the current tick. */
-  step(dt: number, targets: readonly Combatant[], hits: HitSink): void {
+  step(dt: number, targets: readonly Combatant[], hits: HitSink, obstacles?: Obstacles): void {
     for (let i = 0; i < this.highWater; i++) {
       if (this.active[i] === 0) continue;
       const x0 = this.x[i]!;
@@ -194,6 +202,16 @@ export class ProjectileSet implements ProjectileSink {
             bestT = t;
             bestTarget = j;
           }
+        }
+      }
+
+      // Islands and reefs stop a shot too, if they come before the first ship hit.
+      if (obstacles) {
+        const ot = obstacles.segmentHit(x0, y0, x0 + dx, y0 + dy);
+        if (ot >= 0 && ot < bestT) {
+          hits.onBlocked(x0 + dx * ot, y0 + dy * ot, this.weapon[i]!);
+          this.release(i);
+          continue;
         }
       }
 

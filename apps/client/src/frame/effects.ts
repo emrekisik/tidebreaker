@@ -325,6 +325,103 @@ export class Effects {
     }
   }
 
+  /** A shot hit an island or reef: a puff of dust and rock chips (more for shells and rockets). */
+  blocked(x: number, y: number, visual: ProjectileVisual): void {
+    const k = FX.impactScale[visual];
+    const sk = Math.sqrt(k);
+    for (let i = 0; i < 2 + Math.round(sk * 2); i++) {
+      this.puff.spawn(
+        x + this.r(-0.3, 0.3),
+        1,
+        y + this.r(-0.3, 0.3),
+        FX.wind.x * 0.5 + this.r(-1, 1),
+        this.r(1, 2.4),
+        FX.wind.z * 0.5 + this.r(-1, 1),
+        this.r(0.7, 1.2),
+        0.4 * sk,
+        1.6 * sk,
+        0,
+        0.6,
+        C.dust,
+        C.dustDark,
+        0.75,
+        0,
+        0,
+      );
+    }
+    for (let i = 0; i < Math.round(2 * k); i++) {
+      const a = this.r(0, Math.PI * 2);
+      const sp = this.r(2, 6) * sk;
+      const size = this.r(0.1, 0.22) * sk;
+      this.debris.spawn(
+        x,
+        1,
+        y,
+        Math.cos(a) * sp,
+        this.r(3, 7),
+        Math.sin(a) * sp,
+        1.2,
+        size,
+        size,
+        FX.gravity,
+        0,
+        C.debrisA,
+        C.debrisA,
+        1,
+        1,
+        this.r(-14, 14),
+      );
+    }
+    for (let i = 0; i < Math.round(4 * sk); i++) {
+      const a = this.r(0, Math.PI * 2);
+      const sp = this.r(0.4, 1) * 9 * sk;
+      this.spark.spawn(
+        x,
+        1,
+        y,
+        Math.cos(a) * sp,
+        this.r(2, 6),
+        Math.sin(a) * sp,
+        this.r(0.2, 0.4),
+        0.12 * sk,
+        0.03,
+        FX.gravity,
+        0.5,
+        C.flash,
+        C.fire,
+        1,
+        0,
+        0,
+        C.hitSpark,
+      );
+    }
+    if (k > 1.5)
+      this.glow.spawn(
+        x,
+        1.2,
+        y,
+        0,
+        0.4,
+        0,
+        0.2,
+        1.6 * sk,
+        2.6 * sk,
+        0,
+        0.5,
+        C.fireHot,
+        C.fireDeep,
+        0.7,
+        0,
+        0,
+        C.fire,
+      );
+  }
+
+  /** A ship scraped an island hard: spray where the hull meets the rock. */
+  shore(x: number, y: number, impact: number): void {
+    this.splash(x, y, impact > 6 ? 'shell' : 'bullet');
+  }
+
   /** A shot landed in the water: a column of spray, droplets, a foam ring and a slow ripple. */
   splash(x: number, y: number, visual: ProjectileVisual): void {
     const sc = FX.splashScale[visual];

@@ -21,6 +21,8 @@ export const FX = {
     fireDeep: 0xa82208,
     glow: 0xff6a1a,
     shellTail: 0xffe27a,
+    dust: 0xd8c89a,
+    dustDark: 0x8d8366,
     shellGlow: 0xffd24a,
     ember: 0xff9a3c,
     smokeLight: 0xcfd5da,

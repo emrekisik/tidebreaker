@@ -33,6 +33,7 @@ function recorder(): { hits: Hit[]; expired: number[]; sink: HitSink } {
       onExpire(_x, _y, weaponIdx) {
         expired.push(weaponIdx);
       },
+      onBlocked() {},
     },
   };
 }

@@ -207,6 +207,23 @@
         border-radius: 6px;
         resize: none;
       }
+      #storm {
+        inset: 0;
+        opacity: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(10, 24, 34, 0) 45%,
+          rgba(14, 28, 40, 0.88) 100%
+        );
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 90px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-shadow: 0 2px 6px #000;
+      }
       #dmg-layer {
         inset: 0;
       }
@@ -242,6 +259,7 @@
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="storm" class="overlay"><span data-i18n="hud.storm"></span></div>
     <div id="dmg-layer" class="overlay"></div>
     <div id="hint" class="overlay" data-i18n="hint.controls"></div>
     <div id="sunk" class="overlay">

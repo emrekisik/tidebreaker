@@ -102,21 +102,27 @@ void main() {
   col += pow(nh, 520.0) * 0.4 + pow(nh, 70.0) * 0.07 * twinkle;
 
   // Whitecaps: lacy foam on the crests, torn apart by two noise scales that drift with the swell.
-  float lace = vnoise(p * 1.9 + vec2(uTime * 0.3, uTime * 0.14)) * 0.35
-             + vnoise(p * 5.3 - vec2(uTime * 0.25, uTime * 0.1)) * 0.65;
-  float caps = smoothstep(0.58, 0.9, crest + (lace - 0.5) * 0.7);
-  col = mix(col, uFoam, caps * caps * 0.45);
+  // (Skipped where no foam can appear: below crest 0.23 the noise could not push it over.)
+  if (crest > 0.2) {
+    float lace = vnoise(p * 1.9 + vec2(uTime * 0.3, uTime * 0.14)) * 0.35
+               + vnoise(p * 5.3 - vec2(uTime * 0.25, uTime * 0.1)) * 0.65;
+    float caps = smoothstep(0.58, 0.9, crest + (lace - 0.5) * 0.7);
+    col = mix(col, uFoam, caps * caps * 0.45);
+  }
 
   // Ship wakes from the foam map: R = turbulent trail, G = bow wave and Kelvin arms.
   vec2 wuv = (p - uWakeOrigin) / uWakeExtent;
   vec2 edge = smoothstep(0.0, 0.06, wuv) * (1.0 - smoothstep(0.94, 1.0, wuv));
   vec2 wk = texture2D(uWake, wuv).rg * (edge.x * edge.y);
-  float wl = vnoise(p * 2.3 + vec2(uTime * 0.12, -uTime * 0.09)) * 0.55
-           + vnoise(p * 5.9 - vec2(uTime * 0.2, uTime * 0.13)) * 0.45;
-  float trail = smoothstep(0.16, 0.55, wk.r * (0.3 + 1.4 * wl));
-  float bow = smoothstep(0.1, 0.42, wk.g * (0.55 + 0.9 * wl));
-  col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.4, 0.0, 0.4));
-  col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8, 0.0, 0.9));
+  // Most of the sea has no wake: skip the noise there.
+  if (wk.r + wk.g > 0.02) {
+    float wl = vnoise(p * 2.3 + vec2(uTime * 0.12, -uTime * 0.09)) * 0.55
+             + vnoise(p * 5.9 - vec2(uTime * 0.2, uTime * 0.13)) * 0.45;
+    float trail = smoothstep(0.16, 0.55, wk.r * (0.3 + 1.4 * wl));
+    float bow = smoothstep(0.1, 0.42, wk.g * (0.55 + 0.9 * wl));
+    col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.4, 0.0, 0.4));
+    col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8, 0.0, 0.9));
+  }
 
   // Fade into the haze before the edge of the plane.
   float d = length(vWorld.xz - uCenter);

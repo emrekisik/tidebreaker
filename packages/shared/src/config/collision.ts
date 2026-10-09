@@ -18,3 +18,13 @@ export const COLLISION = {
   /** Closing speeds below this report no collision event at all (no shake, no effects). */
   eventSpeed: 1,
 } as const;
+
+/** Ship-to-island and projectile-to-island settings (GAME_DESIGN.md §4.3, §5.2). */
+export const ISLAND_COLLISION = {
+  /** Fraction of the sliding speed kept each tick while a hull scrapes a coast (no damage). */
+  tangentKeep: 0.96,
+  /** Extra push-out beyond the exact overlap so a hull does not stay glued to the shore. */
+  slop: 0.02,
+  /** Impacts below this normal speed (units/s) report no event (no shake, no splash). */
+  eventSpeed: 2,
+} as const;

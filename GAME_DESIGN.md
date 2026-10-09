@@ -87,7 +87,7 @@ Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat y�
 ## 4. Dünya
 
 ### 4.1 Harita
-- Kare harita, **2400 × 2400 birim** (1 birim ≈ 1 metre, stilize). Merkez (1200, 1200). Sınırlarda görünmez yumuşak duvar (hız sönümü + geri itme), "fırtına" görseliyle belirtilir.
+- Kare harita, **2400 × 2400 birim** (1 birim ≈ 1 metre, stilize). Merkez (1200, 1200). Sınırlarda görünmez yumuşak duvar: kenardan 90 birim içinde hız sönümü (`MAP.boundary.damp`) ve içeri doğru itme (`push`), en uçta sert kıskaç; oyuncunun gemisi banda girince ekranın kenarları kararır ve "fırtına" uyarısı çıkar (`boundaryDepth`).
 - Harita **seed'den deterministik üretilir**. Sunucu yalnızca seed'i gönderir, istemci aynı kodla (`shared`) aynı haritayı üretir. Üretim kodu hem Node'da hem tarayıcıda aynı sonucu vermelidir (hash testi, §14).
 - Koordinat sistemi: simülasyon 2D `(x, y)`. three.js dünyası `(x, 0, y)`. **Heading** θ radyan, +x'ten +y'ye doğru ölçülür, model ileri yönü +x'tir ve `mesh.rotation.y = -θ` uygulanır (sık yapılan hata: işareti unutmak).
 
@@ -109,7 +109,8 @@ Toplam ≈ 14 ada + ≈ 25 resif kümesi. Seed ile Poisson-disc örnekleme (min 
 | **Düz ada** | 5 | Siper ve navigasyon engeli. Mermileri engeller |
 | **Fener** (opsiyonel, Faz 10) | 1 (merkez) | Ele geçirme noktası |
 
-- Adalar **katıdır**: gemi çokgen kenarında kayar (normal bileşeni sıfırlanır, hız ×0.9), hasar yok. Mermiler adalara çarpınca biter.
+- Adalar **katıdır**: gemi çokgen kenarında kayar (hızın adaya doğru bileşeni sıfırlanır, kalan teğet hız her tick `ISLAND_COLLISION.tangentKeep` = ×0.96 ile sönümlenir; tek seferlik ×0.9 yerine sürtünme gibi çalışır), hasar yok. Mermiler adalara ve resiflere çarpınca biter (swept test, tünelleme yok); vuruş yerinde toz, kaya parçası ve kıvılcım çıkar. Adanın arkasına ateş edilemez.
+- Harita kodu: `packages/shared/src/world/` (`generateMap(seed)`, `mapHash`, `circleVsWorld`, `segmentVsWorld`). Köşeler 1/16 birime yuvarlanır; böylece Node ile tarayıcı `sin/cos` farkları haritayı değiştirmez. Hash testi üç seed için sabit değer kontrol eder, 200 seed için kural testleri (sayı, boşluk, bölge, basit çokgen) koşar. İstemcide `?seed=<sayı>` ile başka harita denenebilir; debug HUD seed, hash, ada ve resif sayısını gösterir.
 - Resifler: küçük dairesel engeller (yarıçap 4–8), görsel olarak kayalık.
 
 ### 4.4 Doğuş (spawn)
@@ -555,7 +556,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - Vuruş alınca küçük sarsıntı, batma sırasında yavaş zoom-out.
 
 ### 12.4 Adalar ve dünya görünümü
-- Ada geometrisi **çalışma anında procedural** üretilir (seed'den): çokgenin ekstrüzyonu + vertex renkleri (kum/çimen/kaya), alçak poligon. **İndirme yok.**
+- Ada geometrisi **çalışma anında procedural** üretilir (seed'den): çarpışma çokgeninden halkalar (sualtı taban, kum, çimen alt, çimen üst, kaya tepe + kapak), düz gölgeli (flat) alçak poligon, vertex renkleri; tür başına küçük renk farkı. Tüm adalar ve resifler **tek mesh** (1 çizim çağrısı); kıyı köpüğü ve sığ su bantları ikinci bir saydam mesh (1 çizim çağrısı). **İndirme yok.** Sahil çizgisi çarpışma çokgeninin ~0,5 birim içindedir, gemiler hep suda kalır.
 - Limanda iskele, kalede kule/duvar prefab'ları basit kutu birleşimleri ya da küçük GLB.
 
 ### 12.5 Asset hattı (3D low-poly GLB)
@@ -677,6 +678,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 #### Faz 1b: Adalar ve performans
 **Görevler:** seed'den ada üretimi (shared) + çizim + gemi–ada çarpışması, harita sınırı yumuşak duvarı, harita hash testi, masaüstü fps ölçümü.
 **KK:** harita hash testi geçer · masaüstünde ≥ 60 fps (ölçüm notu `docs/perf.md`'ye) · gemi–ada çarpışması testleri geçer.
+**Durum:** kod ve testler tamam; oynanış hissi (ada kayması, sınır, kıyı görünümü) kullanıcı testi bekliyor. Ölçüm: `docs/perf.md`.
 
 ### Faz 2: Yetkili sunucu + ağ çekirdeği
 **Görevler:** `Transport` (ws), codec + testler (round-trip, fuzz), `HELLO/WELCOME/PLAY/INPUT/SNAPSHOT/PING/PONG`, tick döngüsü, sunucuda `stepShip`, **tam** varlık listesi gönderimi (AOI henüz yok), istemci prediction + reconciliation + interpolasyon + saat senkronu, `tools/netem`, debug HUD'ye ağ metrikleri.
