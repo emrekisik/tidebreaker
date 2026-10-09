@@ -1,5 +1,6 @@
 import { COLLISION } from '../config/collision.ts';
 import { applyDamage, HIT_KILLED } from './damage.ts';
+import { NO_TEAM } from './types.ts';
 import type { Combatant, ShipState } from './types.ts';
 
 /** Receives the result of a ship-to-ship collision. */
@@ -114,13 +115,19 @@ function collide(a: Combatant, b: Combatant, sink: CollisionSink): void {
   const mA = a.def.hull;
   const mB = b.def.hull;
   const sum = mA + mB;
+  // A ship that cannot move (the aircraft carrier, vMax 0) is never pushed or knocked.
+  const fixedA = a.def.vMax === 0;
+  const fixedB = b.def.vMax === 0;
+  if (fixedA && fixedB) return;
 
   // Push apart in proportion to the other ship's mass.
   const push = bestPen + COLLISION.slop;
-  sa.x += nx * push * (mB / sum);
-  sa.y += ny * push * (mB / sum);
-  sb.x -= nx * push * (mA / sum);
-  sb.y -= ny * push * (mA / sum);
+  const shareA = fixedA ? 0 : fixedB ? 1 : mB / sum;
+  const shareB = fixedB ? 0 : fixedA ? 1 : mA / sum;
+  sa.x += nx * push * shareA;
+  sa.y += ny * push * shareA;
+  sb.x -= nx * push * shareB;
+  sb.y -= ny * push * shareB;
 
   // Velocities including knock; closing > 0 when the ships approach each other along n.
   const vax = cosA * sa.speed + sa.kx;
@@ -130,19 +137,21 @@ function collide(a: Combatant, b: Combatant, sink: CollisionSink): void {
   const closing = (vbx - vax) * nx + (vby - vay) * ny;
   if (closing <= 0) return;
 
-  const j = ((1 + COLLISION.restitution) * closing) / (1 / mA + 1 / mB);
-  const dvAx = (j / mA) * nx;
-  const dvAy = (j / mA) * ny;
-  const dvBx = -(j / mB) * nx;
-  const dvBy = -(j / mB) * ny;
-  applyVelocityChange(sa, dvAx, dvAy);
-  applyVelocityChange(sb, dvBx, dvBy);
+  const invA = fixedA ? 0 : 1 / mA;
+  const invB = fixedB ? 0 : 1 / mB;
+  const j = ((1 + COLLISION.restitution) * closing) / (invA + invB);
+  const dvAx = j * invA * nx;
+  const dvAy = j * invA * ny;
+  const dvBx = -j * invB * nx;
+  const dvBy = -j * invB * ny;
+  if (!fixedA) applyVelocityChange(sa, dvAx, dvAy);
+  if (!fixedB) applyVelocityChange(sb, dvBx, dvBy);
 
   // An off-center hit twists the ship (heading grows toward +y).
   const torqueA = (cx - sa.x) * dvAy - (cy - sa.y) * dvAx;
   const torqueB = (cx - sb.x) * dvBy - (cy - sb.y) * dvBx;
-  sa.spin = clampSpin(sa.spin + (torqueA * COLLISION.spinPerTorque) / a.def.length);
-  sb.spin = clampSpin(sb.spin + (torqueB * COLLISION.spinPerTorque) / b.def.length);
+  if (!fixedA) sa.spin = clampSpin(sa.spin + (torqueA * COLLISION.spinPerTorque) / a.def.length);
+  if (!fixedB) sb.spin = clampSpin(sb.spin + (torqueB * COLLISION.spinPerTorque) / b.def.length);
 
   if (closing < COLLISION.eventSpeed) return;
 
@@ -150,7 +159,8 @@ function collide(a: Combatant, b: Combatant, sink: CollisionSink): void {
   let damageB = 0;
   let killedA = false;
   let killedB = false;
-  if (closing > COLLISION.minDamageSpeed) {
+  const friendly = a.team !== NO_TEAM && a.team === b.team;
+  if (closing > COLLISION.minDamageSpeed && !friendly) {
     const base = COLLISION.damagePerSpeed * closing;
     damageA = (base * 2 * mB) / sum;
     damageB = (base * 2 * mA) / sum;

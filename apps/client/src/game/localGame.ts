@@ -116,6 +116,7 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
       spawn.y,
       spawn.heading,
       null,
+      0,
     );
 
     for (const t of TRAINING.targets) {
@@ -127,6 +128,7 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
         spawn.y + t.y,
         t.heading,
         new HealthBar(scene, bars, 'red'),
+        1,
       );
     }
   }
@@ -159,11 +161,13 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink {
     y: number,
     heading: number,
     bar: HealthBar | null,
+    team: number,
   ): ShipEntity {
     const combatant: Combatant = {
       id: this.combatants.length + PLAYER_ID,
       state: createShipState(def, x, y, heading),
       def,
+      team,
     };
     const entity = new ShipEntity(combatant, model, bar);
     entity.homeX = x;

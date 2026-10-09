@@ -9,7 +9,7 @@ import { applyWorldBounds, boundaryDepth, collideIslands } from './islands.ts';
 import { ProjectileSet } from './projectiles.ts';
 import type { HitSink } from './projectiles.ts';
 import { stepShip } from './stepShip.ts';
-import { createShipState } from './types.ts';
+import { NO_TEAM, createShipState } from './types.ts';
 
 const def = SHIPS.coast_guard_boat;
 const DT = 0.05;
@@ -190,7 +190,7 @@ describe('projectiles vs islands', () => {
         events.push('blocked');
       },
     };
-    const foe = { id: 2, state: createShipState(def, 50, 100, 0), def };
+    const foe = { id: 2, state: createShipState(def, 50, 100, 0), def, team: NO_TEAM };
     set.spawn(0, 100, 0, 60, 300, 0.3, 10, 1, 0);
     for (let i = 0; i < 20; i++) {
       set.step(DT, [foe], s, { segmentHit: (a, b, c, d) => segmentVsWorld(m, a, b, c, d) });

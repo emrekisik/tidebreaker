@@ -5,7 +5,7 @@ import { SHIPS, type ShipDef } from '../config/ships.ts';
 import { DEG2RAD } from '../math/angle.ts';
 import { resolveCollisions, type CollisionSink } from './collisions.ts';
 import { stepShip } from './stepShip.ts';
-import { createShipState, type Combatant } from './types.ts';
+import { NO_TEAM, createShipState, type Combatant } from './types.ts';
 
 interface Event {
   a: number;
@@ -30,7 +30,7 @@ function recorder(): { events: Event[]; sink: CollisionSink } {
 }
 
 function ship(id: number, def: ShipDef, x: number, y: number, heading: number): Combatant {
-  return { id, def, state: createShipState(def, x, y, heading) };
+  return { id, def, state: createShipState(def, x, y, heading), team: NO_TEAM };
 }
 
 const small = SHIPS.coast_guard_boat;

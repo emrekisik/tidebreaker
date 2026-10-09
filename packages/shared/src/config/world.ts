@@ -14,6 +14,8 @@ export const MAP = {
   edgeMargin: 75,
   /** Minimum free water between two islands. */
   islandGap: 45,
+  /** Nothing is placed within this distance of a team carrier (its spawn area and approach). */
+  baseClear: 100,
   /** Nothing is placed within this distance of the world center (training spawn area). */
   spawnClear: 80,
   /** Placement tries per island before the gap is relaxed (four relaxations of 25%). */

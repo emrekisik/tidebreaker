@@ -89,6 +89,18 @@ export const WEAPONS = {
     accelSec: 0.8,
     visual: 'rocket',
   },
+  // The aircraft carrier's defensive guns (GAME_DESIGN.md §4.5).
+  carrier_gun: {
+    damage: 8,
+    intervalSec: 0.25,
+    range: 60,
+    projectileSpeed: 75,
+    radius: 0.15,
+    spreadDeg: 3,
+    startSpeedPct: 1,
+    accelSec: 0,
+    visual: 'bullet',
+  },
 } as const satisfies Record<string, WeaponDef>;
 
 export type WeaponId = keyof typeof WEAPONS;

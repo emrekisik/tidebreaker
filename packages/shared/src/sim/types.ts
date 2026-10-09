@@ -59,9 +59,14 @@ export function resetShipState(
   s.spin = 0;
 }
 
+/** Team value of a ship that belongs to no team (offline sandbox targets, free-for-all). */
+export const NO_TEAM = 255;
+
 /** Anything that can be hit by projectiles. */
 export interface Combatant {
   id: number;
   state: ShipState;
   def: ShipDef;
+  /** 0 = blue, 1 = red, NO_TEAM = none. Teammates never hurt each other. */
+  team: number;
 }

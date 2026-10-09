@@ -1,6 +1,7 @@
 import { WEAPONS, WEAPON_IDS } from '../config/weapons.ts';
 import { applyDamage, HIT_KILLED, HIT_SHIELD } from './damage.ts';
 import type { ProjectileSink } from './mounts.ts';
+import { NO_TEAM } from './types.ts';
 import type { Combatant } from './types.ts';
 
 /**
@@ -46,11 +47,13 @@ export interface HitSink {
     shieldHit: boolean,
     killed: boolean,
     weaponIdx: number,
+    /** Projectile slot (its id on the wire). */
+    slot: number,
   ): void;
   /** A projectile ran out of range without hitting anything (it lands in the water). */
-  onExpire(x: number, y: number, weaponIdx: number): void;
+  onExpire(x: number, y: number, weaponIdx: number, slot: number): void;
   /** A projectile hit an island or reef. */
-  onBlocked(x: number, y: number, weaponIdx: number): void;
+  onBlocked(x: number, y: number, weaponIdx: number, slot: number): void;
 }
 
 /** Struct-of-arrays projectile storage with a fixed capacity (no allocation after creation). */
@@ -71,6 +74,8 @@ export class ProjectileSet implements ProjectileSink {
   readonly ramp: Float32Array;
   readonly age: Float32Array;
   readonly owner: Uint16Array;
+  /** Owner team: projectiles pass through their own team. */
+  readonly team: Uint8Array;
   readonly active: Uint8Array;
   /** One past the highest slot index that may be active. */
   highWater = 0;
@@ -95,6 +100,7 @@ export class ProjectileSet implements ProjectileSink {
     this.ramp = new Float32Array(capacity);
     this.age = new Float32Array(capacity);
     this.owner = new Uint16Array(capacity);
+    this.team = new Uint8Array(capacity);
     this.active = new Uint8Array(capacity);
     this.freeSlots = new Int32Array(capacity);
     for (let i = 0; i < capacity; i++) this.freeSlots[i] = capacity - 1 - i;
@@ -111,7 +117,8 @@ export class ProjectileSet implements ProjectileSink {
     damage: number,
     ownerId: number,
     weaponIdx: number,
-  ): void {
+    team: number = NO_TEAM,
+  ): number {
     let slot: number;
     if (this.freeTop > 0) {
       slot = this.freeSlots[--this.freeTop]!;
@@ -135,9 +142,11 @@ export class ProjectileSet implements ProjectileSink {
     this.ramp[slot] = def ? def.accelSec : 0;
     this.age[slot] = 0;
     this.owner[slot] = ownerId;
+    this.team[slot] = team;
     this.active[slot] = 1;
     this.activeCount++;
     if (slot >= this.highWater) this.highWater = slot + 1;
+    return slot;
   }
 
   private release(slot: number): void {
@@ -180,10 +189,12 @@ export class ProjectileSet implements ProjectileSink {
       let bestTarget = -1;
       const projRadius = this.radius[i]!;
       const owner = this.owner[i]!;
+      const ownerTeam = this.team[i]!;
       for (let j = 0; j < targets.length; j++) {
         const target = targets[j]!;
         const ts = target.state;
         if (!ts.alive || target.id === owner) continue;
+        if (ownerTeam !== NO_TEAM && target.team === ownerTeam) continue;
         const cosH = Math.cos(ts.heading);
         const sinH = Math.sin(ts.heading);
         const circles = target.def.hitCircles;
@@ -209,7 +220,7 @@ export class ProjectileSet implements ProjectileSink {
       if (obstacles) {
         const ot = obstacles.segmentHit(x0, y0, x0 + dx, y0 + dy);
         if (ot >= 0 && ot < bestT) {
-          hits.onBlocked(x0 + dx * ot, y0 + dy * ot, this.weapon[i]!);
+          hits.onBlocked(x0 + dx * ot, y0 + dy * ot, this.weapon[i]!, i);
           this.release(i);
           continue;
         }
@@ -228,6 +239,7 @@ export class ProjectileSet implements ProjectileSink {
           (flags & HIT_SHIELD) !== 0,
           (flags & HIT_KILLED) !== 0,
           this.weapon[i]!,
+          i,
         );
         this.release(i);
         continue;
@@ -237,7 +249,7 @@ export class ProjectileSet implements ProjectileSink {
       this.y[i] = y0 + dy;
       this.remaining[i] = remaining - Math.sqrt(dx * dx + dy * dy);
       if (expired) {
-        hits.onExpire(this.x[i]!, this.y[i]!, this.weapon[i]!);
+        hits.onExpire(this.x[i]!, this.y[i]!, this.weapon[i]!, i);
         this.release(i);
       }
     }

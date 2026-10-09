@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MATCH } from '../config/match.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { generateMap } from './generate.ts';
 import { mapHash } from './hash.ts';
@@ -174,4 +175,24 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 1132425015, 1337: 2626939947, 987654: 388798343 };
+const PINNED: Record<number, number> = { 1: 1074919811, 1337: 2790357553, 987654: 263690995 };
+
+describe('team bases', () => {
+  it('keeps islands and reefs away from both carriers', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const m = generateMap(seed);
+      for (const b of MATCH.carriers) {
+        for (let i = 0; i < m.islandCount; i++) {
+          expect(
+            Math.hypot(m.islandX[i]! - b.x, m.islandY[i]! - b.y) - m.islandR[i]!,
+          ).toBeGreaterThanOrEqual(MAP.baseClear - 1);
+        }
+        for (let k = 0; k < m.reefCount; k++) {
+          expect(Math.hypot(m.reefX[k]! - b.x, m.reefY[k]! - b.y)).toBeGreaterThanOrEqual(
+            MAP.baseClear - 1,
+          );
+        }
+      }
+    }
+  });
+});

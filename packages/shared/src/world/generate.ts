@@ -1,3 +1,4 @@
+import { MATCH } from '../config/match.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { Mulberry32 } from '../math/rng.ts';
 import { ISLAND_TYPES } from './types.ts';
@@ -82,6 +83,9 @@ export function generateMap(seed: number): WorldMap {
           continue;
         }
         let ok = true;
+        for (const b of MATCH.carriers) {
+          if (Math.hypot(cx - b.x, cy - b.y) < MAP.baseClear + shape.bound) ok = false;
+        }
         for (const o of islands) {
           if (Math.hypot(cx - o.x, cy - o.y) < shape.bound + o.r + gap) {
             ok = false;
@@ -137,6 +141,9 @@ export function generateMap(seed: number): WorldMap {
       const y = quant(rnd(R.edgeMargin, WORLD_SIZE - R.edgeMargin));
       if (Math.hypot(x - WORLD_CENTER, y - WORLD_CENTER) < MAP.spawnClear + 30) continue;
       let ok = true;
+      for (const b of MATCH.carriers) {
+        if (Math.hypot(x - b.x, y - b.y) < MAP.baseClear + R.spread * 1.5) ok = false;
+      }
       for (const o of islands) {
         if (Math.hypot(x - o.x, y - o.y) < o.r + R.islandGap) ok = false;
       }

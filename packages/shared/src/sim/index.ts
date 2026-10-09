@@ -5,3 +5,4 @@ export * from './mounts.ts';
 export * from './projectiles.ts';
 export * from './collisions.ts';
 export * from './islands.ts';
+export * from './carrier.ts';

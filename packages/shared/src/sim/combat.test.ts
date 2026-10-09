@@ -4,7 +4,7 @@ import { WEAPONS, weaponIndex } from '../config/weapons.ts';
 import { applyDamage, HIT_KILLED, HIT_SHIELD } from './damage.ts';
 import { mountCanFire, updateMounts, type Rng } from './mounts.ts';
 import { ProjectileSet, sweptSegmentCircle, type HitSink } from './projectiles.ts';
-import { createShipState, type Combatant } from './types.ts';
+import { NO_TEAM, createShipState, type Combatant } from './types.ts';
 
 const def = SHIPS.coast_guard_boat;
 const weapon = WEAPONS.cannon_t3;
@@ -197,7 +197,7 @@ describe('rocket launch profile', () => {
 
 describe('ProjectileSet', () => {
   function target(id: number, x: number, y: number): Combatant {
-    return { id, state: createShipState(def, x, y, 0), def };
+    return { id, state: createShipState(def, x, y, 0), def, team: NO_TEAM };
   }
 
   it('hits a ship in range and reports shield/damage', () => {
