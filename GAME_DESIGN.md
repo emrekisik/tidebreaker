@@ -203,9 +203,9 @@ interface WeaponDef {
 ### 6.2 Yükseltilebilir 5 stat
 | Stat | Etki (seviye L başına) | Kodda |
 |---|---|---|
-| **Speed** | `vMax × (1 + 0.04·L)` | `speed` |
-| **Reload** (attack interval) | `interval × (1 − 0.04·L)` | `reload` |
-| **Turn rate** | `turnRate × (1 + 0.05·L)` | `turn` |
+| **Speed** | `vMax × (1 + 0.07·L)` | `speed` |
+| **Reload** (attack interval) | `interval × (1 − 0.07·L)`; mount'lar arası yaylım aralığı (`SALVO_GAP_SEC`) da aynı oranda kısalır, tick'e yuvarlanmayan süreler artık kayıpsız ortalanır | `reload` |
+| **Turn rate** | `turnRate × (1 + 0.09·L)` | `turn` |
 | **Max shield** | `maxShield × (1 + 0.12·L)` | `shield` |
 | **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 

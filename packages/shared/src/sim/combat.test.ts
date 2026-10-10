@@ -85,6 +85,24 @@ describe('mounts', () => {
     expect(shots).toBe(7);
   });
 
+  it('a faster reload (upgrade) shoots proportionally more, even between whole ticks', () => {
+    const shotsIn = (seconds: number, reload: number): number => {
+      const s = createShipState(def, 0, 0, 0);
+      const set = new ProjectileSet(4096);
+      let shots = 0;
+      for (let i = 0; i < seconds * 20; i++) {
+        shots += updateMounts(s, def, 1, 0, true, 0.05, zeroRng, set, 0, reload);
+      }
+      return shots;
+    };
+    const base = shotsIn(20, 1);
+    // 0.15 s * 0.9 = 0.135 s is not a whole number of ticks: it must still count (about 11% more).
+    expect(shotsIn(20, 0.9)).toBeGreaterThan(base * 1.08);
+    expect(shotsIn(20, 0.5)).toBeGreaterThan(base * 1.9);
+    // Doing nothing special changes nothing: the plain rate is still one shot per 3 ticks.
+    expect(base).toBe(134);
+  });
+
   it('spawns shots at the barrel tip, along the fire direction', () => {
     const s = createShipState(def, 10, 20, 0);
     const set = new ProjectileSet(4);

@@ -29,7 +29,7 @@ export const ECONOMY = {
   /** `statCost(L) = ceil(base * growth^L)` money for going from level L to L+1. */
   statCost: { base: 12, growth: 1.4 },
   /** Effect of one level of each stat (see sim/progress.ts). */
-  perLevel: { speed: 0.04, reload: 0.04, turn: 0.05, shield: 0.12 },
+  perLevel: { speed: 0.07, reload: 0.07, turn: 0.09, shield: 0.12 },
 
   /** What sinking costs the loser. */
   death: {

@@ -74,7 +74,8 @@ export function updateMounts(
   const sinH = Math.sin(ship.heading);
   for (let i = 0; i < def.mounts.length; i++) {
     const mount = def.mounts[i]!;
-    const cd = Math.max(0, ship.mountCooldown[i]! - dt);
+    const prev = ship.mountCooldown[i]!;
+    const cd = Math.max(0, prev - dt);
     ship.mountCooldown[i] = cd;
     if (
       !fire ||
@@ -104,8 +105,14 @@ export function updateMounts(
       ownerId,
       weaponIndex(mount.weapon),
     );
-    ship.mountCooldown[i] = weapon.intervalSec * reload;
-    ship.salvoCooldown = SALVO_GAP_SEC;
+    // The reload that just ran out may have ended in the middle of this tick: that leftover time
+    // counts toward the next reload, so reload times that are not whole ticks (the reload upgrade)
+    // still average out exactly instead of being rounded up to the next tick.
+    const carry = prev > 0 ? Math.min(0, prev - dt) : 0;
+    ship.mountCooldown[i] = weapon.intervalSec * reload + carry;
+    // The gap between two barrels of one ship shrinks with the reload upgrade too; otherwise ships
+    // with many guns would be held back by it and gain nothing.
+    ship.salvoCooldown = SALVO_GAP_SEC * reload;
     shots++;
   }
   return shots;

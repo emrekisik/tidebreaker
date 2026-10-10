@@ -38,7 +38,7 @@ describe('upgrade costs and effects', () => {
     expect(shieldMul(3)).toBeGreaterThan(1);
     expect(reloadMul(3)).toBeLessThan(1);
     // The best reload level must not reach zero or go negative.
-    expect(reloadMul(ECONOMY.statCap[4]!)).toBeGreaterThan(0.5);
+    expect(reloadMul(ECONOMY.statCap[4]!)).toBeGreaterThan(0.3);
   });
 });
 
