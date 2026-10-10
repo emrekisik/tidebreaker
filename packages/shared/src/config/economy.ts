@@ -33,7 +33,10 @@ export const ECONOMY = {
 
   /** What sinking costs the loser. */
   death: {
-    /** Classes lost (never below T1). */
+    /** Sinkings a player survives in one class: the money is lost every time, the class when the
+     * last life is gone (then the lives start over). */
+    lives: 3,
+    /** Classes lost when the lives run out (never below T1). */
     tierLoss: 1,
     /** The money the loser carries is dropped as this many piles of banknotes (fewer if tiny). */
     lootPiles: 5,

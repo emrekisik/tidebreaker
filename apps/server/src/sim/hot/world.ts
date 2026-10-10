@@ -104,6 +104,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly cash: Uint32Array;
   readonly tier: Uint8Array;
   readonly levels: Uint8Array;
+  /** Sinkings left before the class is lost. */
+  readonly lives: Uint8Array;
   /** 1 = this player's STATS message must be sent. */
   readonly statsDirty: Uint8Array;
   /** 1 = a ship changed class in place (tier-up): clients re-create it. */
@@ -170,6 +172,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.cash = new Uint32Array(n);
     this.tier = new Uint8Array(n);
     this.levels = new Uint8Array(n * STAT_COUNT);
+    this.lives = new Uint8Array(n);
     this.statsDirty = new Uint8Array(n);
     this.assistDmg = new Float32Array(n * n);
     this.assistAge = new Float32Array(n * n).fill(PEACEFUL);
@@ -253,6 +256,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.tier[slot] = this.tier[slot]! + 1;
     // Upgrades belong to the ship class: a new class starts without them (the money stays).
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
+    this.lives[slot] = ECONOMY.death.lives;
     this.shipIdx[slot] = SHIP_IDS.indexOf(TIER_SHIPS[this.tier[slot]!]!);
     c.def = SHIPS[SHIP_IDS[this.shipIdx[slot]!]!];
     c.state.mountCooldown.fill(0);
@@ -341,6 +345,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.score[slot] = ECONOMY.tierScore[this.tier[slot]!]!;
     this.cash[slot] = 0;
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
+    this.lives[slot] = ECONOMY.death.lives;
     this.carrierCarry[slot] = 0;
     this.statsDirty[slot] = 1;
   }
@@ -807,6 +812,12 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.pickups.dropBanknote(x + Math.cos(a) * d, y + Math.sin(a) * d, value);
     }
     this.cash[victim] = 0;
+    this.statsDirty[victim] = 1;
+    this.scoresDirty = true;
+    // A sinking costs a life; only when the last one is gone does the ship lose its class.
+    this.lives[victim] = this.lives[victim]! - 1;
+    if (this.lives[victim]! > 0) return;
+    this.lives[victim] = D.lives;
     const before = this.tier[victim]!;
     const tier = Math.max(0, before - D.tierLoss);
     this.tier[victim] = tier;

@@ -99,7 +99,7 @@ export const FX = {
    * per level (cannon shells and rockets barely, bullets are thin enough to take more), and the
    * muzzle flash, trail and impact grow by `effect` per level, and the ship's own guns by `turret`.
    */
-  power: { thicken: { bullet: 0.2, shell: 0.04, rocket: 0.04 }, effect: 0.14, turret: 0.045 },
+  power: { thicken: { bullet: 0.2, shell: 0.04, rocket: 0.04 }, effect: 0.14, turret: 0.08 },
 
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },

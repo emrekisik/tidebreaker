@@ -776,6 +776,7 @@ describe('money and progress', () => {
     const bSlot = b.heard.joined[0]!.entityId - 1;
     const w = room.world;
     w.cash[bSlot] = 200;
+    w.lives[bSlot] = 1; // the last life: this sinking costs the class
     w.score[bSlot] = 1000;
     w.levels[bSlot * 5 + 3] = 4; // shield level above the T3 cap? cap(T3)=5, stays
     w.levels[bSlot * 5 + 0] = 7; // above the cap of T3 (5): must be clipped
@@ -978,6 +979,7 @@ describe('upgrades belong to the class', () => {
     for (const slot of [bSlot, cSlot]) {
       w.levels[slot * STAT_COUNT] = 2;
       w.cash[slot] = 50;
+      w.lives[slot] = 1;
     }
     // Shoot one victim at a time until it sinks, then look at what is left of it.
     const sink = async (client: TestClient, slot: number, x: number): Promise<void> => {
@@ -999,6 +1001,55 @@ describe('upgrades belong to the class', () => {
     expect(w.deaths[cSlot]).toBe(1);
     expect(w.tier[cSlot]).toBe(0);
     expect(w.level(cSlot, 0)).toBe(2); // still T1: kept
+  });
+});
+
+describe('lives', () => {
+  it('the class survives two sinkings and is lost with the third; a class jump restores the lives', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Victim', 'frigate');
+    await tick(2);
+    const w = room.world;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    w.cash[bSlot] = 60;
+    w.score[bSlot] = 1500;
+    expect(w.lives[bSlot]).toBe(ECONOMY.death.lives);
+    const sinkOnce = async (): Promise<void> => {
+      const before = w.deaths[bSlot]!;
+      for (let i = 0; i < 400 && w.deaths[bSlot] === before; i++) {
+        place(room, a, 530, 550, 0);
+        place(room, b, 570, 550, 0);
+        const s = w.slots[bSlot]!.state;
+        s.hull = Math.min(s.hull, 1);
+        s.shield = 0;
+        a.input(0, 0, 0, 40, true);
+        await tick(1);
+      }
+      // Wait for the respawn.
+      await tick(Math.ceil(MATCH.respawnSec * TICK_RATE) + 2);
+    };
+    await sinkOnce();
+    expect(w.tier[bSlot]).toBe(3); // still a frigate
+    expect(w.lives[bSlot]).toBe(ECONOMY.death.lives - 1);
+    expect(w.cash[bSlot]).toBe(0); // the money is gone every time
+    expect(w.slots[bSlot]!.def.id).toBe('frigate');
+    expect(b.heard.stats[b.heard.stats.length - 1]!.lives).toBe(ECONOMY.death.lives - 1);
+    await sinkOnce();
+    expect(w.tier[bSlot]).toBe(3);
+    expect(w.lives[bSlot]).toBe(1);
+    await sinkOnce();
+    expect(w.tier[bSlot]).toBe(2); // the third sinking costs the class
+    expect(w.lives[bSlot]).toBe(ECONOMY.death.lives);
+    expect(w.score[bSlot]).toBe(ECONOMY.tierScore[2]);
+    expect(w.slots[bSlot]!.def.id).toBe('corvette');
+    // Moving up again gives a full set of lives.
+    w.lives[bSlot] = 1;
+    w.score[bSlot] = ECONOMY.tierScore[3]!;
+    request(b, 'tier');
+    await tick(2);
+    expect(w.tier[bSlot]).toBe(3);
+    expect(w.lives[bSlot]).toBe(ECONOMY.death.lives);
   });
 });
 

@@ -46,7 +46,7 @@ Initial load <= 2.5 MB (JS <= ~350 KB gz) · client >= 60 fps on a mid-range des
 
 ## Commands (create these in Phase 0)
 ```
-pnpm dev          # server + client + 10 test bots (5 per team) with hot reload
+pnpm dev          # server + client + 20 test bots (10 per team) with hot reload
 pnpm dev:solo     # the same without bots
 pnpm bots         # fill a running server with bots (pnpm bots --per-team 3)
 pnpm build        # production build (client bundle size check included)

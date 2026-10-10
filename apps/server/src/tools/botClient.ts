@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import {
+  ECONOMY,
   KIND,
   PICKUP_ID_BASE,
   SHIPS,
@@ -9,6 +10,7 @@ import {
   WORLD_CENTER,
   angleDiff,
   boundaryDepth,
+  STAT,
   STAT_COUNT,
   decodeServer,
   encodeHello,
@@ -46,15 +48,35 @@ interface Seen {
   vy: number;
   team: number;
   kind: number;
+  /** Ships: tier index (0 = T1). Pickups: look (zone 0-2, or pile size 0-3). */
+  tier: number;
 }
 
 const TAU = Math.PI * 2;
-/** Enemy ships this close are fought instead of sailing on to the carrier. */
-const ENGAGE_RANGE = 80;
+/** What bots buy first: staying alive and hitting hard before moving fast. */
+const UPGRADE_ORDER = [STAT.SHIELD, STAT.DAMAGE, STAT.RELOAD, STAT.SPEED, STAT.REGEN, STAT.TURN];
+
+/** Worth of a pickup in money (kind and look as the server sends them). */
+function pickupValue(p: Seen): number {
+  const zone = [1, 1.5, 2.5][p.tier] ?? 1;
+  if (p.kind === KIND.CRATE) return ECONOMY.pickups.crate.cash * zone;
+  if (p.kind === KIND.BARREL) return ECONOMY.pickups.barrel.cash * zone + 3;
+  if (p.kind === KIND.CHEST) return ECONOMY.pickups.chest.cash * zone;
+  return [10, 35, 100, 200][p.tier] ?? 10; // banknote piles: by size
+}
+
 /** Steering offsets tried (radians from the wanted heading) until one is free of land. */
 const SWERVES = [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 1.9, -1.9];
 /** Pickups this close are collected on the way. */
-const LOOT_RANGE = 90;
+const LOOT_RANGE = 260;
+/** Distance of a stronger ship at which a bot turns away; and how close an enemy must be to be fought. */
+const FLEE_RANGE = 80;
+const HUNT_RANGE = 110;
+const FIGHT_BACK_RANGE = 45;
+/** Pickups this close to the enemy carrier are in range of its guns: not worth it. */
+const CARRIER_DANGER = 92;
+/** Tier index from which a bot goes for the enemy carrier (T3 and up). */
+const ATTACK_TIER = 2;
 const LOOT_GIVE_UP_TICKS = 200;
 const LOOT_IGNORE_TICKS = 600;
 const RETREAT_BELOW = 0.35;
@@ -110,6 +132,16 @@ export class BotClient {
   constructor(private readonly opt: BotOptions) {
     this.def = SHIPS[opt.ship];
     this.useShip(opt.ship);
+  }
+
+  private readonly patrol: Seen = { x: 0, y: 0, vx: 0, vy: 0, team: -1, kind: 0, tier: 0 };
+
+  /** Nothing to do: cruise around the middle of the map, where the sea is richer. */
+  private patrolSpot(): Seen {
+    const t = this.tick / 400 + this.side;
+    this.patrol.x = WORLD_CENTER + Math.cos(t) * 150;
+    this.patrol.y = WORLD_CENTER + Math.sin(t * 1.3) * 150;
+    return this.patrol;
   }
 
   private useShip(id: ShipId): void {
@@ -208,7 +240,7 @@ export class BotClient {
         return;
       }
       for (let tries = 0; tries < STAT_COUNT; tries++) {
-        const stat = this.nextStat;
+        const stat = UPGRADE_ORDER[this.nextStat]!;
         const level = m.levels[stat]!;
         if (level < statCap(m.tier) && m.cash >= statCost(level)) {
           this.nextStat = (this.nextStat + 1) % STAT_COUNT;
@@ -231,15 +263,19 @@ export class BotClient {
       this.me.hull = self.hull / this.def.hull;
       this.me.shield = self.shield / this.def.shield;
     },
-    enter: (e) =>
-      (e.id >= PICKUP_ID_BASE ? this.pickups : this.seen).set(e.id, {
+    enter: (e) => {
+      const isPickup = e.id >= PICKUP_ID_BASE;
+      const ship = SHIPS[SHIP_IDS[e.shipId]!];
+      (isPickup ? this.pickups : this.seen).set(e.id, {
         x: e.x,
         y: e.y,
         vx: 0,
         vy: 0,
         team: e.team,
         kind: e.kind,
-      }),
+        tier: isPickup || !ship ? e.shipId : Math.max(0, ship.tier - 1),
+      });
+    },
     update: (u) => {
       const s = this.seen.get(u.id);
       if (!s) return;
@@ -330,17 +366,41 @@ export class BotClient {
         nearest = s;
       }
     }
+    const myTier = this.def.tier - 1;
 
-    // Free money nearby is worth a detour while nobody is close enough to fight.
+    // A much stronger ship close by: do not fight it, fall back toward the carrier (and shoot).
+    const threatened =
+      nearest !== null && nearestD < FLEE_RANGE && nearest.tier >= myTier + 2 && health < 0.9;
+    // A ship that is not stronger than us and in reach is a target (a kill pays well).
+    const hunting =
+      nearest !== null &&
+      !threatened &&
+      health > 0.5 &&
+      (nearestD < FIGHT_BACK_RANGE || (nearestD < HUNT_RANGE && nearest.tier <= myTier + 1));
+
+    // Farming: the best pickup by value per distance, away from the enemy carrier's guns and from
+    // stronger ships.
     let loot: Seen | null = null;
     let lootId = 0;
-    let lootD = LOOT_RANGE;
-    if (!this.retreating && !(nearest && nearestD < ENGAGE_RANGE)) {
+    const farming = !this.retreating && !threatened && !hunting;
+    if (farming) {
+      let best = 0;
       for (const [id, p] of this.pickups) {
         if ((this.ignoreUntil.get(id) ?? 0) > this.tick) continue;
         const d = Math.hypot(p.x - me.x, p.y - me.y);
-        if (d < lootD) {
-          lootD = d;
+        if (d > LOOT_RANGE) continue;
+        if (
+          enemyCarrier &&
+          Math.hypot(p.x - enemyCarrier.x, p.y - enemyCarrier.y) < CARRIER_DANGER
+        ) {
+          continue;
+        }
+        if (nearest && nearest.tier > myTier && Math.hypot(p.x - nearest.x, p.y - nearest.y) < 55) {
+          continue;
+        }
+        const score = pickupValue(p) / (d + 18);
+        if (score > best) {
+          best = score;
           loot = p;
           lootId = id;
         }
@@ -355,13 +415,19 @@ export class BotClient {
       loot = null;
       this.lootId = 0;
     }
-    const target: Seen | null = this.retreating
-      ? ownCarrier
-      : loot
-        ? loot
-        : nearest && nearestD < ENGAGE_RANGE
+
+    // What to do now. Small ships farm until they are strong enough to take on the carrier.
+    const attacking = farming && !loot && myTier >= ATTACK_TIER && health > 0.7;
+    const target: Seen | null =
+      this.retreating || threatened
+        ? ownCarrier
+        : hunting
           ? nearest
-          : (enemyCarrier ?? nearest);
+          : loot
+            ? loot
+            : attacking
+              ? (enemyCarrier ?? this.patrolSpot())
+              : this.patrolSpot();
     if (!target) {
       this.sendInput(false, 0, 0.5, me.heading, 0);
       return;
@@ -378,13 +444,14 @@ export class BotClient {
 
     // Where to sail: toward the target, then circle it at a comfortable distance.
     const fightingCarrier = target.kind === KIND.CARRIER;
-    const standOff = loot
-      ? 0
-      : this.retreating
-        ? 40
-        : fightingCarrier
-          ? 52
-          : this.weaponRange * 0.55;
+    const standOff =
+      loot || !(hunting || attacking || this.retreating || threatened)
+        ? 0
+        : this.retreating || threatened
+          ? 40
+          : fightingCarrier
+            ? 52
+            : this.weaponRange * 0.55;
     let wanted = bearing;
     let throttle = 1;
     if (dist < standOff * 1.2) {

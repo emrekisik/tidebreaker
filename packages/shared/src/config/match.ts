@@ -49,9 +49,9 @@ export const CARRIER: ShipDef = {
 
 /** Room and match settings (GAME_DESIGN.md §4.5, §10, §11). */
 export const MATCH = {
-  maxPlayers: 20,
+  maxPlayers: 24,
   /** Players per team (a new player joins the team with fewer players, blue on a tie). */
-  perTeam: 10,
+  perTeam: 12,
   /** Where the carriers are anchored; `heading` is where the bow points. */
   carriers: [
     { team: TEAM_BLUE, x: 130, y: WORLD_CENTER, heading: 0 },

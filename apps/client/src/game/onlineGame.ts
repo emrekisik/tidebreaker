@@ -157,6 +157,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     maxHull: 1,
     maxShield: 1,
     canTierUp: false,
+    lives: 3,
   };
   readonly clock = new ServerClock();
   predictor!: Predictor;
@@ -444,6 +445,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     p.maxHull = m.maxHull;
     p.maxShield = m.maxShield;
     p.canTierUp = m.canTierUp;
+    p.lives = m.lives;
     if (this.predictor) {
       this.predictor.speedLevel = m.levels[STAT.SPEED]!;
       this.predictor.turnLevel = m.levels[STAT.TURN]!;

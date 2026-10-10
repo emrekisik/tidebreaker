@@ -330,6 +330,8 @@ export interface StatsMsg {
   maxHull: number;
   maxShield: number;
   canTierUp: boolean;
+  /** Sinkings left before the class is lost. */
+  lives: number;
 }
 
 export function encodeStats(w: Writer, m: StatsMsg): void {
@@ -342,6 +344,7 @@ export function encodeStats(w: Writer, m: StatsMsg): void {
   w.u16(m.maxHull);
   w.u16(m.maxShield);
   w.u8(m.canTierUp ? 1 : 0);
+  w.u8(m.lives);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -706,6 +709,7 @@ const statsMsg: StatsMsg = {
   maxHull: 0,
   maxShield: 0,
   canTierUp: false,
+  lives: 0,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -797,6 +801,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.maxHull = r.u16();
       statsMsg.maxShield = r.u16();
       statsMsg.canTierUp = (r.u8() & 1) !== 0;
+      statsMsg.lives = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
       return true;

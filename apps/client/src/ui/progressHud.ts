@@ -68,7 +68,8 @@ export class ProgressHud {
     const className = shipId ? t(`ship.${shipId}` as MessageKey) : '';
     const next = ECONOMY.tierScore[m.tier + 1];
     const need = next === undefined ? t('progress.max') : `${t('progress.tierNeed')} ${next}`;
-    this.info.textContent = `${className} · ${t('progress.score')} ${m.score} · ${t('progress.cash')} ${m.cash} · ${need}`;
+    const lives = '♥'.repeat(Math.max(0, m.lives));
+    this.info.textContent = `${className} ${lives} · ${t('progress.score')} ${m.score} · ${t('progress.cash')} ${m.cash} · ${need}`;
     const cap = statCap(m.tier);
     for (let i = 0; i < STAT_COUNT; i++) {
       const level = m.levels[i]!;

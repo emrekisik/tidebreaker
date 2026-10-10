@@ -7,7 +7,7 @@ import { BotClient } from './botClient.ts';
  * team balancing alternates blue, red, blue, ... and reconnects by itself, so it can be started
  * before the server is up.
  *
- *   pnpm bots                      5 per team
+ *   pnpm bots                      10 per team (the room keeps 2 places per team for people)
  *   pnpm bots --per-team 3 --url ws://localhost:9001
  */
 function arg(name: string, fallback: string): string {
@@ -15,7 +15,7 @@ function arg(name: string, fallback: string): string {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
 
-const perTeam = Math.max(0, Math.min(MATCH.perTeam - 1, Math.floor(Number(arg('per-team', '5')))));
+const perTeam = Math.max(0, Math.min(MATCH.perTeam - 2, Math.floor(Number(arg('per-team', '10')))));
 const url = arg('url', 'ws://127.0.0.1:9001');
 
 const NAMES = [

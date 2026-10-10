@@ -143,6 +143,7 @@ export class Room {
     maxHull: 0,
     maxShield: 0,
     canTierUp: false,
+    lives: 0,
   };
   private readonly anyClass: boolean;
   private readonly self = newSelfState();
@@ -376,6 +377,7 @@ export class Room {
       m.maxHull = w.slots[s]!.def.hull;
       m.maxShield = Math.round(w.maxShieldOf(s));
       m.canTierUp = canTierUp(m.tier, m.score);
+      m.lives = w.lives[s]!;
       this.small.reset();
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
