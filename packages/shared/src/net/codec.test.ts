@@ -55,6 +55,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     youDied: (...a) => log.push(`youDied ${a.join(',')}`),
     stats: (m) => log.push(`stats ${JSON.stringify({ ...m, levels: Array.from(m.levels) })}`),
     pickup: (...a) => log.push(`pickup ${a.join(',')}`),
+    power: (...a) => log.push(`power ${a.join(',')}`),
     kill: (...a) => log.push(`kill ${a.join(',')}`),
     scores: (rows) => log.push(`scores ${JSON.stringify(rows)}`),
     pong: (...a) => log.push(`pong ${a.join(',')}`),
@@ -295,6 +296,7 @@ describe('server messages', () => {
       heading: 2.5,
       hp: 0.5,
       shield: 1,
+      power: 3,
       name: 'Deniz',
     };
     b.enter(e);
@@ -331,6 +333,7 @@ describe('server messages', () => {
     expect(header).toBe('4242,77,1.5,2.5,0.75,-3,0.5,-0.25,0.125,80,20');
     expect(enters).toHaveLength(1);
     expect(enters[0]!.name).toBe('Deniz');
+    expect(enters[0]!.power).toBe(3);
     expect(Math.abs(enters[0]!.x - 123.456)).toBeLessThan(1 / 32 + 1e-9);
     expect(Math.abs(enters[0]!.y - 987.654)).toBeLessThan(1 / 32 + 1e-9);
     expect(updates[0]!.id).toBe(6);
@@ -361,6 +364,7 @@ describe('server messages', () => {
     ev.shipSunk(8, 3, 51, 61);
     ev.bump(8, 0xffff, 40, 41, 5.5);
     ev.pickup(PICKUP_ID_BASE + 7, 3, KIND.CRATE, 12, 70.5, 80.25);
+    ev.power(3, 6);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -371,6 +375,7 @@ describe('server messages', () => {
       'sunk 100,8,3,51,61',
       'bump 100,8,65535,40,41,5.5',
       `pickup 100,${PICKUP_ID_BASE + 7},3,${KIND.CRATE},12,70.5,80.25`,
+      'power 100,3,6',
     ]);
   });
 
@@ -393,6 +398,7 @@ describe('server messages', () => {
       heading: 0,
       hp: 1,
       shield: 1,
+      power: 0,
       name: 'A',
     });
     b.update(2, 3, 4, 0, 0, 1, 1);

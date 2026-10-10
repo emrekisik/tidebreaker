@@ -207,7 +207,7 @@ interface WeaponDef {
 | **Reload** (attack interval) | `interval × (1 − 0.07·L)`; mount'lar arası yaylım aralığı (`SALVO_GAP_SEC`) da aynı oranda kısalır, tick'e yuvarlanmayan süreler artık kayıpsız ortalanır | `reload` |
 | **Turn rate** | `turnRate × (1 + 0.09·L)` | `turn` |
 | **Max shield** | `maxShield × (1 + 0.12·L)` | `shield` |
-| **Damage** (hasar) | `damage × (1 + 0.10·L)` (tüm silahlar); güçlü mermi görünür olsun diye: **makineli tüfek mermisi** seviye başına %20, **top mermisi ve roket gövdesi** yalnızca %4 kalınlaşır (çok büyümesin); **namlu ışığı, mermi izi ve vuruş/su patlaması** seviye başına %14 büyür (`FX.power`). Vuruş yarıçapı değişmez | `damage` |
+| **Damage** (hasar) | `damage × (1 + 0.10·L)` (tüm silahlar); güçlü mermi görünür olsun diye: **makineli tüfek mermisi** seviye başına %20, **top mermisi ve roket gövdesi** yalnızca %4 kalınlaşır (çok büyümesin); **namlu ışığı, mermi izi ve vuruş/su patlaması** seviye başına %14 büyür (`FX.power`). **Geminin silahları da (taretler, fırlatıcılar) seviye başına %4,5 büyür** (`FX.power.turret`; 8. seviyede ≈ 1,36 kat). Vuruş yarıçapı değişmez | `damage` |
 | **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
@@ -437,7 +437,7 @@ f32 x, f32 y, f32 heading, f32 speed, f32 kx, f32 ky, f32 spin, u16 hull, u16 sh
 u8 nEnter, u8 nUpdate, u8 nLeave   // 255'i aşarsa birden çok mesaja böl
 -- sıra: LEAVE[], ENTER[], UPDATE[] (aynı id aynı snapshot'ta ayrılıp yeniden girebilir) --
 LEAVE[]:  u16 id
-ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%, u8 shield%, (oyuncuysa) u8 nameLen+name
+ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%, u8 shield%, u8 power (hasar yükseltmesi seviyesi), (oyuncuysa) u8 nameLen+name
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
@@ -456,6 +456,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED), x u16, y u16` |
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
+| `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
 | `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
 | `BUMP` | `u16 shipId, u16 otherId (0xFFFF = ada/resif), x u16, y u16, u8 impact×8` (çarpışma efektleri ve sarsıntı) |

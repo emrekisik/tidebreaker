@@ -9,6 +9,7 @@ import {
   REJECT_REASON,
   SHIP_IDS,
   SNAPSHOT_EVERY,
+  STAT,
   STAT_COUNT,
   STEP_MS,
   SnapshotBuilder,
@@ -155,6 +156,7 @@ export class Room {
     heading: 0,
     hp: 0,
     shield: 0,
+    power: 0,
     name: '',
   };
   private running = false;
@@ -433,6 +435,7 @@ export class Room {
           e.heading = ship.state.heading;
           e.hp = ship.state.hull / ship.def.hull;
           e.shield = ship.state.shield / w.maxShieldOf(s);
+          e.power = s < CARRIER_SLOTS ? 0 : w.level(s, STAT.DAMAGE);
           e.name = this.names[s]!;
           sb.enter(e);
           c.known[s] = 1;
@@ -493,6 +496,7 @@ export class Room {
         e.heading = 0;
         e.hp = 1;
         e.shield = 1;
+        e.power = 0;
         e.name = '';
         sb.enter(e);
         c.known[at] = 1;

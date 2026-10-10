@@ -452,6 +452,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     if (this.player && this.player.combatant.state.alive && !this.awaitSpawn) {
       this.swapShip(m.shipId);
     }
+    this.player?.model.setPower(m.levels[STAT.DAMAGE]!);
     this.deps.events.onStats(p);
   }
 
@@ -467,6 +468,12 @@ export class OnlineGame implements GameSession, ServerHandler {
     c.def = def;
     this.predictor.def = def;
     this.shipIdx = shipId;
+  }
+
+  power(tick: number, id: number, level: number): void {
+    const apply = (): void => this.entityOf(id)?.model.setPower(level);
+    if (id === this.myId) apply();
+    else this.at(tick * STEP_MS, apply);
   }
 
   pickup(
@@ -523,6 +530,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
+    model.setPower(e.power);
     if (e.kind === KIND.CARRIER) entity.mountAims = new Float32Array(def.mounts.length);
     d.scene.add(model.root);
     this.entities.push(entity);

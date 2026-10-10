@@ -219,6 +219,7 @@ export class BotClient {
       }
     },
     pickup: () => {},
+    power: () => {},
     pong: () => {},
     reject: (reason) => {
       this.log(`rejected (${reason})`);

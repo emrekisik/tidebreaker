@@ -61,6 +61,7 @@ export const EVENT = {
   SHIP_SUNK: 4,
   BUMP: 5,
   PICKUP: 6,
+  POWER: 7,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = { SHIP: 0, CRATE: 4, BARREL: 5, CHEST: 6, BANKNOTE: 7, CARRIER: 10 } as const;
@@ -381,6 +382,8 @@ export interface EnterEntry {
   heading: number;
   hp: number;
   shield: number;
+  /** Damage upgrade level (the guns of the ship are drawn bigger with it). */
+  power: number;
   name: string;
 }
 
@@ -427,6 +430,7 @@ export class SnapshotBuilder {
     w.u8(qAngle8(e.heading));
     w.u8(qFrac(e.hp));
     w.u8(qFrac(e.shield));
+    w.u8(e.power);
     w.string(e.name, NAME_MAX_BYTES);
     this.nEnter++;
   }
@@ -582,6 +586,16 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A ship's damage upgrade level changed. */
+  power(id: number, level: number): void {
+    if (!this.room(4)) return;
+    const w = this.w;
+    w.u8(EVENT.POWER);
+    w.u16(id);
+    w.u8(level);
+    this.count++;
+  }
+
   /** A ship picked something up (or a pickup was taken). */
   pickup(id: number, collector: number, kind: number, value: number, x: number, y: number): void {
     if (!this.room(13)) return;
@@ -666,6 +680,7 @@ export interface ServerHandler {
     x: number,
     y: number,
   ): void;
+  power(tick: number, id: number, level: number): void;
 }
 
 const self = newSelfState();
@@ -679,6 +694,7 @@ const enterEntry: EnterEntry = {
   heading: 0,
   hp: 0,
   shield: 0,
+  power: 0,
   name: '',
 };
 const statsMsg: StatsMsg = {
@@ -824,7 +840,7 @@ function decodeSnapshot(r: Reader, h: ServerHandler): boolean {
   const nLeave = r.u8();
   if (!r.ok) return false;
   // The sections have known minimum sizes, so a lying count is caught before any callback.
-  if (r.remaining < nEnter * 13 + nUpdate * 10 + nLeave * 2) return false;
+  if (r.remaining < nEnter * 14 + nUpdate * 10 + nLeave * 2) return false;
   h.snapshot(tick, seq, self);
   for (let i = 0; i < nLeave && r.ok; i++) {
     const id = r.u16();
@@ -840,6 +856,7 @@ function decodeSnapshot(r: Reader, h: ServerHandler): boolean {
     enterEntry.heading = dqAngle8(r.u8());
     enterEntry.hp = dqFrac(r.u8());
     enterEntry.shield = dqFrac(r.u8());
+    enterEntry.power = r.u8();
     enterEntry.name = r.string(NAME_MAX_BYTES);
     if (r.ok) h.enter(enterEntry);
   }
@@ -907,6 +924,12 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const y = dqPos(r.u16());
         const impact = r.u8() / 8;
         if (r.ok) h.bump(tick, ship, other, x, y, impact);
+        break;
+      }
+      case EVENT.POWER: {
+        const id = r.u16();
+        const level = r.u8();
+        if (r.ok) h.power(tick, id, level);
         break;
       }
       case EVENT.PICKUP: {

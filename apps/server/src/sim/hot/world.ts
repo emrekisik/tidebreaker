@@ -128,6 +128,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly feedVictim = new Uint16Array(DIED_CAPACITY);
   readonly feedWeapon = new Uint8Array(DIED_CAPACITY);
   feedCount = 0;
+  /** Players whose damage level changed since the last tick (announced with the next events). */
+  private readonly powerSlot = new Uint16Array(DIED_CAPACITY);
+  private powerCount = 0;
   /** The scoreboard changed (kills, deaths, players coming or going). */
   scoresDirty = true;
   matchState: number = MATCH_STATE.PLAYING;
@@ -225,6 +228,12 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const before = this.maxShieldOf(slot);
     this.cash[slot] = this.cash[slot]! - cost;
     this.levels[slot * STAT_COUNT + stat] = level + 1;
+    // Everyone sees the guns of this ship grow.
+    // (Upgrades arrive between ticks; the event is written at the start of the next one.)
+    if (stat === STAT.DAMAGE && this.powerCount < DIED_CAPACITY) {
+      this.powerSlot[this.powerCount] = slot;
+      this.powerCount++;
+    }
     if (stat === STAT.SHIELD) {
       // The new shield capacity arrives filled.
       const s = this.slots[slot]!.state;
@@ -456,6 +465,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const dt = STEP_SEC;
     this.tick++;
     this.events.begin(this.tick);
+    for (let i = 0; i < this.powerCount; i++) {
+      const slot = this.powerSlot[i]!;
+      this.events.power(slot + 1, this.level(slot, STAT.DAMAGE));
+    }
+    this.powerCount = 0;
     this.diedCount = 0;
     this.feedCount = 0;
     const ended = this.matchState === MATCH_STATE.ENDED;

@@ -886,6 +886,27 @@ describe('damage upgrade', () => {
   });
 });
 
+describe('the guns grow with the damage upgrade', () => {
+  it('everyone is told when it changes, and newcomers learn the current level', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    const b = await join('B');
+    await tick(2);
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    w.cash[aSlot] = 100;
+    request(a, 'upgrade', STAT.DAMAGE);
+    await tick(2);
+    expect(w.level(aSlot, STAT.DAMAGE)).toBe(1);
+    expect(b.heard.powers.some((p) => p.id === aSlot + 1 && p.level === 1)).toBe(true);
+    // A third player joins later and is told the level in the ENTER entry.
+    const c = await join('C');
+    await tick(4);
+    expect(c.heard.enters.find((e) => e.id === aSlot + 1)!.power).toBe(1);
+    expect(c.heard.enters.find((e) => e.id === 1)!.power).toBe(0); // a carrier
+  });
+});
+
 describe('upgrade effects', () => {
   it('the speed and reload upgrades change how the ship behaves', async () => {
     const { room, join, tick } = setup({ anyClass: false });

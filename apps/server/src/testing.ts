@@ -41,6 +41,7 @@ export interface Heard {
   }[];
   scores: ScoreEntry[][];
   stats: StatsMsg[];
+  powers: { tick: number; id: number; level: number }[];
   pickups: { tick: number; id: number; collector: number; kind: number; value: number }[];
   rejects: number[];
   pongs: { clientTime: number; serverTime: number }[];
@@ -75,6 +76,7 @@ export class TestClient {
     scores: [],
     stats: [],
     pickups: [],
+    powers: [],
     rejects: [],
     pongs: [],
     snapshots: [],
@@ -111,6 +113,7 @@ export class TestClient {
           victimName,
         }),
       scores: (rows) => h.scores.push(rows),
+      power: (tick, id, level) => h.powers.push({ tick, id, level }),
       stats: (m) => h.stats.push({ ...m, levels: m.levels.slice() }),
       pickup: (tick, id, collector, kind, value) =>
         h.pickups.push({ tick, id, collector, kind, value }),

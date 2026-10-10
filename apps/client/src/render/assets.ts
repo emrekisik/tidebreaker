@@ -24,7 +24,7 @@ import type { Texture } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { convergedAngle } from '@tidebreaker/shared';
+import { FX, convergedAngle } from '@tidebreaker/shared';
 import { MODEL_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
@@ -87,6 +87,9 @@ export class ShipModel {
   hullWidth = 0;
   private flashing = false;
   private readonly tmp = new Quaternion();
+  /** The turrets' own sizes as exported (the damage upgrade grows them from here). */
+  private readonly baseScale: Vector3[] = [];
+  private power = 0;
   /** Flat things that must stay on the water surface (the team ring). */
   private readonly decals: Mesh[] = [];
   private readonly decalLift: number[] = [];
@@ -102,7 +105,18 @@ export class ShipModel {
     this.normals = normals;
     this.flashes = flashes;
     this.turrets = turrets;
+    for (const rig of turrets) this.baseScale.push(rig.node.scale.clone());
     for (let i = 0; i < meshes.length; i++) meshes[i]!.material = normals[i]!;
+  }
+
+  /** Damage upgrade level: the guns of the ship grow with it. */
+  setPower(level: number): void {
+    if (level === this.power) return;
+    this.power = level;
+    const k = 1 + FX.power.turret * level;
+    for (let i = 0; i < this.turrets.length; i++) {
+      this.turrets[i]!.node.scale.copy(this.baseScale[i]!).multiplyScalar(k);
+    }
   }
 
   /** Adds a flat mesh that is kept `lift` above the water surface under the ship. */
