@@ -13,6 +13,7 @@ import type {
   ScoreEntry,
   SelfState,
   ServerHandler,
+  StatsMsg,
   UpdateEntry,
 } from '@tidebreaker/shared';
 import type { MemoryClient } from './net/memTransport.ts';
@@ -39,6 +40,8 @@ export interface Heard {
     victimName: string;
   }[];
   scores: ScoreEntry[][];
+  stats: StatsMsg[];
+  pickups: { tick: number; id: number; collector: number; kind: number; value: number }[];
   rejects: number[];
   pongs: { clientTime: number; serverTime: number }[];
   snapshots: { tick: number; seq: number; self: SelfState }[];
@@ -62,6 +65,8 @@ export class TestClient {
     youDied: [],
     kills: [],
     scores: [],
+    stats: [],
+    pickups: [],
     rejects: [],
     pongs: [],
     snapshots: [],
@@ -98,6 +103,9 @@ export class TestClient {
           victimName,
         }),
       scores: (rows) => h.scores.push(rows),
+      stats: (m) => h.stats.push({ ...m, levels: m.levels.slice() }),
+      pickup: (tick, id, collector, kind, value) =>
+        h.pickups.push({ tick, id, collector, kind, value }),
       pong: (clientTime, serverTime) => h.pongs.push({ clientTime, serverTime }),
       reject: (r) => h.rejects.push(r),
       snapshot: (tick, seq, self) => h.snapshots.push({ tick, seq, self: { ...self } }),

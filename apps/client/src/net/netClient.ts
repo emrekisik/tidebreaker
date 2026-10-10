@@ -5,6 +5,8 @@ import {
   encodeInput,
   encodePing,
   encodePlay,
+  encodeTierUp,
+  encodeUpgrade,
 } from '@tidebreaker/shared';
 import type { ServerHandler } from '@tidebreaker/shared';
 
@@ -73,6 +75,16 @@ export class NetClient {
 
   play(name: string, shipId: number): void {
     encodePlay(this.out, name, shipId);
+    this.flush();
+  }
+
+  upgrade(stat: number): void {
+    encodeUpgrade(this.out, stat);
+    this.flush();
+  }
+
+  tierUp(): void {
+    encodeTierUp(this.out, 0);
     this.flush();
   }
 

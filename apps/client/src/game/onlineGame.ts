@@ -5,10 +5,13 @@ import {
   FX,
   KIND,
   MAX_PROJECTILES,
+  PICKUP_ID_BASE,
   ProjectileSet,
   SHIPS,
   SHIP_IDS,
   STEP_MS,
+  STAT,
+  STAT_COUNT,
   STEP_SEC,
   TEAM_BLUE,
   WEAPONS,
@@ -32,12 +35,14 @@ import type {
   SelfState,
   ServerHandler,
   ShipDef,
+  StatsMsg,
   UpdateEntry,
   WelcomeMsg,
   WorldMap,
 } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
+import type { PickupView } from '../frame/pickupView.ts';
 import { ServerClock } from '../net/clock.ts';
 import { SnapshotBuffer } from '../net/interpolation.ts';
 import type { PoseSample } from '../net/interpolation.ts';
@@ -82,6 +87,10 @@ export interface OnlineEvents extends GameEvents {
   ): void;
   /** The scoreboard of the round. */
   onScores(rows: ScoreEntry[], myId: number): void;
+  /** Score, money or upgrades of the player changed. */
+  onStats(m: StatsMsg): void;
+  /** The player picked something up. */
+  onPickup(kind: number, value: number, x: number, y: number): void;
   /** The player (re)spawned. */
   onJoined(team: number, shipIdx: number): void;
   /** The connection is gone (after the game started). */
@@ -115,6 +124,7 @@ export interface OnlineDeps {
   scene: Scene;
   assets: AssetProvider;
   bars: BarKit;
+  pickups: PickupView;
   events: OnlineEvents;
   url: string;
   name: string;
@@ -137,6 +147,17 @@ export class OnlineGame implements GameSession, ServerHandler {
   myId = 0;
   myTeam = 0;
   teamKills: number[] = [0, 0];
+  /** The player's own score, money and upgrades, as the server last said. */
+  readonly progress: StatsMsg = {
+    score: 0,
+    cash: 0,
+    tier: 0,
+    shipId: 0,
+    levels: new Uint8Array(STAT_COUNT),
+    maxHull: 1,
+    maxShield: 1,
+    canTierUp: false,
+  };
   readonly clock = new ServerClock();
   predictor!: Predictor;
   net!: NetClient;
@@ -411,6 +432,53 @@ export class OnlineGame implements GameSession, ServerHandler {
     this.deps.events.onScores(rows, this.myId);
   }
 
+  stats(m: StatsMsg): void {
+    const p = this.progress;
+    p.score = m.score;
+    p.cash = m.cash;
+    p.tier = m.tier;
+    p.shipId = m.shipId;
+    p.levels.set(m.levels);
+    p.maxHull = m.maxHull;
+    p.maxShield = m.maxShield;
+    p.canTierUp = m.canTierUp;
+    if (this.predictor) {
+      this.predictor.speedLevel = m.levels[STAT.SPEED]!;
+      this.predictor.turnLevel = m.levels[STAT.TURN]!;
+    }
+    // A class jump while sailing: new model, same place. (A sunk ship changes at its respawn.)
+    if (this.player && this.player.combatant.state.alive && !this.awaitSpawn) {
+      this.swapShip(m.shipId);
+    }
+    this.deps.events.onStats(p);
+  }
+
+  private swapShip(shipId: number): void {
+    const def = SHIPS[SHIP_IDS[shipId]!] as ShipDef;
+    const c = this.player.combatant;
+    if (c.def === def) return;
+    const d = this.deps;
+    d.scene.remove(this.player.model.root);
+    const model = d.assets.createShip(def.modelKey, teamName(this.myTeam), true);
+    d.scene.add(model.root);
+    this.player.setModel(model);
+    c.def = def;
+    this.predictor.def = def;
+    this.shipIdx = shipId;
+  }
+
+  pickup(
+    _tick: number,
+    _id: number,
+    collector: number,
+    kind: number,
+    value: number,
+    x: number,
+    y: number,
+  ): void {
+    if (collector === this.myId) this.deps.events.onPickup(kind, value, x, y);
+  }
+
   // ---- messages: snapshots
 
   snapshot(tick: number, lastInputSeq: number, self: SelfState): void {
@@ -432,6 +500,10 @@ export class OnlineGame implements GameSession, ServerHandler {
   }
 
   enter(e: EnterEntry): void {
+    if (e.id >= PICKUP_ID_BASE) {
+      this.deps.pickups.add(e.id, e.kind, e.shipId, e.x, e.y);
+      return;
+    }
     const old = this.remotes.get(e.id);
     if (old) this.removeRemote(e.id);
     const d = this.deps;
@@ -469,6 +541,10 @@ export class OnlineGame implements GameSession, ServerHandler {
   }
 
   leave(id: number): void {
+    if (id >= PICKUP_ID_BASE) {
+      this.deps.pickups.remove(id);
+      return;
+    }
     this.at(this.curTime, () => {
       const r = this.remotes.get(id);
       if (!r) return;

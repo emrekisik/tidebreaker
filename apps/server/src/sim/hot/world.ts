@@ -2,33 +2,49 @@ import {
   CARRIER,
   COMBAT,
   DEG2RAD,
+  ECONOMY,
   END_REASON,
   EventWriter,
+  KIND,
   MATCH,
   MATCH_STATE,
   MAX_PROJECTILES,
   Mulberry32,
   NO_TEAM,
   NO_WEAPON,
+  PICKUP_ID_BASE,
   ProjectileSet,
   SHIPS,
   SHIP_IDS,
+  STAT,
+  STAT_COUNT,
   STEP_SEC,
   TEAM_BLUE,
   TEAM_COUNT,
+  TIER_SHIPS,
   applyWorldBounds,
+  canTierUp,
   collideIslands,
   createCombatant,
   generateMap,
+  killReward,
   regenHull,
   regenShield,
+  reloadMul,
   resetShipState,
   resolveCollisions,
   segmentVsWorld,
+  shieldMul,
+  speedMul,
+  statCap,
+  statCost,
   stepShip,
+  tierOf,
+  turnMul,
   updateCarrier,
   updateMounts,
 } from '@tidebreaker/shared';
+import { Pickups } from './pickups.ts';
 import type {
   CollisionSink,
   Combatant,
@@ -42,6 +58,7 @@ import type {
 /** Slots 0 and 1 are the carriers, then one slot per player. Entity id = slot + 1. */
 export const CARRIER_SLOTS = TEAM_COUNT;
 const DIED_CAPACITY = 64;
+const KIND_BARREL = KIND.BARREL;
 /** Combat age of a player who has not fought lately (seconds). */
 const PEACEFUL = 1e6;
 
@@ -82,8 +99,23 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly combatAge: Float32Array;
   /** A player who dropped out while fighting: seconds their ship still drifts in the water. */
   readonly ghostLeft: Float32Array;
-  /** Levels of the "health regen" upgrade (Phase 4); 0 until upgrades exist. */
-  readonly regenLevel: Uint8Array;
+  /** Score (gates class jumps), spendable money, tier index (0 = T1) and upgrade levels per slot. */
+  readonly score: Uint32Array;
+  readonly cash: Uint32Array;
+  readonly tier: Uint8Array;
+  readonly levels: Uint8Array;
+  /** 1 = this player's STATS message must be sent. */
+  readonly statsDirty: Uint8Array;
+  /** 1 = a ship changed class in place (tier-up): clients re-create it. */
+  readonly pickups: Pickups;
+  /** Damage each player recently did to each victim, and how long ago (assist rewards). */
+  private readonly assistDmg: Float32Array;
+  private readonly assistAge: Float32Array;
+  /** How often a killer sank a victim lately, and how long ago (repeat-kill reward cut). */
+  private readonly pairKills: Uint8Array;
+  private readonly pairAge: Float32Array;
+  /** Fractions of carrier-damage reward not yet paid out. */
+  private readonly carrierCarry: Float32Array;
   readonly teamKills: Uint16Array = new Uint16Array(TEAM_COUNT);
   readonly projectiles = new ProjectileSet(MAX_PROJECTILES);
   readonly events = new EventWriter();
@@ -131,7 +163,16 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.deaths = new Uint16Array(n);
     this.combatAge = new Float32Array(n).fill(PEACEFUL);
     this.ghostLeft = new Float32Array(n);
-    this.regenLevel = new Uint8Array(n);
+    this.score = new Uint32Array(n);
+    this.cash = new Uint32Array(n);
+    this.tier = new Uint8Array(n);
+    this.levels = new Uint8Array(n * STAT_COUNT);
+    this.statsDirty = new Uint8Array(n);
+    this.assistDmg = new Float32Array(n * n);
+    this.assistAge = new Float32Array(n * n).fill(PEACEFUL);
+    this.pairKills = new Uint8Array(n * n);
+    this.pairAge = new Float32Array(n * n).fill(PEACEFUL);
+    this.carrierCarry = new Float32Array(n);
     this.savedHull = new Float32Array(n);
     this.savedShield = new Float32Array(n);
 
@@ -145,7 +186,72 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       c.state.mountCooldown = new Float32Array(maxMounts);
       this.slots.push(c);
     }
+    this.pickups = new Pickups(this.land, seed);
     this.startRound();
+  }
+
+  // ---- progress (GAME_DESIGN.md §6)
+
+  level(slot: number, stat: number): number {
+    return this.levels[slot * STAT_COUNT + stat]!;
+  }
+
+  /** Full shield of a ship: its class value, raised by the shield upgrade. */
+  maxShieldOf(slot: number): number {
+    const def = this.slots[slot]!.def;
+    return slot < CARRIER_SLOTS
+      ? def.shield
+      : def.shield * shieldMul(this.level(slot, STAT.SHIELD));
+  }
+
+  /** Score and money for a player (both grow by the same amount). */
+  private gain(slot: number, amount: number): void {
+    if (slot < CARRIER_SLOTS || this.used[slot] === 0 || !(amount > 0)) return;
+    this.score[slot] = this.score[slot]! + amount;
+    this.cash[slot] = this.cash[slot]! + amount;
+    this.statsDirty[slot] = 1;
+    this.scoresDirty = true;
+  }
+
+  /** Spends money on one stat. Returns false when the request is not allowed. */
+  upgrade(slot: number, stat: number): boolean {
+    if (slot < CARRIER_SLOTS || this.used[slot] === 0 || !(stat >= 0 && stat < STAT_COUNT))
+      return false;
+    if (!this.slots[slot]!.state.alive || this.ghostLeft[slot]! > 0) return false;
+    const level = this.level(slot, stat);
+    if (level >= statCap(this.tier[slot]!)) return false;
+    const cost = statCost(level);
+    if (this.cash[slot]! < cost) return false;
+    const before = this.maxShieldOf(slot);
+    this.cash[slot] = this.cash[slot]! - cost;
+    this.levels[slot * STAT_COUNT + stat] = level + 1;
+    if (stat === STAT.SHIELD) {
+      // The new shield capacity arrives filled.
+      const s = this.slots[slot]!.state;
+      s.shield += this.maxShieldOf(slot) - before;
+    }
+    this.statsDirty[slot] = 1;
+    return true;
+  }
+
+  /** Moves a player up one class (their score must allow it). Keeps position, speed and health share. */
+  tierUp(slot: number): boolean {
+    if (slot < CARRIER_SLOTS || this.used[slot] === 0) return false;
+    const c = this.slots[slot]!;
+    if (!c.state.alive || this.ghostLeft[slot]! > 0) return false;
+    if (!canTierUp(this.tier[slot]!, this.score[slot]!)) return false;
+    const hullShare = c.state.hull / c.def.hull;
+    this.tier[slot] = this.tier[slot]! + 1;
+    this.shipIdx[slot] = SHIP_IDS.indexOf(TIER_SHIPS[this.tier[slot]!]!);
+    c.def = SHIPS[SHIP_IDS[this.shipIdx[slot]!]!];
+    c.state.mountCooldown.fill(0);
+    c.state.salvoCooldown = 0;
+    c.state.hull = c.def.hull * hullShare;
+    c.state.shield = this.maxShieldOf(slot);
+    this.spawnGen[slot] = this.spawnGen[slot]! + 1;
+    this.statsDirty[slot] = 1;
+    this.scoresDirty = true;
+    return true;
   }
 
   // ---- joining and leaving (called by the room, between ticks)
@@ -159,8 +265,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.shipIdx[i] = shipIdx;
       this.kills[i] = 0;
       this.deaths[i] = 0;
-      this.regenLevel[i] = 0;
       this.ghostLeft[i] = 0;
+      this.resetProgress(i, shipIdx);
       this.lastSeq[i] = 0;
       this.inSteer[i] = 0;
       this.inThrottle[i] = 0;
@@ -217,9 +323,21 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return n;
   }
 
-  /** Changes a player's ship class; they return at their carrier right away. */
-  changeShip(slot: number, shipIdx: number): void {
+  /** Starts a player's progress over at the tier of class `shipIdx` (T1 unless testing). */
+  private resetProgress(slot: number, shipIdx: number): void {
     this.shipIdx[slot] = shipIdx;
+    this.tier[slot] = tierOf(SHIPS[SHIP_IDS[shipIdx]!]!);
+    this.score[slot] = ECONOMY.tierScore[this.tier[slot]!]!;
+    this.cash[slot] = 0;
+    this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
+    this.carrierCarry[slot] = 0;
+    this.statsDirty[slot] = 1;
+  }
+
+  /** Test builds only: a player picks a class; progress starts over at that tier. */
+  changeShip(slot: number, shipIdx: number): void {
+    this.resetProgress(slot, shipIdx);
+    this.scoresDirty = true;
     this.respawn(slot);
   }
 
@@ -230,6 +348,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     c.def = def;
     this.pickSpawn(c.team, slot, this.spawn2);
     resetShipState(c.state, def, this.spawn2[0]!, this.spawn2[1]!, this.spawn2[2]!);
+    c.state.shield = this.maxShieldOf(slot);
+    this.statsDirty[slot] = 1;
+    for (let k = 0; k < this.slotCount; k++) this.assistAge[slot * this.slotCount + k] = PEACEFUL;
     this.respawnLeft[slot] = 0;
     this.protectLeft[slot] = MATCH.spawnProtectSec;
     this.combatAge[slot] = PEACEFUL;
@@ -295,8 +416,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
       if (this.used[i] === 0) continue;
       if (this.ghostLeft[i]! > 0) this.release(i);
-      else this.respawn(i);
+      else {
+        // A new round: everyone starts again as a T1 ship with nothing.
+        this.resetProgress(i, 0);
+        this.respawn(i);
+      }
     }
+    this.pairKills.fill(0);
+    this.pickups.reset(this.combatants);
   }
 
   // ---- one tick (GAME_DESIGN.md §11.2)
@@ -311,7 +438,16 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     if (slot < CARRIER_SLOTS || this.used[slot] === 0) return;
     const c = this.slots[slot]!;
     if (!c.state.alive) return;
-    stepShip(c.state, steer, throttle, c.def.vMax, c.def.turnRateDeg * DEG2RAD, STEP_SEC);
+    const speed = speedMul(this.level(slot, STAT.SPEED));
+    const turn = turnMul(this.level(slot, STAT.TURN));
+    stepShip(
+      c.state,
+      steer,
+      throttle,
+      c.def.vMax * speed,
+      c.def.turnRateDeg * DEG2RAD * turn,
+      STEP_SEC,
+    );
   }
 
   step(): void {
@@ -354,6 +490,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this.rng,
         this,
         this.inAimDist[i]!,
+        reloadMul(this.level(i, STAT.RELOAD)),
       );
       // The first shot ends the spawn protection: no sniping from safety.
       if (shots > 0) this.protectLeft[i] = 0;
@@ -368,10 +505,19 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
     }
 
+    // 5b. pickups: ships that touch something take it
+    this.collectPickups();
+    this.pickups.step(dt, this.combatants);
+
     // 6. projectiles and hits
     this.saveProtected();
     this.projectiles.step(dt, this.combatants, this, this);
     this.restoreProtected();
+
+    for (let i = 0; i < this.assistAge.length; i++) {
+      this.assistAge[i] = Math.min(PEACEFUL, this.assistAge[i]! + dt);
+      this.pairAge[i] = Math.min(PEACEFUL, this.pairAge[i]! + dt);
+    }
 
     // 7. shields recharge once a ship has been left alone for a while
     for (let i = 0; i < this.slotCount; i++) {
@@ -386,12 +532,18 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
           dt,
         );
       } else {
-        regenShield(c.state, c.def.shield, COMBAT.shieldDelaySec, COMBAT.shieldRechargeSec, dt);
+        regenShield(
+          c.state,
+          this.maxShieldOf(i),
+          COMBAT.shieldDelaySec,
+          COMBAT.shieldRechargeSec,
+          dt,
+        );
         regenHull(
           c.state,
           c.def.hull,
           COMBAT.hullRegenDelaySec,
-          COMBAT.hullRegenPctPerSec + this.regenLevel[i]! * COMBAT.hullRegenUpgradePctPerSec,
+          COMBAT.hullRegenPctPerSec + this.level(i, STAT.REGEN) * COMBAT.hullRegenUpgradePctPerSec,
           dt,
         );
         this.combatAge[i] = Math.min(PEACEFUL, this.combatAge[i]! + dt);
@@ -487,6 +639,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       return;
     }
     this.events.shipHit(targetId, ownerId, damage, shieldHit, weaponIdx, x, y);
+    this.noteDamage(ownerId - 1, target, damage);
     if (target >= CARRIER_SLOTS) this.combatAge[target] = 0;
     if (ownerId - 1 >= CARRIER_SLOTS) this.combatAge[ownerId - 1] = 0;
     if (killed) this.sunk(target, ownerId, x, y, weaponIdx);
@@ -552,11 +705,127 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.diedKiller[this.diedCount] = killerId;
       this.diedCount++;
     }
+    this.settleDeath(victim, killerId, x, y);
     const killer = killerId > 0 ? this.slots[killerId - 1] : undefined;
     if (killer && killer.team !== NO_TEAM && killer.team !== v.team) {
       if (killerId - 1 >= CARRIER_SLOTS) this.kills[killerId - 1] = this.kills[killerId - 1]! + 1;
       this.teamKills[killer.team] = this.teamKills[killer.team]! + 1;
       this.matchChanged = true;
+    }
+  }
+
+  // ---- money: damage credit, kill rewards, loot, pickups
+
+  /** Remembers who damaged whom (assists) and pays for damage done to the enemy carrier. */
+  private noteDamage(attacker: number, target: number, damage: number): void {
+    if (attacker < CARRIER_SLOTS || attacker >= this.slotCount) return;
+    if (target < CARRIER_SLOTS) {
+      // Hurting the enemy carrier is the point of the game: it pays a little per damage point.
+      const owed = this.carrierCarry[attacker]! + damage * ECONOMY.carrier.perDamage;
+      const whole = Math.floor(owed);
+      this.carrierCarry[attacker] = owed - whole;
+      this.gain(attacker, whole);
+      return;
+    }
+    const at = target * this.slotCount + attacker;
+    if (this.assistAge[at]! > ECONOMY.kill.assistWindowSec) this.assistDmg[at] = 0;
+    this.assistDmg[at] = this.assistDmg[at]! + damage;
+    this.assistAge[at] = 0;
+  }
+
+  /** A player ship went down: pay the attackers, scatter the money, and drop a class. */
+  private settleDeath(victim: number, killerId: number, x: number, y: number): void {
+    const n = this.slotCount;
+    const v = this.slots[victim]!;
+    const killerSlot = killerId - 1;
+    const killerIsPlayer = killerSlot >= CARRIER_SLOTS && killerSlot < n;
+    if (killerIsPlayer && this.slots[killerSlot]!.team === v.team) return this.demote(victim, x, y);
+    const killerTier = killerIsPlayer ? this.tier[killerSlot]! : this.tier[victim]!;
+    let repeats = 0;
+    if (killerIsPlayer) {
+      const pair = victim * n + killerSlot;
+      repeats = this.pairAge[pair]! < ECONOMY.kill.repeatWindowSec ? this.pairKills[pair]! : 0;
+      this.pairKills[pair] = Math.min(255, repeats + 1);
+      this.pairAge[pair] = 0;
+    }
+    const reward = killReward(this.score[victim]!, this.tier[victim]!, killerTier, repeats);
+    // Everyone who hurt the victim lately shares the reward by damage; a collision gives it all
+    // to the killer.
+    let total = 0;
+    for (let a = CARRIER_SLOTS; a < n; a++) {
+      if (this.assistAge[victim * n + a]! <= ECONOMY.kill.assistWindowSec) {
+        total += this.assistDmg[victim * n + a]!;
+      }
+    }
+    if (total > 0) {
+      for (let a = CARRIER_SLOTS; a < n; a++) {
+        if (this.assistAge[victim * n + a]! > ECONOMY.kill.assistWindowSec) continue;
+        this.gain(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
+      }
+    } else if (killerIsPlayer) {
+      this.gain(killerSlot, reward);
+    }
+    this.demote(victim, x, y);
+  }
+
+  /** The loser's money floats away as banknote piles; the loser drops a class (never below T1). */
+  private demote(victim: number, x: number, y: number): void {
+    const D = ECONOMY.death;
+    const cash = this.cash[victim]!;
+    const piles = Math.min(D.lootPiles, Math.floor(cash / D.lootMinPile));
+    let left = cash;
+    for (let p = 0; p < piles; p++) {
+      const value = p === piles - 1 ? left : Math.floor(cash / piles);
+      left -= value;
+      const a = this.rng.next() * Math.PI * 2;
+      const d = this.rng.next() * D.lootSpread;
+      this.pickups.dropBanknote(x + Math.cos(a) * d, y + Math.sin(a) * d, value);
+    }
+    this.cash[victim] = 0;
+    const tier = Math.max(0, this.tier[victim]! - D.tierLoss);
+    this.tier[victim] = tier;
+    this.score[victim] = ECONOMY.tierScore[tier]!;
+    this.shipIdx[victim] = SHIP_IDS.indexOf(TIER_SHIPS[tier]!);
+    const cap = statCap(tier);
+    for (let k = 0; k < STAT_COUNT; k++) {
+      const at = victim * STAT_COUNT + k;
+      if (this.levels[at]! > cap) this.levels[at] = cap;
+    }
+    this.statsDirty[victim] = 1;
+    this.scoresDirty = true;
+  }
+
+  /** Every living player ship takes the pickups it touches. */
+  private collectPickups(): void {
+    const p = this.pickups;
+    const margin = ECONOMY.pickups.collectMargin;
+    for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+      if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
+      const c = this.slots[s]!;
+      const st = c.state;
+      if (!st.alive) continue;
+      const cos = Math.cos(st.heading);
+      const sin = Math.sin(st.heading);
+      const circles = c.def.hitCircles;
+      for (let i = 0; i < p.active.length; i++) {
+        if (p.active[i] === 0) continue;
+        let touched = false;
+        for (let k = 0; k < circles.length && !touched; k++) {
+          const circle = circles[k]!;
+          const dx = p.x[i]! - (st.x + cos * circle.offset);
+          const dy = p.y[i]! - (st.y + sin * circle.offset);
+          const reach = circle.radius + margin;
+          touched = dx * dx + dy * dy < reach * reach;
+        }
+        if (!touched) continue;
+        const value = p.value[i]!;
+        this.events.pickup(PICKUP_ID_BASE + i, s + 1, p.kind[i]!, value, p.x[i]!, p.y[i]!);
+        this.gain(s, value);
+        if (p.kind[i] === KIND_BARREL && this.rng.next() < ECONOMY.pickups.barrel.repairChance) {
+          st.hull = Math.min(c.def.hull, st.hull + c.def.hull * ECONOMY.pickups.barrel.repairPct);
+        }
+        p.take(i);
+      }
     }
   }
 }

@@ -22,6 +22,11 @@ function arg(name: string, fallback: number): number {
   const v = i >= 0 ? Number(process.argv[i + 1]) : NaN;
   return Number.isFinite(v) && v > 0 ? v : fallback;
 }
+if (process.argv.includes('--economy')) {
+  const { simulateEconomy } = await import('./balanceEconomy.ts');
+  simulateEconomy(arg('players', 10), arg('minutes', 20));
+  process.exit(0);
+}
 const acc = arg('acc', 0.5);
 const carrierAcc = arg('carrier-acc', 0.7);
 

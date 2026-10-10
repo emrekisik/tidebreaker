@@ -15,7 +15,8 @@ export class Menu {
   private readonly play = document.getElementById('menu-play') as HTMLButtonElement;
   private readonly note = document.getElementById('menu-note') as HTMLElement;
 
-  constructor(onPlay: (name: string, shipIdx: number) => void) {
+  /** `pickShip`: shows the class choice (test builds only); otherwise everyone starts as T1. */
+  constructor(onPlay: (name: string, shipIdx: number) => void, pickShip = false) {
     let savedName = '';
     let savedShip = 'corvette';
     try {
@@ -37,10 +38,10 @@ export class Menu {
     this.form.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = this.name.value.trim();
-      const idx = Number(this.ship.value);
+      const idx = pickShip ? Number(this.ship.value) : 0;
       try {
         localStorage.setItem(NAME_KEY, name);
-        localStorage.setItem(SHIP_KEY, SHIP_IDS[idx] ?? '');
+        if (pickShip) localStorage.setItem(SHIP_KEY, SHIP_IDS[idx] ?? '');
       } catch {
         // Not remembering is fine.
       }
@@ -48,6 +49,10 @@ export class Menu {
     });
     // Typing must not steer the ship.
     this.form.addEventListener('keydown', (e) => e.stopPropagation());
+    if (!pickShip) {
+      this.ship.parentElement?.classList.add('gone');
+      this.ship.value = '0';
+    }
     this.name.focus();
   }
 

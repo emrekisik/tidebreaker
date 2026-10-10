@@ -18,6 +18,15 @@ export class DamageNumbers {
     }
   }
 
+  /** A floating "+8" for money picked up. */
+  showGain(camera: PerspectiveCamera, simX: number, simY: number, value: number): void {
+    this.show(camera, simX, simY, value, false);
+    const el = this.els[(this.next + POOL - 1) % POOL];
+    if (!el) return;
+    el.textContent = `+${Math.round(value)}`;
+    el.classList.add('gain');
+  }
+
   show(
     camera: PerspectiveCamera,
     simX: number,
@@ -33,6 +42,7 @@ export class DamageNumbers {
     el.style.top = `${(-this.v.y * 0.5 + 0.5) * 100}%`;
     el.textContent = String(Math.round(damage));
     el.classList.toggle('shield', shield);
+    el.classList.remove('gain');
     // Restart the CSS animation.
     el.classList.remove('pop');
     void el.offsetWidth;

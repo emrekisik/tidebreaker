@@ -4,7 +4,9 @@ import {
   applyWorldBounds,
   collideIslands,
   createShipState,
+  speedMul,
   stepShip,
+  turnMul,
 } from '@tidebreaker/shared';
 import type { IslandSink, SelfState, ShipDef, ShipState, WorldMap } from '@tidebreaker/shared';
 
@@ -47,6 +49,9 @@ export class Predictor {
   peakError = 0;
   /** When false (sunk), inputs are ignored and the ship stays where the server left it. */
   enabled = true;
+  /** Upgrade levels of the speed and turn stats (they change how the ship moves). */
+  speedLevel = 0;
+  turnLevel = 0;
 
   constructor(def: ShipDef, land: WorldMap, id: number) {
     this.def = def;
@@ -84,7 +89,14 @@ export class Predictor {
 
   private stepLocal(steer: number, throttle: number): void {
     const def = this.def;
-    stepShip(this.state, steer, throttle, def.vMax, def.turnRateDeg * DEG2RAD, STEP_SEC);
+    stepShip(
+      this.state,
+      steer,
+      throttle,
+      def.vMax * speedMul(this.speedLevel),
+      def.turnRateDeg * DEG2RAD * turnMul(this.turnLevel),
+      STEP_SEC,
+    );
     collideIslands(this.land, this.state, def, this.id, noIslandSink);
     applyWorldBounds(this.state, STEP_SEC);
   }

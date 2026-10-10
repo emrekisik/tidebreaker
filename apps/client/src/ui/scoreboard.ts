@@ -46,18 +46,20 @@ export class Scoreboard {
     head.className = 'sb-row sb-head';
     head.append(
       this.cell(team === TEAM_BLUE ? t('match.blue') : t('match.red'), 'sb-name'),
+      this.cell(t('score.score'), 'sb-num'),
       this.cell(t('score.kills'), 'sb-num'),
       this.cell(t('score.deaths'), 'sb-num'),
     );
     col.append(head);
     const mine = this.rows
       .filter((r) => r.team === team)
-      .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+      .sort((a, b) => b.score - a.score || b.kills - a.kills);
     for (const r of mine) {
       const row = document.createElement('div');
       row.className = r.id === this.myId ? 'sb-row me' : 'sb-row';
       row.append(
-        this.cell(r.name, 'sb-name'),
+        this.cell(`T${r.tier + 1} ${r.name}`, 'sb-name'),
+        this.cell(String(r.score), 'sb-num'),
         this.cell(String(r.kills), 'sb-num'),
         this.cell(String(r.deaths), 'sb-num'),
       );

@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import {
   KIND,
+  PICKUP_ID_BASE,
   SHIPS,
   SHIP_IDS,
   WEAPONS,
@@ -8,16 +9,21 @@ import {
   WORLD_CENTER,
   angleDiff,
   boundaryDepth,
+  STAT_COUNT,
   decodeServer,
   encodeHello,
   encodeInput,
   encodePing,
   encodePlay,
+  encodeTierUp,
+  encodeUpgrade,
   generateMap,
   qAimDist,
   qAngle16,
   qAxis,
   segmentVsWorld,
+  statCap,
+  statCost,
 } from '@tidebreaker/shared';
 import type { ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
@@ -47,6 +53,8 @@ const TAU = Math.PI * 2;
 const ENGAGE_RANGE = 80;
 /** Steering offsets tried (radians from the wanted heading) until one is free of land. */
 const SWERVES = [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 1.9, -1.9];
+/** Pickups this close are collected on the way. */
+const LOOT_RANGE = 90;
 const RETREAT_BELOW = 0.35;
 const RETREAT_UNTIL = 0.8;
 const RECONNECT_MS = 2500;
@@ -66,6 +74,8 @@ export class BotClient {
   private land: WorldMap | null = null;
   private readonly out = new Writer(64);
   private readonly seen = new Map<number, Seen>();
+  /** Crates, barrels, chests and banknote piles in the water. */
+  private readonly pickups = new Map<number, Seen>();
   private readonly me = {
     id: 0,
     team: -1,
@@ -82,13 +92,22 @@ export class BotClient {
   private retreating = false;
   /** Which way this bot circles around its target. */
   private readonly side = Math.random() < 0.5 ? 1 : -1;
-  private readonly def;
-  private readonly weaponRange: number;
-  private readonly shotSpeed: number;
+  /** The ship class changes as the bot climbs; these follow it. */
+  private def;
+  private weaponRange = 0;
+  private shotSpeed = 1;
+  /** Which stat to buy next (round robin, favoring the guns and shield). */
+  private nextStat = 0;
+  private tierUps = 0;
   hits = 0;
 
   constructor(private readonly opt: BotOptions) {
     this.def = SHIPS[opt.ship];
+    this.useShip(opt.ship);
+  }
+
+  private useShip(id: ShipId): void {
+    this.def = SHIPS[id];
     const weapons = this.def.mounts.map((m) => WEAPONS[m.weapon]);
     this.weaponRange = Math.max(...weapons.map((w) => w.range));
     this.shotSpeed = Math.min(...weapons.map((w) => w.projectileSpeed));
@@ -135,6 +154,7 @@ export class BotClient {
     this.retry = null;
     this.me.ready = false;
     this.seen.clear();
+    this.pickups.clear();
     const ws = this.ws;
     this.ws = null;
     if (ws && ws.readyState <= WebSocket.OPEN) {
@@ -165,10 +185,33 @@ export class BotClient {
     match: () => {},
     youDied: (_killer, killerName) => {
       this.me.ready = false;
+      this.tierUps = 0;
       this.log(`sunk by ${killerName || 'a carrier'}`);
     },
     kill: () => {},
     scores: () => {},
+    stats: (m) => {
+      const id = SHIP_IDS[m.shipId];
+      if (id && SHIPS[id] !== this.def) this.useShip(id);
+      if (this.opt.passive) return;
+      // Spend the money (the server refuses what is not allowed) and climb when possible.
+      if (m.canTierUp && this.tierUps < 8) {
+        this.tierUps++;
+        this.write(() => encodeTierUp(this.out, 0));
+        return;
+      }
+      for (let tries = 0; tries < STAT_COUNT; tries++) {
+        const stat = this.nextStat;
+        const level = m.levels[stat]!;
+        if (level < statCap(m.tier) && m.cash >= statCost(level)) {
+          this.nextStat = (this.nextStat + 1) % STAT_COUNT;
+          this.write(() => encodeUpgrade(this.out, stat));
+          return;
+        }
+        this.nextStat = (this.nextStat + 1) % STAT_COUNT;
+      }
+    },
+    pickup: () => {},
     pong: () => {},
     reject: (reason) => {
       this.log(`rejected (${reason})`);
@@ -180,7 +223,15 @@ export class BotClient {
       this.me.hull = self.hull / this.def.hull;
       this.me.shield = self.shield / this.def.shield;
     },
-    enter: (e) => this.seen.set(e.id, { x: e.x, y: e.y, vx: 0, vy: 0, team: e.team, kind: e.kind }),
+    enter: (e) =>
+      (e.id >= PICKUP_ID_BASE ? this.pickups : this.seen).set(e.id, {
+        x: e.x,
+        y: e.y,
+        vx: 0,
+        vy: 0,
+        team: e.team,
+        kind: e.kind,
+      }),
     update: (u) => {
       const s = this.seen.get(u.id);
       if (!s) return;
@@ -190,7 +241,10 @@ export class BotClient {
       s.x = u.x;
       s.y = u.y;
     },
-    leave: (id) => this.seen.delete(id),
+    leave: (id) => {
+      this.seen.delete(id);
+      this.pickups.delete(id);
+    },
     projectileSpawn: () => {},
     projectileEnd: () => {},
     shipHit: (_t, target) => {
@@ -269,11 +323,25 @@ export class BotClient {
       }
     }
 
+    // Free money nearby is worth a detour while nobody is close enough to fight.
+    let loot: Seen | null = null;
+    let lootD = LOOT_RANGE;
+    if (!this.retreating && !(nearest && nearestD < ENGAGE_RANGE)) {
+      for (const p of this.pickups.values()) {
+        const d = Math.hypot(p.x - me.x, p.y - me.y);
+        if (d < lootD) {
+          lootD = d;
+          loot = p;
+        }
+      }
+    }
     const target: Seen | null = this.retreating
       ? ownCarrier
-      : nearest && nearestD < ENGAGE_RANGE
-        ? nearest
-        : (enemyCarrier ?? nearest);
+      : loot
+        ? loot
+        : nearest && nearestD < ENGAGE_RANGE
+          ? nearest
+          : (enemyCarrier ?? nearest);
     if (!target) {
       this.sendInput(false, 0, 0.5, me.heading, 0);
       return;
@@ -290,7 +358,13 @@ export class BotClient {
 
     // Where to sail: toward the target, then circle it at a comfortable distance.
     const fightingCarrier = target.kind === KIND.CARRIER;
-    const standOff = this.retreating ? 40 : fightingCarrier ? 52 : this.weaponRange * 0.55;
+    const standOff = loot
+      ? 0
+      : this.retreating
+        ? 40
+        : fightingCarrier
+          ? 52
+          : this.weaponRange * 0.55;
     let wanted = bearing;
     let throttle = 1;
     if (dist < standOff * 1.2) {

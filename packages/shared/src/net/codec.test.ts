@@ -7,6 +7,7 @@ import {
   EventWriter,
   KIND,
   NO_WEAPON,
+  PICKUP_ID_BASE,
   SnapshotBuilder,
   beginScores,
   decodeClient,
@@ -20,6 +21,9 @@ import {
   encodePlay,
   encodePong,
   encodeReject,
+  encodeStats,
+  encodeTierUp,
+  encodeUpgrade,
   encodeWelcome,
   encodeYouDied,
   finishScores,
@@ -49,6 +53,8 @@ function recorder(): { log: string[]; h: ServerHandler } {
     joined: (...a) => log.push(`joined ${a.join(',')}`),
     match: (...a) => log.push(`match ${a.join(',')}`),
     youDied: (...a) => log.push(`youDied ${a.join(',')}`),
+    stats: (m) => log.push(`stats ${JSON.stringify({ ...m, levels: Array.from(m.levels) })}`),
+    pickup: (...a) => log.push(`pickup ${a.join(',')}`),
     kill: (...a) => log.push(`kill ${a.join(',')}`),
     scores: (rows) => log.push(`scores ${JSON.stringify(rows)}`),
     pong: (...a) => log.push(`pong ${a.join(',')}`),
@@ -143,6 +149,18 @@ describe('client messages', () => {
     expect(m.clientTime).toBe(123456);
   });
 
+  it('UPGRADE and TIER_UP round-trip', () => {
+    const w = new Writer(16);
+    const m = newClientMsg();
+    encodeUpgrade(w, 3);
+    expect(w.pos).toBe(2);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.UPGRADE);
+    expect(m.stat).toBe(3);
+    w.reset();
+    encodeTierUp(w, 0);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.TIER_UP);
+  });
+
   it('INPUT is 9 bytes and round-trips', () => {
     fc.assert(
       fc.property(
@@ -221,9 +239,20 @@ describe('server messages', () => {
     encodeKill(w, 1, 4, 1, 0, NO_WEAPON, 'Carrier', 'Veli');
     send();
     const at = beginScores(w);
-    writeScore(w, 3, 0, 5, 2, 'Ali');
-    writeScore(w, 9, 1, 0, 7, 'Çınar');
+    writeScore(w, 3, 0, 5, 2, 1200, 2, 'Ali');
+    writeScore(w, 9, 1, 0, 7, 0, 0, 'Çınar');
     finishScores(w, at, 2);
+    send();
+    encodeStats(w, {
+      score: 1234,
+      cash: 56,
+      tier: 2,
+      shipId: 3,
+      levels: new Uint8Array([1, 2, 3, 0, 4]),
+      maxHull: 320,
+      maxShield: 177,
+      canTierUp: true,
+    });
     send();
     encodePong(w, 10, 20);
     send();
@@ -236,7 +265,8 @@ describe('server messages', () => {
       'youDied 4,Aaa,5',
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
-      'scores [{"id":3,"team":0,"kills":5,"deaths":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"name":"Çınar"}]',
+      'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
+      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4],"maxHull":320,"maxShield":177,"canTierUp":true}',
       'pong 10,20',
       'reject 2',
     ]);
@@ -246,7 +276,7 @@ describe('server messages', () => {
     const { log, h } = recorder();
     const w = new Writer(64);
     const at = beginScores(w);
-    writeScore(w, 3, 0, 5, 2, 'Ali');
+    writeScore(w, 3, 0, 5, 2, 10, 0, 'Ali');
     finishScores(w, at, 200);
     expect(decodeServer(w.toBytes(), h)).toBe(false);
     expect(log).toEqual([]);
@@ -330,6 +360,7 @@ describe('server messages', () => {
     ev.shipHit(8, 3, 16.4, true, 4, 51, 61);
     ev.shipSunk(8, 3, 51, 61);
     ev.bump(8, 0xffff, 40, 41, 5.5);
+    ev.pickup(PICKUP_ID_BASE + 7, 3, KIND.CRATE, 12, 70.5, 80.25);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -339,6 +370,7 @@ describe('server messages', () => {
       'hit 100,8,3,16,true,4,51,61',
       'sunk 100,8,3,51,61',
       'bump 100,8,65535,40,41,5.5',
+      `pickup 100,${PICKUP_ID_BASE + 7},3,${KIND.CRATE},12,70.5,80.25`,
     ]);
   });
 

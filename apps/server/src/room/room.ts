@@ -4,10 +4,12 @@ import {
   MATCH,
   MATCH_STATE,
   NO_TEAM,
+  PICKUP_ID_BASE,
   PROTOCOL_VERSION,
   REJECT_REASON,
   SHIP_IDS,
   SNAPSHOT_EVERY,
+  STAT_COUNT,
   STEP_MS,
   SnapshotBuilder,
   TEAM_BLUE,
@@ -23,15 +25,18 @@ import {
   encodeMatch,
   encodePong,
   encodeReject,
+  encodeStats,
   encodeWelcome,
   encodeYouDied,
   finishScores,
   newClientMsg,
+  canTierUp,
   newSelfState,
   writeScore,
 } from '@tidebreaker/shared';
-import type { ClientMsg, EnterEntry } from '@tidebreaker/shared';
+import type { ClientMsg, EnterEntry, StatsMsg } from '@tidebreaker/shared';
 import type { Connection, Transport } from '../net/transport.ts';
+import { PICKUP_CAPACITY } from '../sim/hot/pickups.ts';
 import { CARRIER_SLOTS, World } from '../sim/hot/world.ts';
 import { sanitizeName } from './names.ts';
 
@@ -40,6 +45,11 @@ export interface RoomOptions {
   /** Map seed sent to clients (they generate the same map from it). */
   seed: number;
   name?: string;
+  /**
+   * Players may pick any ship class when they join (for testing). Otherwise everyone starts as T1
+   * and has to earn the rest. Default: on, except in production.
+   */
+  anyClass?: boolean;
   /** Milliseconds clock; tests can supply their own. */
   clock?: () => number;
 }
@@ -97,8 +107,8 @@ class Client {
     slots: number,
     now: number,
   ) {
-    this.known = new Uint8Array(slots);
-    this.knownGen = new Uint16Array(slots);
+    this.known = new Uint8Array(slots + PICKUP_CAPACITY);
+    this.knownGen = new Uint16Array(slots + PICKUP_CAPACITY);
     this.connectedAt = now;
     this.lastMsgAt = now;
     this.tokensAt = now;
@@ -122,7 +132,18 @@ export class Room {
   private readonly names: string[];
   private readonly snapshot = new SnapshotBuilder();
   private readonly small = new Writer(256);
-  private readonly big = new Writer(4096);
+  private readonly big = new Writer(12288);
+  private readonly stats: StatsMsg = {
+    score: 0,
+    cash: 0,
+    tier: 0,
+    shipId: 0,
+    levels: new Uint8Array(STAT_COUNT),
+    maxHull: 0,
+    maxShield: 0,
+    canTierUp: false,
+  };
+  private readonly anyClass: boolean;
   private readonly self = newSelfState();
   private readonly enter: EnterEntry = {
     id: 0,
@@ -149,6 +170,7 @@ export class Room {
     this.seed = options.seed;
     this.name = options.name ?? 'room-1';
     this.clock = options.clock ?? ((): number => performance.now());
+    this.anyClass = options.anyClass ?? process.env['NODE_ENV'] !== 'production';
     this.t0 = this.clock();
     this.world = new World(options.seed);
     this.bySlot = new Array<Client | undefined>(this.world.slotCount).fill(undefined);
@@ -276,6 +298,7 @@ export class Room {
       const c = this.bySlot[s];
       if (c) this.sendJoined(c);
     }
+    this.sendStats();
     this.ticksSinceMatch++;
     if (w.matchChanged || this.ticksSinceMatch >= TICK_RATE) this.broadcastMatch();
   }
@@ -313,13 +336,48 @@ export class Room {
     let n = 0;
     for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
       if (w.used[s] === 0) continue;
-      writeScore(this.big, s + 1, w.slots[s]!.team, w.kills[s]!, w.deaths[s]!, this.names[s] ?? '');
+      writeScore(
+        this.big,
+        s + 1,
+        w.slots[s]!.team,
+        w.kills[s]!,
+        w.deaths[s]!,
+        w.score[s]!,
+        w.tier[s]!,
+        this.names[s] ?? '',
+      );
       n++;
     }
     finishScores(this.big, at, n);
     if (this.big.overflow) return;
     const bytes = this.big.toBytes();
     for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
+  }
+
+  /** Each player hears about changes of their own score, money and upgrades. */
+  private sendStats(): void {
+    const w = this.world;
+    for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
+      if (w.statsDirty[s] === 0) continue;
+      const c = this.bySlot[s];
+      if (!c) {
+        w.statsDirty[s] = 0;
+        continue;
+      }
+      w.statsDirty[s] = 0;
+      const m = this.stats;
+      m.score = w.score[s]!;
+      m.cash = w.cash[s]!;
+      m.tier = w.tier[s]!;
+      m.shipId = w.shipIdx[s]!;
+      for (let k = 0; k < STAT_COUNT; k++) m.levels[k] = w.level(s, k);
+      m.maxHull = w.slots[s]!.def.hull;
+      m.maxShield = Math.round(w.maxShieldOf(s));
+      m.canTierUp = canTierUp(m.tier, m.score);
+      this.small.reset();
+      encodeStats(this.small, m);
+      this.send(c, this.small.toBytes());
+    }
   }
 
   private broadcastMatch(): void {
@@ -374,7 +432,7 @@ export class Room {
           e.y = ship.state.y;
           e.heading = ship.state.heading;
           e.hp = ship.state.hull / ship.def.hull;
-          e.shield = ship.state.shield / ship.def.shield;
+          e.shield = ship.state.shield / w.maxShieldOf(s);
           e.name = this.names[s]!;
           sb.enter(e);
           c.known[s] = 1;
@@ -388,13 +446,14 @@ export class Room {
             st.heading,
             st.speed,
             st.hull / ship.def.hull,
-            st.shield / ship.def.shield,
+            st.shield / w.maxShieldOf(s),
           );
         } else if (c.known[s] === 1) {
           sb.leave(s + 1);
           c.known[s] = 0;
         }
       }
+      this.snapshotPickups(c, sb);
       const me = w.slots[c.slot]!.state;
       const self = this.self;
       self.x = me.x;
@@ -410,6 +469,38 @@ export class Room {
       sb.finish(this.big, w.tick, w.lastSeq[c.slot]!, self);
       if (this.big.overflow) continue;
       this.send(c, this.big.toBytes());
+    }
+  }
+
+  /** Pickups are static: told once when they appear (or move to a new spot), and again when gone. */
+  private snapshotPickups(c: Client, sb: SnapshotBuilder): void {
+    const p = this.world.pickups;
+    const e = this.enter;
+    for (let i = 0; i < PICKUP_CAPACITY; i++) {
+      const at = this.world.slotCount + i;
+      const present = p.active[i] === 1;
+      if (present && c.known[at] === 1 && c.knownGen[at] !== p.gen[i]) {
+        sb.leave(PICKUP_ID_BASE + i);
+        c.known[at] = 0;
+      }
+      if (present && c.known[at] === 0) {
+        e.id = PICKUP_ID_BASE + i;
+        e.kind = p.kind[i]!;
+        e.shipId = p.look(i);
+        e.team = NO_TEAM;
+        e.x = p.x[i]!;
+        e.y = p.y[i]!;
+        e.heading = 0;
+        e.hp = 1;
+        e.shield = 1;
+        e.name = '';
+        sb.enter(e);
+        c.known[at] = 1;
+        c.knownGen[at] = p.gen[i]!;
+      } else if (!present && c.known[at] === 1) {
+        sb.leave(PICKUP_ID_BASE + i);
+        c.known[at] = 0;
+      }
     }
   }
 
@@ -485,6 +576,12 @@ export class Room {
       case C2S.INPUT:
         this.onInput(c);
         break;
+      case C2S.UPGRADE:
+        if (c.stage === Stage.Playing) this.world.upgrade(c.slot, c.msg.stat);
+        break;
+      case C2S.TIER_UP:
+        if (c.stage === Stage.Playing) this.world.tierUp(c.slot);
+        break;
       case C2S.PING:
         this.small.reset();
         encodePong(this.small, c.msg.clientTime, this.serverTime());
@@ -517,8 +614,9 @@ export class Room {
   private onPlay(c: Client): void {
     if (c.stage === Stage.New) return;
     const w = this.world;
-    const shipIdx = c.msg.shipId;
-    if (shipIdx >= SHIP_IDS.length) return;
+    if (c.msg.shipId >= SHIP_IDS.length) return;
+    // Everyone starts as T1 unless this server lets players pick (test builds).
+    const shipIdx = this.anyClass ? c.msg.shipId : 0;
     if (c.stage === Stage.Playing) {
       // Already in the game: only the class can change.
       w.changeShip(c.slot, shipIdx);

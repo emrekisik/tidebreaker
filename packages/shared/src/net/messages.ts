@@ -1,3 +1,4 @@
+import { STAT_COUNT } from '../config/economy.ts';
 import { PROTOCOL_VERSION } from '../config/net.ts';
 import { Reader, Writer } from './buffer.ts';
 import {
@@ -14,7 +15,14 @@ import {
 } from './quant.ts';
 
 /** Message types (GAME_DESIGN.md §10.2). */
-export const C2S = { HELLO: 0x01, PLAY: 0x02, INPUT: 0x03, PING: 0x06 } as const;
+export const C2S = {
+  HELLO: 0x01,
+  PLAY: 0x02,
+  INPUT: 0x03,
+  UPGRADE: 0x04,
+  TIER_UP: 0x05,
+  PING: 0x06,
+} as const;
 export const S2C = {
   WELCOME: 0x81,
   SNAPSHOT: 0x82,
@@ -23,6 +31,7 @@ export const S2C = {
   PONG: 0x86,
   REJECT: 0x87,
   JOINED: 0x8a,
+  STATS: 0x88,
   MATCH: 0x8b,
   KILL: 0x8c,
   SCORES: 0x8d,
@@ -51,9 +60,12 @@ export const EVENT = {
   SHIP_HIT: 3,
   SHIP_SUNK: 4,
   BUMP: 5,
+  PICKUP: 6,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
-export const KIND = { SHIP: 0, CARRIER: 10 } as const;
+export const KIND = { SHIP: 0, CRATE: 4, BARREL: 5, CHEST: 6, BANKNOTE: 7, CARRIER: 10 } as const;
+/** Pickups get entity ids from here up; ships use 1 + slot. */
+export const PICKUP_ID_BASE = 1000;
 /** `otherId` of a BUMP event that hit an island or reef. */
 export const BUMP_WORLD = 0xffff;
 
@@ -68,6 +80,8 @@ export interface ClientMsg {
   version: number;
   name: string;
   shipId: number;
+  /** Which stat an UPGRADE asks for. */
+  stat: number;
   seq: number;
   fire: boolean;
   moveX: number;
@@ -83,6 +97,7 @@ export function newClientMsg(): ClientMsg {
     version: 0,
     name: '',
     shipId: 0,
+    stat: 0,
     seq: 0,
     fire: false,
     moveX: 0,
@@ -102,6 +117,18 @@ export function encodePlay(w: Writer, name: string, shipId: number): void {
   w.u8(C2S.PLAY);
   w.string(name, NAME_MAX_BYTES);
   w.u8(shipId);
+}
+
+/** Spend money on one stat (the server checks money, cap and range). */
+export function encodeUpgrade(w: Writer, stat: number): void {
+  w.u8(C2S.UPGRADE);
+  w.u8(stat);
+}
+
+/** Move up one class (the server checks the score). */
+export function encodeTierUp(w: Writer, choice = 0): void {
+  w.u8(C2S.TIER_UP);
+  w.u8(choice);
 }
 
 export function encodePing(w: Writer, clientTime: number): void {
@@ -150,6 +177,12 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       out.aimDist = r.u8();
       break;
     }
+    case C2S.UPGRADE:
+      out.stat = r.u8();
+      break;
+    case C2S.TIER_UP:
+      out.shipId = r.u8();
+      break;
     case C2S.PING:
       out.clientTime = r.u32();
       break;
@@ -246,6 +279,9 @@ export interface ScoreEntry {
   team: number;
   kills: number;
   deaths: number;
+  score: number;
+  /** Tier index, 0 = T1. */
+  tier: number;
   name: string;
 }
 
@@ -263,17 +299,48 @@ export function writeScore(
   team: number,
   kills: number,
   deaths: number,
+  score: number,
+  tier: number,
   name: string,
 ): void {
   w.u16(id);
   w.u8(team);
   w.u16(kills);
   w.u16(deaths);
+  w.u32(score);
+  w.u8(tier);
   w.string(name, NAME_MAX_BYTES);
 }
 
 export function finishScores(w: Writer, countAt: number, count: number): void {
   w.patchU8(countAt, count);
+}
+
+/** The player's own progress (sent when it changes). */
+export interface StatsMsg {
+  score: number;
+  cash: number;
+  /** Tier index, 0 = T1. */
+  tier: number;
+  /** Index into SHIP_IDS of the current ship. */
+  shipId: number;
+  /** Upgrade levels, STAT_COUNT of them (reused by the decoder: copy what you keep). */
+  levels: Uint8Array;
+  maxHull: number;
+  maxShield: number;
+  canTierUp: boolean;
+}
+
+export function encodeStats(w: Writer, m: StatsMsg): void {
+  w.u8(S2C.STATS);
+  w.u32(m.score);
+  w.u32(m.cash);
+  w.u8(m.tier);
+  w.u8(m.shipId);
+  for (let i = 0; i < STAT_COUNT; i++) w.u8(m.levels[i]!);
+  w.u16(m.maxHull);
+  w.u16(m.maxShield);
+  w.u8(m.canTierUp ? 1 : 0);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -332,7 +399,7 @@ export interface UpdateEntry {
  * `finish` writes the whole message. The lists are separate buffers because the counts come first.
  */
 export class SnapshotBuilder {
-  private readonly enters = new Writer(4096);
+  private readonly enters = new Writer(8192);
   private readonly updates = new Writer(4096);
   private readonly leaves = new Writer(1024);
   private nEnter = 0;
@@ -407,9 +474,10 @@ export class SnapshotBuilder {
     out.u8(this.nEnter);
     out.u8(this.nUpdate);
     out.u8(this.nLeave);
+    // Leaves first: an id may leave and come back (new spawn) within one snapshot.
+    out.append(this.leaves);
     out.append(this.enters);
     out.append(this.updates);
-    out.append(this.leaves);
   }
 }
 
@@ -512,6 +580,20 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A ship picked something up (or a pickup was taken). */
+  pickup(id: number, collector: number, kind: number, value: number, x: number, y: number): void {
+    if (!this.room(13)) return;
+    const w = this.w;
+    w.u8(EVENT.PICKUP);
+    w.u16(id);
+    w.u16(collector);
+    w.u8(kind);
+    w.u16(Math.max(0, Math.min(65535, Math.round(value))));
+    w.u16(qPos(x));
+    w.u16(qPos(y));
+    this.count++;
+  }
+
   /** Writes the event count; returns false when there is nothing to send. */
   finish(): boolean {
     this.w.patchU8(this.countAt, this.count);
@@ -540,6 +622,7 @@ export interface ServerHandler {
     killerName: string,
     victimName: string,
   ): void;
+  stats(m: StatsMsg): void;
   /** The whole scoreboard (a new array each time; it is rare). */
   scores(rows: ScoreEntry[]): void;
   pong(clientTime: number, serverTime: number): void;
@@ -571,6 +654,15 @@ export interface ServerHandler {
   ): void;
   shipSunk(tick: number, id: number, killer: number, x: number, y: number): void;
   bump(tick: number, ship: number, other: number, x: number, y: number, impact: number): void;
+  pickup(
+    tick: number,
+    id: number,
+    collector: number,
+    kind: number,
+    value: number,
+    x: number,
+    y: number,
+  ): void;
 }
 
 const self = newSelfState();
@@ -585,6 +677,16 @@ const enterEntry: EnterEntry = {
   hp: 0,
   shield: 0,
   name: '',
+};
+const statsMsg: StatsMsg = {
+  score: 0,
+  cash: 0,
+  tier: 0,
+  shipId: 0,
+  levels: new Uint8Array(STAT_COUNT),
+  maxHull: 0,
+  maxShield: 0,
+  canTierUp: false,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -649,8 +751,8 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
     }
     case S2C.SCORES: {
       const count = r.u8();
-      // Each row is at least 8 bytes, so a lying count is caught before anything is allocated.
-      if (!r.ok || r.remaining < count * 8) return false;
+      // Each row is at least 13 bytes, so a lying count is caught before anything is allocated.
+      if (!r.ok || r.remaining < count * 13) return false;
       const rows: ScoreEntry[] = [];
       for (let i = 0; i < count && r.ok; i++) {
         rows.push({
@@ -658,11 +760,26 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
           team: r.u8(),
           kills: r.u16(),
           deaths: r.u16(),
+          score: r.u32(),
+          tier: r.u8(),
           name: r.string(NAME_MAX_BYTES),
         });
       }
       if (!r.ok || r.remaining !== 0) return false;
       h.scores(rows);
+      return true;
+    }
+    case S2C.STATS: {
+      statsMsg.score = r.u32();
+      statsMsg.cash = r.u32();
+      statsMsg.tier = r.u8();
+      statsMsg.shipId = r.u8();
+      for (let i = 0; i < STAT_COUNT; i++) statsMsg.levels[i] = r.u8();
+      statsMsg.maxHull = r.u16();
+      statsMsg.maxShield = r.u16();
+      statsMsg.canTierUp = (r.u8() & 1) !== 0;
+      if (!r.ok || r.remaining !== 0) return false;
+      h.stats(statsMsg);
       return true;
     }
     case S2C.PONG: {
@@ -706,6 +823,10 @@ function decodeSnapshot(r: Reader, h: ServerHandler): boolean {
   // The sections have known minimum sizes, so a lying count is caught before any callback.
   if (r.remaining < nEnter * 13 + nUpdate * 10 + nLeave * 2) return false;
   h.snapshot(tick, seq, self);
+  for (let i = 0; i < nLeave && r.ok; i++) {
+    const id = r.u16();
+    if (r.ok) h.leave(id);
+  }
   for (let i = 0; i < nEnter && r.ok; i++) {
     enterEntry.id = r.u16();
     enterEntry.kind = r.u8();
@@ -728,10 +849,6 @@ function decodeSnapshot(r: Reader, h: ServerHandler): boolean {
     updateEntry.hp = dqFrac(r.u8());
     updateEntry.shield = dqFrac(r.u8());
     if (r.ok) h.update(updateEntry);
-  }
-  for (let i = 0; i < nLeave && r.ok; i++) {
-    const id = r.u16();
-    if (r.ok) h.leave(id);
   }
   return r.ok && r.remaining === 0;
 }
@@ -786,6 +903,16 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const y = dqPos(r.u16());
         const impact = r.u8() / 8;
         if (r.ok) h.bump(tick, ship, other, x, y, impact);
+        break;
+      }
+      case EVENT.PICKUP: {
+        const id = r.u16();
+        const collector = r.u16();
+        const kind = r.u8();
+        const value = r.u16();
+        const x = dqPos(r.u16());
+        const y = dqPos(r.u16());
+        if (r.ok) h.pickup(tick, id, collector, kind, value, x, y);
         break;
       }
       default:

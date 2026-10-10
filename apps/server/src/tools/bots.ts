@@ -1,5 +1,4 @@
-import { MATCH, SHIP_IDS } from '@tidebreaker/shared';
-import type { ShipId } from '@tidebreaker/shared';
+import { MATCH } from '@tidebreaker/shared';
 import { BotClient } from './botClient.ts';
 
 /**
@@ -19,10 +18,6 @@ function arg(name: string, fallback: string): string {
 const perTeam = Math.max(0, Math.min(MATCH.perTeam - 1, Math.floor(Number(arg('per-team', '5')))));
 const url = arg('url', 'ws://127.0.0.1:9001');
 
-// Every class but the smallest boats: each team gets the same mix.
-const CLASSES: ShipId[] = ['corvette', 'frigate', 'cruiser', 'gunboat', 'heavy_frigate'].filter(
-  (id): id is ShipId => SHIP_IDS.includes(id as ShipId),
-);
 const NAMES = [
   'Barbaros',
   'Piri Reis',
@@ -41,7 +36,8 @@ for (let i = 0; i < perTeam * 2; i++) {
   const bot = new BotClient({
     url,
     name: `Bot ${NAMES[i % NAMES.length]!}`.slice(0, 16),
-    ship: CLASSES[i % CLASSES.length]!,
+    // Like every player, bots start as the smallest boat and earn the rest.
+    ship: 'coast_guard_boat',
   });
   bots.push(bot);
   // Joins are one after another, so the server splits them evenly between the teams.

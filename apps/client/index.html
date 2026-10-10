@@ -404,6 +404,94 @@
         margin-top: 6px;
         font-size: 20px;
       }
+      #progress {
+        left: 50%;
+        bottom: 78px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      #p-info {
+        padding: 4px 12px;
+        border-radius: 8px;
+        background: rgba(5, 13, 22, 0.6);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      #p-stats {
+        display: flex;
+        gap: 6px;
+      }
+      .p-btn {
+        pointer-events: auto;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas: 'key name cost' 'pips pips pips';
+        align-items: center;
+        column-gap: 6px;
+        min-width: 112px;
+        padding: 4px 8px;
+        font: inherit;
+        font-size: 12px;
+        color: #fff;
+        text-align: left;
+        background: rgba(5, 13, 22, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .p-btn:hover:not(:disabled) {
+        background: rgba(40, 110, 170, 0.85);
+        border-color: #fff;
+      }
+      .p-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .p-key {
+        grid-area: key;
+        font-weight: 700;
+        color: #ffd84d;
+      }
+      .p-name {
+        grid-area: name;
+      }
+      .p-cost {
+        grid-area: cost;
+        font-weight: 700;
+        color: #8dff9c;
+      }
+      .p-pips {
+        grid-area: pips;
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: #8ff6ff;
+      }
+      #p-tier {
+        pointer-events: auto;
+        font: inherit;
+        font-weight: 700;
+        padding: 6px 18px;
+        color: #fff;
+        background: linear-gradient(#2e9bff, #1b6fd0);
+        border: 1px solid #fff;
+        border-radius: 10px;
+        cursor: pointer;
+        animation: tierpulse 1s ease-in-out infinite;
+      }
+      @keyframes tierpulse {
+        50% {
+          transform: scale(1.06);
+        }
+      }
+      .dmg.gain {
+        color: #8dff9c;
+      }
+      #menu-card label.gone {
+        display: none;
+      }
       #killfeed {
         top: 14px;
         left: 14px;
@@ -491,6 +579,7 @@
       body.in-menu #picker,
       body.in-menu #minimap,
       body.in-menu #killfeed,
+      body.in-menu #progress,
       body.in-menu #storm {
         display: none;
       }
@@ -528,6 +617,11 @@
         <div class="track"><div id="m-red-hull" class="fill"></div></div>
         <div class="track thin"><div id="m-red-shield" class="fill shield"></div></div>
       </div>
+    </div>
+    <div id="progress" class="overlay hidden">
+      <button id="p-tier" type="button" class="hidden"></button>
+      <div id="p-info"></div>
+      <div id="p-stats"></div>
     </div>
     <div id="killfeed" class="overlay"></div>
     <div id="scoreboard" class="overlay hidden"></div>

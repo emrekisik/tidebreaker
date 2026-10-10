@@ -209,7 +209,7 @@ interface WeaponDef {
 | **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
-- **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` para (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 129. Bir statı sonuna kadar çıkarmak ≈ 420 para.
+- **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` para (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 127. Bir statı sonuna kadar çıkarmak ≈ 420 para.
 - Sınıf atlayınca stat seviyeleri korunur (yeni cap'e göre geçerlidir), can oranı korunur, kalkan tam dolar.
 
 ### 6.3 Gemi sınıfları (başlangıç değerleri, hepsi tunable)
@@ -397,10 +397,10 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | Tip | Ad | Alanlar |
 |---|---|---|
 | 0x01 | `HELLO` | `u8 protoVersion` |
-| 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 shipId` (`shipId` = `SHIP_IDS` sırası; Faz 2'de serbest sınıf seçimi, ileride ilerleme) |
+| 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 shipId` (`shipId` = `SHIP_IDS` sırası). Normalde sunucu bunu yok sayar: **herkes T1 başlar**. Yalnızca test sürümlerinde (`NODE_ENV` ≠ `production`) istenen sınıfla başlanır |
 | 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim, u8 aimDist` (9 bayt; `aimDist` = gemiden imlece uzaklık, birim, 0–255) |
-| 0x04 | `UPGRADE` | `u8 statId (0..4)` |
-| 0x05 | `TIER_UP` | `u8 choiceIndex` |
+| 0x04 | `UPGRADE` | `u8 statId (0..4)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
+| 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu skor eşiğini doğrular; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
 | 0x07 | `EMOTE` | `u8 emoteId` |
 
@@ -411,14 +411,14 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x8A | `JOINED` | `PLAY`'e yanıt: `u16 entityId, u8 team, u8 shipId`; her yeniden doğuşta da gönderilir |
 | 0x8B | `MATCH` | `u8 state (0 oynanıyor, 1 bitti), u8 winnerTeam, u8 restartSec, u16 killsBlue, u16 killsRed` (değişince ve 1 sn'de bir) |
 | 0x8C | `KILL` | Kill feed: `u16 killerId, u16 victimId, u8 killerTeam, u8 victimTeam, u8 weapon (255 = çarpışma), u8 len+killerName, u8 len+victimName`. Uçak gemisi katil ise `killerId` 1 ya da 2 |
-| 0x8D | `SCORES` | Skor tablosu: `u8 count`, her satır `u16 id, u8 team, u16 kills, u16 deaths, u8 len+name`. Değişince, en çok 1 sn'de bir |
+| 0x8D | `SCORES` | Skor tablosu: `u8 count`, her satır `u16 id, u8 team, u16 kills, u16 deaths, u32 score, u8 tier, u8 len+name`. Değişince, en çok 1 sn'de bir |
 | 0x82 | `SNAPSHOT` | aşağıda |
 | 0x83 | `EVENTS` | `u32 tick, u8 count, event[]` |
 | 0x84 | `LEADERBOARD` | (FFA varsayımı; takım modunda `SCORES` kullanılır, ilerleme gelince yeniden değerlendirilir) Her 1 sn: en iyi 10 (`u16 id, u32 score, name`) + kendi sıran |
 | 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
-| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (canTierUp)` |
+| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp)`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
 **El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
@@ -432,15 +432,17 @@ u16 lastInputSeq          // reconciliation için
 f32 x, f32 y, f32 heading, f32 speed, f32 kx, f32 ky, f32 spin, u16 hull, u16 shield
 -- varlık listeleri (AOI farkı) --
 u8 nEnter, u8 nUpdate, u8 nLeave   // 255'i aşarsa birden çok mesaja böl
+-- sıra: LEAVE[], ENTER[], UPDATE[] (aynı id aynı snapshot'ta ayrılıp yeniden girebilir) --
+LEAVE[]:  u16 id
 ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%, u8 shield%, (oyuncuysa) u8 nameLen+name
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
-LEAVE[]:  u16 id
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
 - **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**.
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
-- Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`.
+- Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`. Toplanabilirlerin `id`'si `1000 + slot` (gemiler `1 + slot`); `ENTER`'daki `shipId` alanı toplanabilirde **görünüm sınıfı**dır (banknot yığını boyutu 0–3, diğerleri bölge 0–2). Bir toplanabilir toplanınca `PICKUP` olayı (id, toplayan, tür, değer, konum) ve `LEAVE` gelir.
+- `shield%` her zaman **kendi azami kalkanına** göredir (kalkan yükseltmesi dahil).
 - **Gönderim önceliği (bant genişliği baskısında):** yakın varlıklar her snapshot'ta, uzak varlıklar (> 100 birim) her 2 snapshot'ta bir (5 Hz).
 
 ### 10.4 Olaylar (deterministik şeyler için olay tabanlı, bant genişliği tasarrufu)
@@ -451,7 +453,7 @@ LEAVE[]:  u16 id
 | `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED), x u16, y u16` |
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
-| `PICKUP` | `u16 entityId, u16 byId, u16 value` |
+| `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
 | `BUMP` | `u16 shipId, u16 otherId (0xFFFF = ada/resif), x u16, y u16, u8 impact×8` (çarpışma efektleri ve sarsıntı) |
 

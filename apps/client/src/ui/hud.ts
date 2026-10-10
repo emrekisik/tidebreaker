@@ -18,9 +18,16 @@ export class Hud {
   private lastKills = -1;
 
   /** Called every frame so the white part drains smoothly. */
-  update(ship: ShipState, def: ShipDef, kills: number, nowMs: number, dtSec: number): void {
+  update(
+    ship: ShipState,
+    def: ShipDef,
+    kills: number,
+    nowMs: number,
+    dtSec: number,
+    maxShield: number = def.shield,
+  ): void {
     const hullFrac = ship.hull / def.hull;
-    const shieldFrac = ship.shield / def.shield;
+    const shieldFrac = Math.min(1, ship.shield / maxShield);
     this.hull.style.width = `${100 * hullFrac}%`;
     this.shield.style.width = `${100 * shieldFrac}%`;
     this.hullGhost.style.width = `${100 * this.hullTrack.update(hullFrac, dtSec)}%`;

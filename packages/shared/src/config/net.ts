@@ -1,5 +1,5 @@
 // Network and timing constants. Every tunable number lives in this folder (see GAME_DESIGN.md Appendix A).
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const TICK_RATE = 20;
 export const SNAPSHOT_EVERY = 2;
 export const STEP_MS = 1000 / TICK_RATE;

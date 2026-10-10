@@ -5,33 +5,44 @@ import {
   MATCH,
   MATCH_STATE,
   NO_WEAPON,
+  PICKUP_CAPACITY,
+  PICKUP_ID_BASE,
   PROTOCOL_VERSION,
   REJECT_REASON,
   SHIPS,
   SHIP_IDS,
+  STAT,
+  STAT_COUNT,
   STEP_SEC,
   TEAM_BLUE,
   TEAM_RED,
   TICK_RATE,
+  ECONOMY,
+  KIND,
   applyWorldBounds,
   collideIslands,
   configHash,
   createShipState,
   dqAngle16,
   dqAxis,
+  encodeTierUp,
+  encodeUpgrade,
   qAngle16,
   qAxis,
   stepShip,
+  statCost,
+  Writer,
 } from '@tidebreaker/shared';
 import { MemoryTransport } from '../net/memTransport.ts';
 import { TestClient, settle } from '../testing.ts';
+import { NOTE_START } from '../sim/hot/pickups.ts';
 import { Room } from './room.ts';
 
 const SEED = 1337;
 const idx = (id: keyof typeof SHIPS): number => SHIP_IDS.indexOf(id);
 
 /** A room driven by hand: every `tick()` advances the clock by exactly one step. */
-function setup(): {
+function setup(options: { anyClass?: boolean } = {}): {
   room: Room;
   transport: MemoryTransport;
   tick: (n?: number) => Promise<void>;
@@ -39,10 +50,14 @@ function setup(): {
 } {
   const transport = new MemoryTransport();
   let now = 1000;
-  const room = new Room({ transport, seed: SEED, clock: () => now });
+  const room = new Room({ transport, seed: SEED, clock: () => now, ...options });
+  const joined: TestClient[] = [];
+  let ticks = 0;
   const tick = async (n = 1): Promise<void> => {
     for (let i = 0; i < n; i++) {
       now += STEP_SEC * 1000;
+      // Idle connections are dropped after 20 s: keep the scripted players alive.
+      if (++ticks % TICK_RATE === 0) for (const c of joined) if (!c.conn.closed) c.ping(ticks);
       room.tick();
       await settle();
     }
@@ -56,6 +71,7 @@ function setup(): {
     c.hello();
     c.play(name, idx(ship));
     await settle();
+    joined.push(c);
     return c;
   };
   return { room, transport, tick, join };
@@ -147,7 +163,10 @@ describe('snapshots and prediction', () => {
     const b = await join('B');
     await tick(4);
     // A hears about both carriers and B.
-    const ids = a.heard.enters.map((e) => e.id).sort();
+    const ids = a.heard.enters
+      .map((e) => e.id)
+      .filter((id) => id < PICKUP_ID_BASE)
+      .sort();
     expect(ids).toEqual([1, 2, b.heard.joined[0]!.entityId]);
     expect(a.heard.enters.find((e) => e.id === 1)!.kind).toBe(10);
     expect(a.heard.updates.length).toBeGreaterThan(0);
@@ -526,7 +545,7 @@ describe('hull repair', () => {
     expect(slow).toBeGreaterThan(0);
     // About 0.3% of the hull per second, so ten seconds is a few percent at most.
     expect(slow).toBeLessThan(max * 0.05);
-    room.world.regenLevel[slot] = 3;
+    room.world.levels[slot * STAT_COUNT + STAT.REGEN] = 3;
     const before = s.hull;
     await tick(5 * TICK_RATE);
     expect(s.hull - before).toBeGreaterThan(slow / 2);
@@ -614,5 +633,260 @@ describe('combat-log protection', () => {
     await settle();
     await tick(1);
     expect(room.world.used[slotB]).toBe(0);
+  });
+});
+
+/** Sends an UPGRADE or TIER_UP request the way a browser would. */
+function request(c: TestClient, kind: 'upgrade' | 'tier', stat = 0): void {
+  const w = new Writer(8);
+  if (kind === 'upgrade') encodeUpgrade(w, stat);
+  else encodeTierUp(w, 0);
+  c.conn.send(w.toBytes());
+}
+
+describe('money and progress', () => {
+  it('everyone starts as T1 with nothing unless the server lets players pick a class', async () => {
+    const strict = setup({ anyClass: false });
+    const a = await strict.join('A', 'heavy_frigate');
+    await strict.tick(2);
+    expect(a.heard.joined[0]!.shipId).toBe(idx('coast_guard_boat'));
+    expect(strict.room.world.tier[a.heard.joined[0]!.entityId - 1]).toBe(0);
+    const open = setup({ anyClass: true });
+    const b = await open.join('B', 'heavy_frigate');
+    await open.tick(2);
+    expect(b.heard.joined[0]!.shipId).toBe(idx('heavy_frigate'));
+    expect(open.room.world.tier[b.heard.joined[0]!.entityId - 1]).toBe(4);
+  });
+
+  it('a ship that touches a crate takes it: money and score, STATS, a PICKUP event', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    const b = await join('B');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const p = room.world.pickups;
+    // Find an ordinary crate and put the ship on it.
+    let crate = -1;
+    for (let i = 0; i < p.active.length && crate < 0; i++) {
+      if (p.active[i] === 1 && p.kind[i] === KIND.CRATE) crate = i;
+    }
+    expect(crate).toBeGreaterThanOrEqual(0);
+    const value = p.value[crate]!;
+    const s = room.world.slots[slot]!.state;
+    s.x = p.x[crate]!;
+    s.y = p.y[crate]!;
+    await tick(2);
+    expect(room.world.cash[slot]).toBe(value);
+    expect(room.world.score[slot]).toBe(value);
+    expect(p.active[crate]).toBe(0);
+    expect(
+      a.heard.pickups.some((e) => e.id === PICKUP_ID_BASE + crate && e.collector === slot + 1),
+    ).toBe(true);
+    const stats = a.heard.stats[a.heard.stats.length - 1]!;
+    expect(stats.cash).toBe(value);
+    expect(stats.score).toBe(value);
+    // B is told it is gone, and that it came back after the respawn delay (somewhere else).
+    expect(b.heard.leaves).toContain(PICKUP_ID_BASE + crate);
+    const entersBefore = b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + crate).length;
+    await tick(Math.ceil((ECONOMY.pickups.crate.respawnSec + 2) * TICK_RATE));
+    expect(b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + crate).length).toBeGreaterThan(
+      entersBefore,
+    );
+  });
+
+  it('upgrades cost money, respect the cap and change how the ship behaves', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    w.cash[slot] = 100;
+    request(a, 'upgrade', 0);
+    await tick(1);
+    expect(w.level(slot, 0)).toBe(1);
+    expect(w.cash[slot]).toBe(100 - statCost(0));
+    // Not enough money: refused.
+    w.cash[slot] = 5;
+    request(a, 'upgrade', 1);
+    await tick(1);
+    expect(w.level(slot, 1)).toBe(0);
+    // A nonsense stat id is ignored.
+    w.cash[slot] = 1000;
+    request(a, 'upgrade', 9);
+    await tick(1);
+    expect(w.cash[slot]).toBe(1000);
+    // The cap of T1 is 3.
+    for (let i = 0; i < 6; i++) {
+      request(a, 'upgrade', 2);
+      await tick(1);
+    }
+    expect(w.level(slot, 2)).toBe(ECONOMY.statCap[0]);
+    // The owner hears about it.
+    const stats = a.heard.stats[a.heard.stats.length - 1]!;
+    expect(stats.levels[0]).toBe(1);
+    expect(stats.levels[2]).toBe(ECONOMY.statCap[0]);
+  });
+
+  it('the shield upgrade raises the capacity and fills the new part', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const base = w.maxShieldOf(slot);
+    w.cash[slot] = 50;
+    request(a, 'upgrade', 3);
+    await tick(1);
+    expect(w.maxShieldOf(slot)).toBeGreaterThan(base);
+    expect(w.slots[slot]!.state.shield).toBeCloseTo(w.maxShieldOf(slot), 3);
+  });
+
+  it('moving up a class needs the score; position, speed and health share stay', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const s = w.slots[slot]!.state;
+    s.hull = s.hull / 2;
+    s.speed = 7;
+    const x = s.x;
+    request(a, 'tier');
+    await tick(1);
+    expect(w.tier[slot]).toBe(0); // not enough score
+    w.score[slot] = ECONOMY.tierScore[1]!;
+    request(a, 'tier');
+    await tick(2);
+    expect(w.tier[slot]).toBe(1);
+    expect(w.slots[slot]!.def.id).toBe('gunboat');
+    expect(w.slots[slot]!.state.hull / w.slots[slot]!.def.hull).toBeCloseTo(0.5, 1);
+    expect(Math.abs(s.x - x)).toBeLessThan(2);
+    const stats = a.heard.stats[a.heard.stats.length - 1]!;
+    expect(stats.tier).toBe(1);
+    expect(stats.shipId).toBe(idx('gunboat'));
+  });
+
+  it('sinking: the killer is paid, the loser drops banknotes, a class and the unspent money', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Victim', 'frigate');
+    await tick(2);
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    w.cash[bSlot] = 200;
+    w.score[bSlot] = 1000;
+    w.levels[bSlot * 5 + 3] = 4; // shield level above the T3 cap? cap(T3)=5, stays
+    w.levels[bSlot * 5 + 0] = 7; // above the cap of T3 (5): must be clipped
+    const scoreBefore = w.score[aSlot]!;
+    for (let i = 0; i < 400 && w.deaths[bSlot] === 0; i++) {
+      place(room, a, 530, 550, 0);
+      place(room, b, 570, 550, 0);
+      a.input(0, 0, 0, 40, true);
+      await tick(1);
+    }
+    expect(w.deaths[bSlot]).toBe(1);
+    expect(w.score[aSlot]).toBeGreaterThan(scoreBefore);
+    // The loser: one class down, score at that tier's floor, money gone, upgrades clipped.
+    expect(w.tier[bSlot]).toBe(2);
+    expect(w.score[bSlot]).toBe(ECONOMY.tierScore[2]);
+    expect(w.cash[bSlot]).toBe(0);
+    expect(w.level(bSlot, 0)).toBeLessThanOrEqual(ECONOMY.statCap[2]!);
+    // The money lies in the sea as banknotes.
+    let notes = 0;
+    let total = 0;
+    for (let i = 0; i < w.pickups.active.length; i++) {
+      if (w.pickups.active[i] === 1 && w.pickups.kind[i] === KIND.BANKNOTE) {
+        notes++;
+        total += w.pickups.value[i]!;
+      }
+    }
+    expect(notes).toBeGreaterThan(0);
+    expect(total).toBe(200);
+    // After the respawn delay the loser is back in the lower class.
+    await tick(Math.ceil(MATCH.respawnSec * TICK_RATE) + 2);
+    expect(w.slots[bSlot]!.def.id).toBe('corvette');
+  });
+
+  it('banknote piles expire after a while', async () => {
+    const { room, tick } = setup();
+    const p = room.world.pickups;
+    p.dropBanknote(300, 300, 50);
+    const notesActive = (): number => {
+      let n = 0;
+      for (let i = 0; i < p.active.length; i++) {
+        if (p.active[i] === 1 && p.kind[i] === KIND.BANKNOTE) n++;
+      }
+      return n;
+    };
+    expect(notesActive()).toBe(1);
+    await tick(Math.ceil((ECONOMY.death.lootLifeSec + 2) * TICK_RATE));
+    expect(notesActive()).toBe(0);
+  });
+
+  it('damage to the enemy carrier pays', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('A', 'corvette'); // blue
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const rc = MATCH.carriers[1]!;
+    const before = room.world.score[slot]!;
+    for (let i = 0; i < 80; i++) {
+      place(room, a, rc.x - 45, rc.y, 0);
+      const mine = room.world.slots[slot]!;
+      mine.state.hull = mine.def.hull;
+      mine.state.shield = mine.def.shield;
+      a.input(0, 0, 0, 45, true);
+      await tick(1);
+    }
+    expect(room.world.score[slot]!).toBeGreaterThan(before);
+    expect(room.world.cash[slot]!).toBe(room.world.score[slot]! - before);
+  });
+
+  it('a new round starts everyone over as T1', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('A', 'frigate');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    w.cash[slot] = 500;
+    w.score[slot] = 3000;
+    w.startRound();
+    expect(w.tier[slot]).toBe(0);
+    expect(w.score[slot]).toBe(0);
+    expect(w.cash[slot]).toBe(0);
+    expect(w.slots[slot]!.def.id).toBe('coast_guard_boat');
+  });
+});
+
+describe('upgrade effects', () => {
+  it('the speed and reload upgrades change how the ship behaves', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    const b = await join('B');
+    await tick(2);
+    const w = room.world;
+    const sa = a.heard.joined[0]!.entityId - 1;
+    const sb = b.heard.joined[0]!.entityId - 1;
+    w.levels[sa * STAT_COUNT + STAT.SPEED] = 3;
+    for (const slot of [sa, sb]) {
+      const s = w.slots[slot]!.state;
+      s.x = slot === sa ? 500 : 500;
+      s.y = slot === sa ? 400 : 700;
+      s.heading = 0;
+      s.speed = 0;
+    }
+    for (let i = 0; i < 100; i++) {
+      w.moveShip(sa, 0, 1);
+      w.moveShip(sb, 0, 1);
+    }
+    // After 5 seconds at full throttle the upgraded ship is clearly ahead.
+    expect(w.slots[sa]!.state.x - 500).toBeGreaterThan((w.slots[sb]!.state.x - 500) * 1.05);
+  });
+
+  it('the pickup slot layout matches the shared capacity', async () => {
+    const { room } = setup();
+    expect(room.world.pickups.active.length).toBe(PICKUP_CAPACITY);
+    expect(NOTE_START + ECONOMY.pickups.banknoteCapacity).toBe(PICKUP_CAPACITY);
   });
 });

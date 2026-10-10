@@ -9,3 +9,4 @@ export * from './collision.ts';
 export * from './match.ts';
 export * from './combat.ts';
 export * from './hash.ts';
+export * from './economy.ts';

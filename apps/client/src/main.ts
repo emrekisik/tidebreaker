@@ -39,8 +39,11 @@ import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
+import { PickupView } from './frame/pickupView.ts';
+import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
+import { ProgressHud } from './ui/progressHud.ts';
 import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
 import { Minimap } from './ui/minimap.ts';
@@ -89,6 +92,11 @@ const fixedStep = new FixedStep(STEP_MS);
 const hud = new Hud();
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 const matchHud = new MatchHud();
+const pickups = new PickupView(makePickupMeshes(stage.scene));
+const progressHud = new ProgressHud(
+  (stat) => online?.net.upgrade(stat),
+  () => online?.net.tierUp(),
+);
 const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement);
 const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement);
 const stormEl = document.getElementById('storm') as HTMLElement;
@@ -118,6 +126,11 @@ function setWorld(map: WorldMap): void {
 }
 
 window.addEventListener('keydown', (e) => {
+  if (online && !e.repeat && (e.target as HTMLElement).tagName !== 'INPUT') {
+    if (e.code >= 'Digit1' && e.code <= 'Digit5')
+      progressHud.pressStat(Number(e.code.slice(5)) - 1);
+    else if (e.code === 'KeyT') progressHud.pressTierUp();
+  }
   if (e.code === 'Tab') {
     // The scoreboard replaces the browser's focus change.
     e.preventDefault();
@@ -179,6 +192,12 @@ const events: OnlineEvents = {
   onMatch(state, winner, restartSec) {
     matchHud.setMatch(state, winner, restartSec);
     scoreboard.pin(state === MATCH_STATE.ENDED);
+  },
+  onStats(m) {
+    progressHud.update(m);
+  },
+  onPickup(kind, value, x, y) {
+    damageNumbers.showGain(stage.camera, x, y, value);
   },
   onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
     const me = online?.myId ?? 0;
@@ -243,7 +262,7 @@ function startOffline(): void {
   );
 }
 
-const menu = new Menu((name, shipIdx) => void startOnline(name, shipIdx));
+const menu = new Menu((name, shipIdx) => void startOnline(name, shipIdx), debug);
 
 async function startOnline(name: string, shipIdx: number): Promise<void> {
   menu.setBusy(true);
@@ -251,6 +270,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
     scene: stage.scene,
     assets,
     bars,
+    pickups,
     events,
     url: serverUrl,
     name,
@@ -267,6 +287,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
   online = game;
   pickerEl.classList.add('hidden');
   matchHud.show(true);
+  progressHud.show(true);
   menu.hide();
   document.body.classList.remove('in-menu');
 }
@@ -342,6 +363,7 @@ function update(nowMs: number): void {
   water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
   islands?.update(timeSec);
+  pickups.update(timeSec);
 
   others.length = 0;
   carriers[0] = undefined;
@@ -359,7 +381,14 @@ function update(nowMs: number): void {
   }
   stage.render();
 
-  hud.update(ps, game.player.combatant.def, game.kills, nowMs, dtSec);
+  hud.update(
+    ps,
+    game.player.combatant.def,
+    game.kills,
+    nowMs,
+    dtSec,
+    online ? online.progress.maxShield : undefined,
+  );
   if (online) {
     matchHud.update(carriers, online.teamKills[0]!, online.teamKills[1]!);
     matchHud.frame(dtSec);
