@@ -55,6 +55,8 @@ const ENGAGE_RANGE = 80;
 const SWERVES = [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 1.9, -1.9];
 /** Pickups this close are collected on the way. */
 const LOOT_RANGE = 90;
+const LOOT_GIVE_UP_TICKS = 200;
+const LOOT_IGNORE_TICKS = 600;
 const RETREAT_BELOW = 0.35;
 const RETREAT_UNTIL = 0.8;
 const RECONNECT_MS = 2500;
@@ -76,6 +78,10 @@ export class BotClient {
   private readonly seen = new Map<number, Seen>();
   /** Crates, barrels, chests and banknote piles in the water. */
   private readonly pickups = new Map<number, Seen>();
+  /** Pickups the bot gave up on (id -> tick until which it ignores them). */
+  private readonly ignoreUntil = new Map<number, number>();
+  private lootId = 0;
+  private lootSince = 0;
   private readonly me = {
     id: 0,
     team: -1,
@@ -155,6 +161,7 @@ export class BotClient {
     this.me.ready = false;
     this.seen.clear();
     this.pickups.clear();
+    this.ignoreUntil.clear();
     const ws = this.ws;
     this.ws = null;
     if (ws && ws.readyState <= WebSocket.OPEN) {
@@ -325,15 +332,27 @@ export class BotClient {
 
     // Free money nearby is worth a detour while nobody is close enough to fight.
     let loot: Seen | null = null;
+    let lootId = 0;
     let lootD = LOOT_RANGE;
     if (!this.retreating && !(nearest && nearestD < ENGAGE_RANGE)) {
-      for (const p of this.pickups.values()) {
+      for (const [id, p] of this.pickups) {
+        if ((this.ignoreUntil.get(id) ?? 0) > this.tick) continue;
         const d = Math.hypot(p.x - me.x, p.y - me.y);
         if (d < lootD) {
           lootD = d;
           loot = p;
+          lootId = id;
         }
       }
+    }
+    // A pickup that cannot be reached (a bot circling it for seconds) is given up on for a while.
+    if (lootId !== this.lootId) {
+      this.lootId = lootId;
+      this.lootSince = this.tick;
+    } else if (lootId !== 0 && this.tick - this.lootSince > LOOT_GIVE_UP_TICKS) {
+      this.ignoreUntil.set(lootId, this.tick + LOOT_IGNORE_TICKS);
+      loot = null;
+      this.lootId = 0;
     }
     const target: Seen | null = this.retreating
       ? ownCarrier

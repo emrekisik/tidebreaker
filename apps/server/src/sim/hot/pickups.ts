@@ -22,6 +22,10 @@ export const CHEST_START = BARREL_START + P.barrel.target;
 export const NOTE_START = CHEST_START + P.chest.target;
 export { PICKUP_CAPACITY };
 
+/** A pickup needs this much open water around it, so a ship can reach it. */
+const CLEARANCE = 6;
+/** Pickups stay this far off a carrier hull. */
+const HULL_MARGIN = 6;
 const SPAWN_TRIES = 14;
 const EDGE = MAP.boundary.width + 25;
 
@@ -193,15 +197,28 @@ export class Pickups {
 
   private spotIsFree(x: number, y: number, starter: boolean, ships: readonly Combatant[]): boolean {
     if (x < EDGE || y < EDGE || x > WORLD_SIZE - EDGE || y > WORLD_SIZE - EDGE) return false;
-    if (circleVsWorld(this.land, x, y, 3, this.hit)) return false;
+    if (circleVsWorld(this.land, x, y, CLEARANCE, this.hit)) return false;
     const minD2 = P.minSpawnDistance * P.minSpawnDistance;
     for (let j = 0; j < ships.length; j++) {
       const s = ships[j]!;
       if (!s.state.alive) continue;
       const dx = s.state.x - x;
       const dy = s.state.y - y;
-      // Starter crates sit right next to the carriers, so only the carrier-free rule differs.
-      if (starter && s.def.vMax === 0) continue;
+      if (s.def.vMax === 0) {
+        // A carrier cannot be sailed through: nothing may lie under or against its hull.
+        const cos = Math.cos(s.state.heading);
+        const sin = Math.sin(s.state.heading);
+        const circles = s.def.hitCircles;
+        for (let k = 0; k < circles.length; k++) {
+          const c = circles[k]!;
+          const cx = s.state.x + cos * c.offset - x;
+          const cy = s.state.y + sin * c.offset - y;
+          const reach = c.radius + HULL_MARGIN;
+          if (cx * cx + cy * cy < reach * reach) return false;
+        }
+        // Starter crates sit close to the carrier on purpose: only the hull rule applies to them.
+        if (starter) continue;
+      }
       if (dx * dx + dy * dy < minD2) return false;
     }
     if (!starter) {

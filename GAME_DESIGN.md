@@ -77,7 +77,7 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 - İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı. Her uçak gemisinin yanında 6 başlangıç sandığı vardır (doğduğun yerin hemen önünde, 25 sn'de yeniden çıkar).
 
 **Ölüm kuralı (io standardı)**
-- **Takım modunda ölüm kuralı (kararlaştırıldı):** batan oyuncunun cebindeki **tüm para** banknot yığınları (en çok 5, 40 sn kalır) olarak batık yerine saçılır ve herkes toplayabilir; gemisi **bir sınıf geriler** (T1'in altına inmez), skoru yeni sınıfın alt sınırına iner, **yükseltmeleri kalır** (yeni sınıfın sınırına kadar kırpılır). Kendi uçak gemisinde 5 sn sonra yeni sınıfta doğar. Yeni turda herkes sıfırdan T1'dir.
+- **Takım modunda ölüm kuralı (kararlaştırıldı):** batan oyuncunun cebindeki **tüm para** banknot yığınları (en çok 5, 40 sn kalır) olarak batık yerine saçılır ve herkes toplayabilir; gemisi **bir sınıf geriler** (T1'in altına inmez), skoru yeni sınıfın alt sınırına iner. **Yükseltmeler gemi sınıfına aittir:** sınıf düşünce yeni sınıf yükseltmesiz başlar (T1 zaten en alt sınıf olduğu için T1'de batan kendi yükseltmelerini korur). Kendi uçak gemisinde 5 sn sonra yeni sınıfta doğar. Yeni turda herkes sıfırdan T1'dir.
 - Eski FFA kuralı (her şey sıfırlanır, T1'de doğ) yalnızca tasarım geçmişidir.
 - Ölünce `YOU_DIED` ekranı: yaşama süresi, öldürme sayısı, score, öldüren kişi. "Tekrar oyna" ismi hatırlar.
 - Bağlantı kopması: son 10 sn içinde hasar alıp vermişse gemi 10 sn boyunca kontrolsüz yavaşlayarak kalır (combat-log koruması), yoksa anında kaldırılır.
@@ -211,7 +211,7 @@ interface WeaponDef {
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
 - **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` para (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 127. Bir statı sonuna kadar çıkarmak ≈ 420 para.
-- Sınıf atlayınca stat seviyeleri korunur (yeni cap'e göre geçerlidir), can oranı korunur, kalkan tam dolar.
+- **Yükseltmeler sınıfa aittir (kararlaştırıldı):** sınıf atlayınca (ve sınıf düşünce) stat seviyeleri **sıfırlanır**, yeni sınıf kendi yükseltmelerini baştan alır; para kalır. Can oranı korunur, kalkan tam dolar. Yeni sınıfın cap'i daha yüksek olduğu için (T1: 3 … T5: 8) daha çok seviye alınabilir.
 
 ### 6.3 Gemi sınıfları (başlangıç değerleri, hepsi tunable)
 Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınca panelde "Sınıf Atla" butonu belirir.

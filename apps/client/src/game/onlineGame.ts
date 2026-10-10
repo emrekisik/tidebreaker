@@ -545,9 +545,12 @@ export class OnlineGame implements GameSession, ServerHandler {
       this.deps.pickups.remove(id);
       return;
     }
+    // The ship that is leaving is the one known right now: the same id may come back in this very
+    // snapshot (a respawn or class jump), and that new ship must stay.
+    const leaving = this.remotes.get(id);
     this.at(this.curTime, () => {
       const r = this.remotes.get(id);
-      if (!r) return;
+      if (!r || r !== leaving) return;
       // A ship that is sinking finishes its animation first.
       if (!r.entity.combatant.state.alive) r.leaving = true;
       else this.removeRemote(id);

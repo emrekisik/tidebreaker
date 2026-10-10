@@ -242,6 +242,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     if (!canTierUp(this.tier[slot]!, this.score[slot]!)) return false;
     const hullShare = c.state.hull / c.def.hull;
     this.tier[slot] = this.tier[slot]! + 1;
+    // Upgrades belong to the ship class: a new class starts without them (the money stays).
+    this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
     this.shipIdx[slot] = SHIP_IDS.indexOf(TIER_SHIPS[this.tier[slot]!]!);
     c.def = SHIPS[SHIP_IDS[this.shipIdx[slot]!]!];
     c.state.mountCooldown.fill(0);
@@ -782,15 +784,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.pickups.dropBanknote(x + Math.cos(a) * d, y + Math.sin(a) * d, value);
     }
     this.cash[victim] = 0;
-    const tier = Math.max(0, this.tier[victim]! - D.tierLoss);
+    const before = this.tier[victim]!;
+    const tier = Math.max(0, before - D.tierLoss);
     this.tier[victim] = tier;
     this.score[victim] = ECONOMY.tierScore[tier]!;
     this.shipIdx[victim] = SHIP_IDS.indexOf(TIER_SHIPS[tier]!);
-    const cap = statCap(tier);
-    for (let k = 0; k < STAT_COUNT; k++) {
-      const at = victim * STAT_COUNT + k;
-      if (this.levels[at]! > cap) this.levels[at] = cap;
-    }
+    // The lower class has its own upgrades: they start from nothing. (A T1 ship stays T1 and
+    // keeps what it bought.)
+    if (tier !== before) this.levels.fill(0, victim * STAT_COUNT, (victim + 1) * STAT_COUNT);
     this.statsDirty[victim] = 1;
     this.scoresDirty = true;
   }

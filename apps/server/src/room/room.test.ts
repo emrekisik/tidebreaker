@@ -20,6 +20,7 @@ import {
   ECONOMY,
   KIND,
   applyWorldBounds,
+  circleVsWorld,
   collideIslands,
   configHash,
   createShipState,
@@ -888,5 +889,110 @@ describe('upgrade effects', () => {
     const { room } = setup();
     expect(room.world.pickups.active.length).toBe(PICKUP_CAPACITY);
     expect(NOTE_START + ECONOMY.pickups.banknoteCapacity).toBe(PICKUP_CAPACITY);
+  });
+});
+
+describe('upgrades belong to the class', () => {
+  it('a class jump starts the new class without upgrades, and keeps the money', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    w.cash[slot] = 100;
+    request(a, 'upgrade', 0);
+    request(a, 'upgrade', 3);
+    await tick(2);
+    expect(w.level(slot, 0)).toBe(1);
+    expect(w.level(slot, 3)).toBe(1);
+    const cash = w.cash[slot]!;
+    w.score[slot] = ECONOMY.tierScore[1]!;
+    request(a, 'tier');
+    await tick(2);
+    expect(w.tier[slot]).toBe(1);
+    for (let k = 0; k < STAT_COUNT; k++) expect(w.level(slot, k)).toBe(0);
+    expect(w.cash[slot]).toBe(cash);
+    // The shield capacity went back to the plain class value, filled.
+    expect(w.slots[slot]!.state.shield).toBeCloseTo(w.slots[slot]!.def.shield, 3);
+    const stats = a.heard.stats[a.heard.stats.length - 1]!;
+    expect(Array.from(stats.levels)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('sinking drops the class and with it the upgrades; a T1 ship keeps its own', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Victim', 'gunboat');
+    await join('Filler', 'coast_guard_boat'); // keeps the next joiner on the red team
+    const c = await join('Victim2', 'coast_guard_boat');
+    await tick(2);
+    const w = room.world;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    const cSlot = c.heard.joined[0]!.entityId - 1;
+    for (const slot of [bSlot, cSlot]) {
+      w.levels[slot * STAT_COUNT] = 2;
+      w.cash[slot] = 50;
+    }
+    // Shoot one victim at a time until it sinks, then look at what is left of it.
+    const sink = async (client: TestClient, slot: number, x: number): Promise<void> => {
+      for (let i = 0; i < 300 && w.deaths[slot] === 0; i++) {
+        place(room, a, 530, 550, 0);
+        place(room, client, x, 550, 0);
+        const s = w.slots[slot]!.state;
+        s.hull = Math.min(s.hull, 1);
+        s.shield = 0;
+        a.input(0, 0, 0, 40, true);
+        await tick(1);
+      }
+    };
+    await sink(b, bSlot, 570);
+    expect(w.deaths[bSlot]).toBe(1);
+    expect(w.tier[bSlot]).toBe(0);
+    expect(w.level(bSlot, 0)).toBe(0); // class changed: upgrades gone
+    await sink(c, cSlot, 570);
+    expect(w.deaths[cSlot]).toBe(1);
+    expect(w.tier[cSlot]).toBe(0);
+    expect(w.level(cSlot, 0)).toBe(2); // still T1: kept
+  });
+});
+
+describe('pickups are only where a ship can collect them', () => {
+  it('none lies on land, in a carrier hull or in a pocket a ship cannot enter', async () => {
+    const out = new Float32Array(3);
+    for (const seed of [1337, 1, 987654]) {
+      const { room, tick } = (() => {
+        const transport = new MemoryTransport();
+        let now = 1000;
+        const room = new Room({ transport, seed, clock: () => now });
+        return {
+          room,
+          tick: async (n: number): Promise<void> => {
+            for (let i = 0; i < n; i++) {
+              now += STEP_SEC * 1000;
+              room.tick();
+            }
+          },
+        };
+      })();
+      const w = room.world;
+      // Over a few minutes everything respawns several times.
+      for (let round = 0; round < 8; round++) {
+        await tick(TICK_RATE * 30);
+        const p = w.pickups;
+        for (let i = 0; i < p.active.length; i++) {
+          if (p.active[i] === 0) continue;
+          const x = p.x[i]!;
+          const y = p.y[i]!;
+          expect(circleVsWorld(w.land, x, y, 5, out)).toBe(false);
+          for (let t = 0; t < 2; t++) {
+            const carrier = w.slots[t]!;
+            for (const c of carrier.def.hitCircles) {
+              const cx = carrier.state.x + Math.cos(carrier.state.heading) * c.offset;
+              const cy = carrier.state.y + Math.sin(carrier.state.heading) * c.offset;
+              expect(Math.hypot(cx - x, cy - y)).toBeGreaterThan(c.radius + 3);
+            }
+          }
+        }
+      }
+    }
   });
 });
