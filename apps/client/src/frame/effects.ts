@@ -1114,19 +1114,24 @@ export class Effects {
     const half = width * 0.5;
     const foamW = half * H.foamWidth;
     const foamReach = Math.max(0, length * 0.5 - foamW);
-    this.wakeMap.capsule(
-      p.x - c * foamReach,
-      p.y - sn * foamReach,
-      p.x + c * foamReach,
-      p.y + sn * foamReach,
-      foamW,
-      0,
-      0,
-      0,
-      0,
-      0,
-      H.foamStrength,
-    );
+    // No foam at rest (and never on the anchored carrier): it grows in as the ship picks up speed.
+    const vMax = e.combatant.def.vMax;
+    const moving =
+      vMax > 0 ? clamp((Math.abs(e.combatant.state.speed) / vMax) * H.foamSpeedGain, 0, 1) : 0;
+    if (moving > 0.02)
+      this.wakeMap.capsule(
+        p.x - c * foamReach,
+        p.y - sn * foamReach,
+        p.x + c * foamReach,
+        p.y + sn * foamReach,
+        foamW,
+        0,
+        0,
+        0,
+        0,
+        0,
+        H.foamStrength * moving,
+      );
     const shadowW = half * H.shadowWidth;
     const shadowReach = Math.max(0, length * 0.5 - shadowW);
     this.wakeMap.capsule(

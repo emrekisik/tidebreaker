@@ -129,10 +129,12 @@ export const FX = {
     /** Foam fringe hugging the hull: reach beyond the hull and strength (0..1, foam shows from ~0.3). */
     foamWidth: 1.35,
     foamStrength: 0.55,
+    /** Foam reaches full strength at this fraction of top speed (1 / gain); none when standing still. */
+    foamSpeedGain: 4,
     /** Soft shadow: reach beyond the hull, strength (0..1) and how dark the water gets at full strength. */
     shadowWidth: 1.7,
     shadowStrength: 1,
-    shadowDarken: 0.35,
+    shadowDarken: 0.5,
   },
 } as const;
 
