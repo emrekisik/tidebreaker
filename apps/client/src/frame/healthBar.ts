@@ -1,5 +1,6 @@
 import { Group, Mesh } from 'three';
 import type { PerspectiveCamera, Scene } from 'three';
+import { disposeNameTag } from '../render/barKit.ts';
 import type { BarKit } from '../render/barKit.ts';
 
 type Team = 'blue' | 'red';
@@ -17,8 +18,10 @@ export class HealthBar {
   private readonly shieldGhost: Mesh;
   private readonly hullTrack = new GhostTracker();
   private readonly shieldTrack = new GhostTracker();
+  private readonly tag: Mesh | null;
 
-  constructor(scene: Scene, kit: BarKit, team: Team) {
+  /** `name`: shows a name plate above the bar (omit it for ships that need none). */
+  constructor(scene: Scene, kit: BarKit, team: Team, name?: string) {
     const bg = new Mesh(kit.bgGeo, kit.bgMat);
     this.hullGhost = new Mesh(kit.hullGeo, kit.ghostMat);
     this.shieldGhost = new Mesh(kit.shieldGeo, kit.ghostMat);
@@ -34,12 +37,18 @@ export class HealthBar {
     this.shield.position.set(0, 0.2, 0.01);
     this.shieldGhost.position.set(0, 0.2, 0.005);
     this.group.add(bg, this.hullGhost, this.shieldGhost, this.hull, this.shield);
+    this.tag = name ? kit.makeNameTag(name, team) : null;
+    if (this.tag) {
+      this.tag.position.set(0, 1.55, 0.02);
+      this.group.add(this.tag);
+    }
     scene.add(this.group);
   }
 
   /** Takes the bar out of the scene (the ship is gone). */
   remove(scene: Scene): void {
     scene.remove(this.group);
+    if (this.tag) disposeNameTag(this.tag);
   }
 
   update(

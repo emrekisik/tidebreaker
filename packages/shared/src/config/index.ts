@@ -7,4 +7,5 @@ export * from './training.ts';
 export * from './effects.ts';
 export * from './collision.ts';
 export * from './match.ts';
+export * from './combat.ts';
 export * from './hash.ts';

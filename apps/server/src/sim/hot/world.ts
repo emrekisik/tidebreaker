@@ -1,5 +1,6 @@
 import {
   CARRIER,
+  COMBAT,
   DEG2RAD,
   END_REASON,
   EventWriter,
@@ -8,6 +9,7 @@ import {
   MAX_PROJECTILES,
   Mulberry32,
   NO_TEAM,
+  NO_WEAPON,
   ProjectileSet,
   SHIPS,
   SHIP_IDS,
@@ -18,6 +20,7 @@ import {
   collideIslands,
   createCombatant,
   generateMap,
+  regenShield,
   resetShipState,
   resolveCollisions,
   segmentVsWorld,
@@ -38,6 +41,8 @@ import type {
 /** Slots 0 and 1 are the carriers, then one slot per player. Entity id = slot + 1. */
 export const CARRIER_SLOTS = TEAM_COUNT;
 const DIED_CAPACITY = 64;
+/** Combat age of a player who has not fought lately (seconds). */
+const PEACEFUL = 1e6;
 
 /**
  * The authoritative game world of one room (GAME_DESIGN.md §4.5, §11.2). Plain data in typed
@@ -71,6 +76,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   /** Counts spawns of a slot, so clients re-create the ship instead of interpolating the jump. */
   readonly spawnGen: Uint16Array;
   readonly kills: Uint16Array;
+  readonly deaths: Uint16Array;
+  /** Seconds since the player last hit someone or was hit (combat-log protection). */
+  readonly combatAge: Float32Array;
+  /** A player who dropped out while fighting: seconds their ship still drifts in the water. */
+  readonly ghostLeft: Float32Array;
   readonly teamKills: Uint16Array = new Uint16Array(TEAM_COUNT);
   readonly projectiles = new ProjectileSet(MAX_PROJECTILES);
   readonly events = new EventWriter();
@@ -78,6 +88,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly diedVictim = new Uint16Array(DIED_CAPACITY);
   readonly diedKiller = new Uint16Array(DIED_CAPACITY);
   diedCount = 0;
+  /** Who sank whom this tick (kill feed): killer id, victim id, weapon index or NO_WEAPON. */
+  readonly feedKiller = new Uint16Array(DIED_CAPACITY);
+  readonly feedVictim = new Uint16Array(DIED_CAPACITY);
+  readonly feedWeapon = new Uint8Array(DIED_CAPACITY);
+  feedCount = 0;
+  /** The scoreboard changed (kills, deaths, players coming or going). */
+  scoresDirty = true;
   matchState: number = MATCH_STATE.PLAYING;
   winner = NO_TEAM;
   restartLeft = 0;
@@ -108,6 +125,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.respawned = new Uint8Array(n);
     this.spawnGen = new Uint16Array(n);
     this.kills = new Uint16Array(n);
+    this.deaths = new Uint16Array(n);
+    this.combatAge = new Float32Array(n).fill(PEACEFUL);
+    this.ghostLeft = new Float32Array(n);
     this.savedHull = new Float32Array(n);
     this.savedShield = new Float32Array(n);
 
@@ -134,20 +154,43 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.slots[i]!.team = team;
       this.shipIdx[i] = shipIdx;
       this.kills[i] = 0;
+      this.deaths[i] = 0;
+      this.ghostLeft[i] = 0;
       this.lastSeq[i] = 0;
       this.inSteer[i] = 0;
       this.inThrottle[i] = 0;
       this.inFire[i] = 0;
       this.combatants.push(this.slots[i]!);
       this.respawn(i);
+      this.scoresDirty = true;
       return i;
     }
     return -1;
   }
 
+  /**
+   * A player's connection is gone. Someone who was fighting a moment ago (combat-log protection,
+   * GAME_DESIGN.md §3) leaves their ship in the water, drifting without control, so dropping out
+   * is no escape; everyone else disappears at once.
+   */
   removePlayer(slot: number): void {
     if (this.used[slot] === 0) return;
+    const c = this.slots[slot]!;
+    if (c.state.alive && this.combatAge[slot]! < COMBAT.combatLogSec) {
+      this.ghostLeft[slot] = COMBAT.combatLogDriftSec;
+      this.inSteer[slot] = 0;
+      this.inThrottle[slot] = 0;
+      this.inFire[slot] = 0;
+      return;
+    }
+    this.release(slot);
+  }
+
+  /** Frees a player slot for good. */
+  private release(slot: number): void {
     this.used[slot] = 0;
+    this.ghostLeft[slot] = 0;
+    this.scoresDirty = true;
     this.respawned[slot] = 0;
     this.slots[slot]!.state.alive = false;
     const at = this.combatants.indexOf(this.slots[slot]!);
@@ -184,6 +227,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     resetShipState(c.state, def, this.spawn2[0]!, this.spawn2[1]!, this.spawn2[2]!);
     this.respawnLeft[slot] = 0;
     this.protectLeft[slot] = MATCH.spawnProtectSec;
+    this.combatAge[slot] = PEACEFUL;
     this.inSteer[slot] = 0;
     this.inThrottle[slot] = 0;
     this.inFire[slot] = 0;
@@ -231,6 +275,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.matchChanged = true;
     this.teamKills.fill(0);
     this.kills.fill(0);
+    this.deaths.fill(0);
+    this.scoresDirty = true;
     this.projectiles.clear();
     for (let t = 0; t < TEAM_COUNT; t++) {
       const b = MATCH.carriers[t]!;
@@ -242,7 +288,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       if (this.combatants.indexOf(c) < 0) this.combatants.unshift(c);
     }
     for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
-      if (this.used[i] === 1) this.respawn(i);
+      if (this.used[i] === 0) continue;
+      if (this.ghostLeft[i]! > 0) this.release(i);
+      else this.respawn(i);
     }
   }
 
@@ -266,7 +314,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.tick++;
     this.events.begin(this.tick);
     this.diedCount = 0;
+    this.feedCount = 0;
     const ended = this.matchState === MATCH_STATE.ENDED;
+
+    // Players whose connection dropped in the middle of a fight keep drifting, uncontrolled.
+    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+      if (this.ghostLeft[i]! > 0) this.moveShip(i, 0, 0);
+    }
 
     // 4. collisions: ships, islands and reefs, world edge. Protected ships take no damage.
     this.saveProtected();
@@ -284,8 +338,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
       if (this.used[i] === 0) continue;
       const c = this.slots[i]!;
-      const fire = !ended && this.inFire[i] === 1 && this.protectLeft[i]! <= 0;
-      updateMounts(
+      const fire = !ended && this.inFire[i] === 1;
+      const shots = updateMounts(
         c.state,
         c.def,
         c.id,
@@ -296,6 +350,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this,
         this.inAimDist[i]!,
       );
+      // The first shot ends the spawn protection: no sniping from safety.
+      if (shots > 0) this.protectLeft[i] = 0;
     }
     for (let t = 0; t < CARRIER_SLOTS; t++) {
       const c = this.slots[t]!;
@@ -312,9 +368,32 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.projectiles.step(dt, this.combatants, this, this);
     this.restoreProtected();
 
-    // 8. timers: respawn countdown, spawn protection, round restart
+    // 7. shields recharge once a ship has been left alone for a while
+    for (let i = 0; i < this.slotCount; i++) {
+      if (this.used[i] === 0) continue;
+      const c = this.slots[i]!;
+      if (i < CARRIER_SLOTS) {
+        regenShield(
+          c.state,
+          c.def.shield,
+          COMBAT.carrierShieldDelaySec,
+          COMBAT.carrierShieldRechargeSec,
+          dt,
+        );
+      } else {
+        regenShield(c.state, c.def.shield, COMBAT.shieldDelaySec, COMBAT.shieldRechargeSec, dt);
+        this.combatAge[i] = Math.min(PEACEFUL, this.combatAge[i]! + dt);
+      }
+    }
+
+    // 8. timers: respawn countdown, spawn protection, round restart, drifting ships
     for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
       if (this.used[i] === 0) continue;
+      if (this.ghostLeft[i]! > 0) {
+        this.ghostLeft[i] = this.ghostLeft[i]! - dt;
+        if (this.ghostLeft[i]! <= 0 || !this.slots[i]!.state.alive) this.release(i);
+        continue;
+      }
       if (this.protectLeft[i]! > 0) this.protectLeft[i] = Math.max(0, this.protectLeft[i]! - dt);
       if (!this.slots[i]!.state.alive && this.respawnLeft[i]! > 0) {
         this.respawnLeft[i] = this.respawnLeft[i]! - dt;
@@ -392,7 +471,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const target = targetId - 1;
     if (this.protectLeft[target]! > 0) return;
     this.events.shipHit(targetId, ownerId, damage, shieldHit, weaponIdx, x, y);
-    if (killed) this.sunk(target, ownerId, x, y);
+    if (target >= CARRIER_SLOTS) this.combatAge[target] = 0;
+    if (ownerId - 1 >= CARRIER_SLOTS) this.combatAge[ownerId - 1] = 0;
+    if (killed) this.sunk(target, ownerId, x, y, weaponIdx);
   }
 
   onExpire(x: number, y: number, _weaponIdx: number, slot: number): void {
@@ -415,8 +496,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     killedB: boolean,
   ): void {
     this.events.bump(aId, bId, x, y, impact);
-    if (killedA && this.protectLeft[aId - 1]! <= 0) this.sunk(aId - 1, bId, x, y);
-    if (killedB && this.protectLeft[bId - 1]! <= 0) this.sunk(bId - 1, aId, x, y);
+    if (killedA && this.protectLeft[aId - 1]! <= 0) this.sunk(aId - 1, bId, x, y, NO_WEAPON);
+    if (killedB && this.protectLeft[bId - 1]! <= 0) this.sunk(bId - 1, aId, x, y, NO_WEAPON);
   }
 
   onIslandHit(shipId: number, x: number, y: number, impact: number): void {
@@ -428,7 +509,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   }
 
   /** A ship went down: tell everyone, count the kill, and end the round if it was a carrier. */
-  private sunk(victim: number, killerId: number, x: number, y: number): void {
+  private sunk(victim: number, killerId: number, x: number, y: number, weapon: number): void {
     const v = this.slots[victim]!;
     this.events.shipSunk(v.id, killerId, x, y);
     if (victim < CARRIER_SLOTS) {
@@ -442,6 +523,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     this.respawnLeft[victim] = MATCH.respawnSec;
     this.inFire[victim] = 0;
+    this.deaths[victim] = this.deaths[victim]! + 1;
+    this.scoresDirty = true;
+    if (this.feedCount < DIED_CAPACITY) {
+      this.feedKiller[this.feedCount] = killerId;
+      this.feedVictim[this.feedCount] = v.id;
+      this.feedWeapon[this.feedCount] = weapon;
+      this.feedCount++;
+    }
     if (this.diedCount < DIED_CAPACITY) {
       this.diedVictim[this.diedCount] = v.id;
       this.diedKiller[this.diedCount] = killerId;

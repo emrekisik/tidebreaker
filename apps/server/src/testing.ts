@@ -8,7 +8,13 @@ import {
   qAngle16,
   qAxis,
 } from '@tidebreaker/shared';
-import type { EnterEntry, SelfState, ServerHandler, UpdateEntry } from '@tidebreaker/shared';
+import type {
+  EnterEntry,
+  ScoreEntry,
+  SelfState,
+  ServerHandler,
+  UpdateEntry,
+} from '@tidebreaker/shared';
 import type { MemoryClient } from './net/memTransport.ts';
 
 /** Everything a test client has heard from the server, in a form that is easy to assert on. */
@@ -23,6 +29,16 @@ export interface Heard {
     killsRed: number;
   }[];
   youDied: { killerId: number; killerName: string; respawnSec: number }[];
+  kills: {
+    killerId: number;
+    victimId: number;
+    killerTeam: number;
+    victimTeam: number;
+    weapon: number;
+    killerName: string;
+    victimName: string;
+  }[];
+  scores: ScoreEntry[][];
   rejects: number[];
   pongs: { clientTime: number; serverTime: number }[];
   snapshots: { tick: number; seq: number; self: SelfState }[];
@@ -44,6 +60,8 @@ export class TestClient {
     joined: [],
     match: [],
     youDied: [],
+    kills: [],
+    scores: [],
     rejects: [],
     pongs: [],
     snapshots: [],
@@ -69,6 +87,17 @@ export class TestClient {
         h.match.push({ state, winner, restartSec, killsBlue, killsRed }),
       youDied: (killerId, killerName, respawnSec) =>
         h.youDied.push({ killerId, killerName, respawnSec }),
+      kill: (killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) =>
+        h.kills.push({
+          killerId,
+          victimId,
+          killerTeam,
+          victimTeam,
+          weapon,
+          killerName,
+          victimName,
+        }),
+      scores: (rows) => h.scores.push(rows),
       pong: (clientTime, serverTime) => h.pongs.push({ clientTime, serverTime }),
       reject: (r) => h.rejects.push(r),
       snapshot: (tick, seq, self) => h.snapshots.push({ tick, seq, self: { ...self } }),

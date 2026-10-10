@@ -6,12 +6,15 @@ import {
   END_REASON,
   EventWriter,
   KIND,
+  NO_WEAPON,
   SnapshotBuilder,
+  beginScores,
   decodeClient,
   decodeServer,
   encodeHello,
   encodeInput,
   encodeJoined,
+  encodeKill,
   encodeMatch,
   encodePing,
   encodePlay,
@@ -19,8 +22,10 @@ import {
   encodeReject,
   encodeWelcome,
   encodeYouDied,
+  finishScores,
   newClientMsg,
   newSelfState,
+  writeScore,
 } from './messages.ts';
 import type { EnterEntry, ServerHandler, UpdateEntry } from './messages.ts';
 import {
@@ -44,6 +49,8 @@ function recorder(): { log: string[]; h: ServerHandler } {
     joined: (...a) => log.push(`joined ${a.join(',')}`),
     match: (...a) => log.push(`match ${a.join(',')}`),
     youDied: (...a) => log.push(`youDied ${a.join(',')}`),
+    kill: (...a) => log.push(`kill ${a.join(',')}`),
+    scores: (rows) => log.push(`scores ${JSON.stringify(rows)}`),
     pong: (...a) => log.push(`pong ${a.join(',')}`),
     reject: (a) => log.push(`reject ${a}`),
     snapshot: (tick, seq, s) => log.push(`snapshot ${tick},${seq},${JSON.stringify(s)}`),
@@ -209,6 +216,15 @@ describe('server messages', () => {
     send();
     encodeYouDied(w, 4, 'Aaa', 5);
     send();
+    encodeKill(w, 3, 9, 0, 1, 2, 'Ali', 'Çınar');
+    send();
+    encodeKill(w, 1, 4, 1, 0, NO_WEAPON, 'Carrier', 'Veli');
+    send();
+    const at = beginScores(w);
+    writeScore(w, 3, 0, 5, 2, 'Ali');
+    writeScore(w, 9, 1, 0, 7, 'Çınar');
+    finishScores(w, at, 2);
+    send();
     encodePong(w, 10, 20);
     send();
     encodeReject(w, 2);
@@ -218,9 +234,22 @@ describe('server messages', () => {
       'joined 7,1,2',
       'match 1,0,14,3,9',
       'youDied 4,Aaa,5',
+      'kill 3,9,0,1,2,Ali,Çınar',
+      'kill 1,4,1,0,255,Carrier,Veli',
+      'scores [{"id":3,"team":0,"kills":5,"deaths":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"name":"Çınar"}]',
       'pong 10,20',
       'reject 2',
     ]);
+  });
+
+  it('a SCORES message with a lying row count is rejected', () => {
+    const { log, h } = recorder();
+    const w = new Writer(64);
+    const at = beginScores(w);
+    writeScore(w, 3, 0, 5, 2, 'Ali');
+    finishScores(w, at, 200);
+    expect(decodeServer(w.toBytes(), h)).toBe(false);
+    expect(log).toEqual([]);
   });
 
   it('snapshots round-trip with the documented quantization', () => {

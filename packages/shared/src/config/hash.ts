@@ -1,4 +1,5 @@
 import { COLLISION, ISLAND_COLLISION } from './collision.ts';
+import { COMBAT } from './combat.ts';
 import { CARRIER, MATCH } from './match.ts';
 import { PROTOCOL_VERSION, SNAPSHOT_EVERY, TICK_RATE } from './net.ts';
 import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
@@ -28,6 +29,7 @@ export function configHash(): number {
     COLLISION,
     ISLAND_COLLISION,
     MATCH,
+    COMBAT,
   ]);
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {

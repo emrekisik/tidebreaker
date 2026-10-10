@@ -26,6 +26,7 @@ import {
 import type {
   Combatant,
   EnterEntry,
+  ScoreEntry,
   HitSink,
   Obstacles,
   SelfState,
@@ -68,6 +69,18 @@ export interface OnlineEvents extends GameEvents {
     killsBlue: number,
     killsRed: number,
   ): void;
+  /** Someone sank someone (kill feed). */
+  onKill(
+    killerId: number,
+    victimId: number,
+    killerTeam: number,
+    victimTeam: number,
+    weapon: number,
+    killerName: string,
+    victimName: string,
+  ): void;
+  /** The scoreboard of the round. */
+  onScores(rows: ScoreEntry[], myId: number): void;
   /** The player (re)spawned. */
   onJoined(team: number, shipIdx: number): void;
   /** The connection is gone (after the game started). */
@@ -374,6 +387,30 @@ export class OnlineGame implements GameSession, ServerHandler {
     this.deps.events.onDied(killerId, killerName, respawnSec);
   }
 
+  kill(
+    killerId: number,
+    victimId: number,
+    killerTeam: number,
+    victimTeam: number,
+    weapon: number,
+    killerName: string,
+    victimName: string,
+  ): void {
+    this.deps.events.onKill(
+      killerId,
+      victimId,
+      killerTeam,
+      victimTeam,
+      weapon,
+      killerName,
+      victimName,
+    );
+  }
+
+  scores(rows: ScoreEntry[]): void {
+    this.deps.events.onScores(rows, this.myId);
+  }
+
   // ---- messages: snapshots
 
   snapshot(tick: number, lastInputSeq: number, self: SelfState): void {
@@ -404,7 +441,12 @@ export class OnlineGame implements GameSession, ServerHandler {
     combatant.state.y = e.y;
     combatant.state.heading = e.heading;
     const model = d.assets.createShip(def.modelKey, teamName(e.team), false);
-    const bar = new HealthBar(d.scene, d.bars, teamName(e.team));
+    const bar = new HealthBar(
+      d.scene,
+      d.bars,
+      teamName(e.team),
+      e.kind === KIND.CARRIER ? undefined : e.name,
+    );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
     if (e.kind === KIND.CARRIER) entity.mountAims = new Float32Array(def.mounts.length);

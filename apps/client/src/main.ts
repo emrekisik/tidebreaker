@@ -1,4 +1,5 @@
 import {
+  MATCH_STATE,
   MAX_PROJECTILES,
   SHIPS,
   STEP_MS,
@@ -38,7 +39,9 @@ import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
+import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
+import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
 import { Minimap } from './ui/minimap.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
@@ -86,6 +89,8 @@ const fixedStep = new FixedStep(STEP_MS);
 const hud = new Hud();
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 const matchHud = new MatchHud();
+const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement);
+const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement);
 const stormEl = document.getElementById('storm') as HTMLElement;
 const minimapEl = document.getElementById('minimap') as HTMLElement;
 const pickerEl = document.getElementById('picker') as HTMLElement;
@@ -113,11 +118,21 @@ function setWorld(map: WorldMap): void {
 }
 
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'Tab') {
+    // The scoreboard replaces the browser's focus change.
+    e.preventDefault();
+    if (online) scoreboard.hold(true);
+  }
   if (e.code === 'KeyM' && !e.repeat && minimap && (e.target as HTMLElement).tagName !== 'INPUT') {
     minimap.toggle();
     minimapEl.classList.toggle('big');
   }
 });
+
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Tab') scoreboard.hold(false);
+});
+window.addEventListener('blur', () => scoreboard.hold(false));
 
 // ---- effects shared by the sandbox and online matches
 
@@ -163,6 +178,21 @@ const events: OnlineEvents = {
   },
   onMatch(state, winner, restartSec) {
     matchHud.setMatch(state, winner, restartSec);
+    scoreboard.pin(state === MATCH_STATE.ENDED);
+  },
+  onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
+    const me = online?.myId ?? 0;
+    killFeed.add(
+      killerId <= 2 ? t('feed.carrier') : killerName,
+      victimName,
+      killerTeam,
+      victimTeam,
+      weapon,
+      killerId === me || victimId === me,
+    );
+  },
+  onScores(rows, myId) {
+    scoreboard.update(rows, myId);
   },
   onJoined() {
     matchHud.respawned();

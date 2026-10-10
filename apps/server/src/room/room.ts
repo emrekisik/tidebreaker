@@ -3,6 +3,7 @@ import {
   KIND,
   MATCH,
   MATCH_STATE,
+  NO_TEAM,
   PROTOCOL_VERSION,
   REJECT_REASON,
   SHIP_IDS,
@@ -12,18 +13,22 @@ import {
   TEAM_BLUE,
   TICK_RATE,
   Writer,
+  beginScores,
   configHash,
   decodeClient,
   dqAngle16,
   dqAxis,
   encodeJoined,
+  encodeKill,
   encodeMatch,
   encodePong,
   encodeReject,
   encodeWelcome,
   encodeYouDied,
+  finishScores,
   newClientMsg,
   newSelfState,
+  writeScore,
 } from '@tidebreaker/shared';
 import type { ClientMsg, EnterEntry } from '@tidebreaker/shared';
 import type { Connection, Transport } from '../net/transport.ts';
@@ -137,6 +142,7 @@ export class Room {
   /** Fraction of the tick budget spent on the last ticks (exponential moving average). */
   tickBusyEma = 0;
   private ticksSinceMatch = 0;
+  private lastScoresTick = -TICK_RATE;
 
   constructor(options: RoomOptions) {
     this.transport = options.transport;
@@ -253,6 +259,8 @@ export class Room {
       const bytes = w.events.w.toBytes();
       for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
     }
+    for (let i = 0; i < w.feedCount; i++) this.broadcastKill(i);
+    if (w.scoresDirty && w.tick - this.lastScoresTick >= TICK_RATE) this.broadcastScores();
     for (let i = 0; i < w.diedCount; i++) {
       const victim = this.bySlot[w.diedVictim[i]! - 1];
       if (!victim) continue;
@@ -270,6 +278,48 @@ export class Room {
     }
     this.ticksSinceMatch++;
     if (w.matchChanged || this.ticksSinceMatch >= TICK_RATE) this.broadcastMatch();
+  }
+
+  /** Tells everyone who sank whom (kill feed). */
+  private broadcastKill(i: number): void {
+    const w = this.world;
+    const killer = w.feedKiller[i]!;
+    const victim = w.feedVictim[i]!;
+    const k = w.slots[killer - 1];
+    const v = w.slots[victim - 1];
+    if (!v) return;
+    this.small.reset();
+    encodeKill(
+      this.small,
+      killer,
+      victim,
+      k ? k.team : NO_TEAM,
+      v.team,
+      w.feedWeapon[i]!,
+      this.names[killer - 1] ?? '',
+      this.names[victim - 1] ?? '',
+    );
+    const bytes = this.small.toBytes();
+    for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
+  }
+
+  /** The scoreboard: everyone's kills and deaths this round (at most once a second, when changed). */
+  private broadcastScores(): void {
+    const w = this.world;
+    w.scoresDirty = false;
+    this.lastScoresTick = w.tick;
+    this.big.reset();
+    const at = beginScores(this.big);
+    let n = 0;
+    for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
+      if (w.used[s] === 0) continue;
+      writeScore(this.big, s + 1, w.slots[s]!.team, w.kills[s]!, w.deaths[s]!, this.names[s] ?? '');
+      n++;
+    }
+    finishScores(this.big, at, n);
+    if (this.big.overflow) return;
+    const bytes = this.big.toBytes();
+    for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
   }
 
   private broadcastMatch(): void {
@@ -378,7 +428,7 @@ export class Room {
     if (c.slot >= 0) {
       this.world.removePlayer(c.slot);
       this.bySlot[c.slot] = undefined;
-      this.names[c.slot] = '';
+      // The name stays: a ship that is still drifting in the water keeps its name tag.
       c.slot = -1;
     }
   }

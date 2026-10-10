@@ -24,7 +24,12 @@ export const S2C = {
   REJECT: 0x87,
   JOINED: 0x8a,
   MATCH: 0x8b,
+  KILL: 0x8c,
+  SCORES: 0x8d,
 } as const;
+
+/** `weapon` of a KILL that no weapon caused (a collision). */
+export const NO_WEAPON = 0xff;
 
 export const NAME_MAX_BYTES = 48;
 /** Names as the room shows them (characters, after sanitizing). */
@@ -212,6 +217,63 @@ export function encodeYouDied(
   w.u16(killerId);
   w.string(killerName, NAME_MAX_BYTES);
   w.u8(respawnSec);
+}
+
+/** Who sank whom (for the kill feed). Carriers are entities 1 and 2. */
+export function encodeKill(
+  w: Writer,
+  killerId: number,
+  victimId: number,
+  killerTeam: number,
+  victimTeam: number,
+  weapon: number,
+  killerName: string,
+  victimName: string,
+): void {
+  w.u8(S2C.KILL);
+  w.u16(killerId);
+  w.u16(victimId);
+  w.u8(killerTeam);
+  w.u8(victimTeam);
+  w.u8(weapon);
+  w.string(killerName, NAME_MAX_BYTES);
+  w.string(victimName, NAME_MAX_BYTES);
+}
+
+/** One row of the scoreboard. */
+export interface ScoreEntry {
+  id: number;
+  team: number;
+  kills: number;
+  deaths: number;
+  name: string;
+}
+
+/** Starts a SCORES message; returns where the row count lives (pass it to `finishScores`). */
+export function beginScores(w: Writer): number {
+  w.u8(S2C.SCORES);
+  const at = w.pos;
+  w.u8(0);
+  return at;
+}
+
+export function writeScore(
+  w: Writer,
+  id: number,
+  team: number,
+  kills: number,
+  deaths: number,
+  name: string,
+): void {
+  w.u16(id);
+  w.u8(team);
+  w.u16(kills);
+  w.u16(deaths);
+  w.string(name, NAME_MAX_BYTES);
+}
+
+export function finishScores(w: Writer, countAt: number, count: number): void {
+  w.patchU8(countAt, count);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -469,6 +531,17 @@ export interface ServerHandler {
     killsRed: number,
   ): void;
   youDied(killerId: number, killerName: string, respawnSec: number): void;
+  kill(
+    killerId: number,
+    victimId: number,
+    killerTeam: number,
+    victimTeam: number,
+    weapon: number,
+    killerName: string,
+    victimName: string,
+  ): void;
+  /** The whole scoreboard (a new array each time; it is rare). */
+  scores(rows: ScoreEntry[]): void;
   pong(clientTime: number, serverTime: number): void;
   reject(reason: number): void;
   /** Start of a snapshot; `self` is reused by the decoder, copy what you keep. */
@@ -560,6 +633,36 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       const respawn = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.youDied(killer, name, respawn);
+      return true;
+    }
+    case S2C.KILL: {
+      const killer = r.u16();
+      const victim = r.u16();
+      const killerTeam = r.u8();
+      const victimTeam = r.u8();
+      const weapon = r.u8();
+      const killerName = r.string(NAME_MAX_BYTES);
+      const victimName = r.string(NAME_MAX_BYTES);
+      if (!r.ok || r.remaining !== 0) return false;
+      h.kill(killer, victim, killerTeam, victimTeam, weapon, killerName, victimName);
+      return true;
+    }
+    case S2C.SCORES: {
+      const count = r.u8();
+      // Each row is at least 8 bytes, so a lying count is caught before anything is allocated.
+      if (!r.ok || r.remaining < count * 8) return false;
+      const rows: ScoreEntry[] = [];
+      for (let i = 0; i < count && r.ok; i++) {
+        rows.push({
+          id: r.u16(),
+          team: r.u8(),
+          kills: r.u16(),
+          deaths: r.u16(),
+          name: r.string(NAME_MAX_BYTES),
+        });
+      }
+      if (!r.ok || r.remaining !== 0) return false;
+      h.scores(rows);
       return true;
     }
     case S2C.PONG: {

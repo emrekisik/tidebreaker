@@ -16,6 +16,7 @@
     "bench": "pnpm --filter @tidebreaker/server exec tsx src/tools/benchTick.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "balance-sim": "pnpm --filter @tidebreaker/server exec tsx src/tools/balanceSim.ts",
     "bot": "pnpm --filter @tidebreaker/server exec tsx src/tools/bot.ts",
     "netem": "pnpm --filter @tidebreaker/server exec tsx src/tools/netem.ts",
     "assets:build": "node tools/assets/build.mjs",

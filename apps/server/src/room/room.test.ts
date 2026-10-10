@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARRIER,
+  COMBAT,
   MATCH,
   MATCH_STATE,
+  NO_WEAPON,
   PROTOCOL_VERSION,
   REJECT_REASON,
   SHIPS,
@@ -405,5 +407,177 @@ describe('collisions on the server', () => {
     });
     expect(touching).toBe(false);
     expect(a.heard.bumps.some((b) => b.other === 0xffff)).toBe(true);
+  });
+});
+
+describe('kill feed and scoreboard', () => {
+  it('announces who sank whom to everyone and keeps score', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Target', 'coast_guard_boat');
+    await tick(1);
+    place(room, a, 530, 550, 0);
+    place(room, b, 570, 550, 0);
+    const aId = a.heard.joined[0]!.entityId;
+    const bId = b.heard.joined[0]!.entityId;
+    for (let i = 0; i < 160 && a.heard.kills.length === 0; i++) {
+      place(room, b, 570, 550, 0);
+      room.world.protectLeft[aId - 1] = 0;
+      a.input(0, 0, 0, 40, true);
+      await tick(1);
+    }
+    for (const c of [a, b]) {
+      expect(c.heard.kills).toHaveLength(1);
+      expect(c.heard.kills[0]).toMatchObject({
+        killerId: aId,
+        victimId: bId,
+        killerTeam: TEAM_BLUE,
+        victimTeam: TEAM_RED,
+        killerName: 'Shooter',
+        victimName: 'Target',
+      });
+      expect(c.heard.kills[0]!.weapon).not.toBe(NO_WEAPON);
+    }
+    await tick(TICK_RATE + 2);
+    const rows = a.heard.scores[a.heard.scores.length - 1]!;
+    expect(rows.find((r) => r.id === aId)).toMatchObject({ kills: 1, deaths: 0, name: 'Shooter' });
+    expect(rows.find((r) => r.id === bId)).toMatchObject({ kills: 0, deaths: 1, team: TEAM_RED });
+    expect(a.heard.bad).toBe(0);
+  });
+
+  it('a collision kill has no weapon', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    const b = await join('B');
+    await tick(1);
+    const aId = a.heard.joined[0]!.entityId;
+    const bId = b.heard.joined[0]!.entityId;
+    place(room, a, 530, 550, 0);
+    place(room, b, 531, 550, 0);
+    room.world.slots[bId - 1]!.state.hull = 1;
+    room.world.slots[bId - 1]!.state.shield = 0;
+    room.world.slots[aId - 1]!.state.speed = 10;
+    for (let i = 0; i < 20 && a.heard.kills.length === 0; i++) await tick(1);
+    if (a.heard.kills.length > 0) expect(a.heard.kills[0]!.weapon).toBe(NO_WEAPON);
+  });
+});
+
+describe('shield recharge', () => {
+  it('starts after a few quiet seconds and refills in the configured time', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    await tick(1);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const s = room.world.slots[slot]!.state;
+    const max = room.world.slots[slot]!.def.shield;
+    s.shield = 0;
+    s.sinceDamage = 0;
+    await tick(Math.floor((COMBAT.shieldDelaySec - 0.5) * TICK_RATE));
+    expect(s.shield).toBe(0);
+    await tick(Math.ceil(1.5 * TICK_RATE));
+    expect(s.shield).toBeGreaterThan(0);
+    await tick(Math.ceil(COMBAT.shieldRechargeSec * TICK_RATE));
+    expect(s.shield).toBe(max);
+  });
+
+  it('damage interrupts it again', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    await tick(1);
+    const s = room.world.slots[a.heard.joined[0]!.entityId - 1]!.state;
+    s.shield = 5;
+    s.sinceDamage = 100;
+    await tick(10);
+    expect(s.shield).toBeGreaterThan(5);
+    s.sinceDamage = 0; // as applyDamage does
+    const before = s.shield;
+    await tick(Math.floor((COMBAT.shieldDelaySec - 1) * TICK_RATE));
+    expect(s.shield).toBeCloseTo(before, 3);
+  });
+
+  it('carriers recharge too, much more slowly', async () => {
+    const { room, tick } = setup();
+    const carrier = room.world.slots[0]!;
+    carrier.state.shield = 0;
+    carrier.state.sinceDamage = 0;
+    await tick(Math.ceil((COMBAT.carrierShieldDelaySec + 6) * TICK_RATE));
+    const gained = carrier.state.shield / CARRIER.shield;
+    expect(gained).toBeGreaterThan(0.05);
+    expect(gained).toBeLessThan(0.15);
+  });
+});
+
+describe('spawn protection', () => {
+  it('ends with the first shot', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A', 'corvette');
+    await tick(1);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    expect(room.world.protectLeft[slot]).toBeGreaterThan(0);
+    await tick(5);
+    expect(room.world.protectLeft[slot]).toBeGreaterThan(0);
+    a.input(0, 0, 0, 40, true);
+    await tick(2);
+    expect(room.world.protectLeft[slot]).toBe(0);
+    expect(a.heard.spawns.some((x) => x.owner === slot + 1)).toBe(true);
+  });
+});
+
+describe('combat-log protection', () => {
+  it('a player who drops out in the middle of a fight stays as a drifting target for a while', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    const b = await join('B');
+    await tick(2);
+    const slotB = b.heard.joined[0]!.entityId - 1;
+    room.world.combatAge[slotB] = 1; // was hit a second ago
+    b.conn.close();
+    await settle();
+    await tick(1);
+    expect(room.world.used[slotB]).toBe(1);
+    expect(room.world.slots[slotB]!.state.alive).toBe(true);
+    // Still in the snapshots of the others.
+    await tick(Math.floor((COMBAT.combatLogDriftSec - 2) * TICK_RATE));
+    expect(room.world.used[slotB]).toBe(1);
+    expect(a.heard.leaves).not.toContain(slotB + 1);
+    // Then it is gone.
+    await tick(Math.ceil(3 * TICK_RATE));
+    expect(room.world.used[slotB]).toBe(0);
+    expect(a.heard.leaves).toContain(slotB + 1);
+  });
+
+  it('a drifting ship can still be sunk, and counts as a kill for the shooter', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Quitter', 'coast_guard_boat');
+    await tick(2);
+    const aId = a.heard.joined[0]!.entityId;
+    const slotB = b.heard.joined[0]!.entityId - 1;
+    room.world.combatAge[slotB] = 1;
+    b.conn.close();
+    await settle();
+    for (let i = 0; i < 200 && room.world.used[slotB] === 1; i++) {
+      place(room, a, 530, 550, 0);
+      const sb = room.world.slots[slotB]!.state;
+      sb.x = 570;
+      sb.y = 550;
+      room.world.protectLeft[slotB] = 0;
+      a.input(0, 0, 0, 40, true);
+      await tick(1);
+    }
+    expect(room.world.used[slotB]).toBe(0);
+    expect(a.heard.sunk.map((x) => x.id)).toContain(slotB + 1);
+    expect(room.world.kills[aId - 1]).toBe(1);
+  });
+
+  it('a player who was not fighting disappears at once', async () => {
+    const { room, join, tick } = setup();
+    const b = await join('B');
+    await tick(2);
+    const slotB = b.heard.joined[0]!.entityId - 1;
+    b.conn.close();
+    await settle();
+    await tick(1);
+    expect(room.world.used[slotB]).toBe(0);
   });
 });

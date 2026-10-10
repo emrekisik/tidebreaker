@@ -404,12 +404,93 @@
         margin-top: 6px;
         font-size: 20px;
       }
+      #killfeed {
+        top: 14px;
+        left: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .feed-row {
+        align-self: flex-start;
+        padding: 3px 10px;
+        border-radius: 6px;
+        background: rgba(5, 13, 22, 0.55);
+        transition: opacity 0.6s;
+      }
+      .feed-row.mine {
+        border-left: 3px solid #ffd84d;
+        background: rgba(5, 13, 22, 0.75);
+      }
+      .feed-row.fading {
+        opacity: 0;
+      }
+      .feed-blue {
+        color: #8cc8ff;
+      }
+      .feed-red {
+        color: #ff97a2;
+      }
+      .feed-arrow {
+        opacity: 0.75;
+      }
+      #scoreboard {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        gap: 18px;
+        width: min(720px, 92vw);
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: rgba(5, 13, 22, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-size: 14px;
+      }
+      .sb-col {
+        flex: 1;
+        min-width: 0;
+      }
+      .sb-row {
+        display: flex;
+        gap: 8px;
+        padding: 3px 8px;
+        border-radius: 5px;
+      }
+      .sb-row.me {
+        background: rgba(255, 255, 255, 0.16);
+        font-weight: 700;
+      }
+      .sb-head {
+        font-weight: 700;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+        margin-bottom: 3px;
+      }
+      .sb-col.blue .sb-head .sb-name {
+        color: #8cc8ff;
+      }
+      .sb-col.red .sb-head .sb-name {
+        color: #ff97a2;
+      }
+      .sb-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sb-num {
+        width: 62px;
+        text-align: right;
+      }
       /* Start screen: only the sea and the menu. */
       body.in-menu #hud,
       body.in-menu #hint,
       body.in-menu #sunk,
       body.in-menu #picker,
       body.in-menu #minimap,
+      body.in-menu #killfeed,
       body.in-menu #storm {
         display: none;
       }
@@ -448,6 +529,8 @@
         <div class="track thin"><div id="m-red-shield" class="fill shield"></div></div>
       </div>
     </div>
+    <div id="killfeed" class="overlay"></div>
+    <div id="scoreboard" class="overlay hidden"></div>
     <div id="banner" class="overlay hidden">
       <div id="banner-title"></div>
       <div id="banner-sub"></div>

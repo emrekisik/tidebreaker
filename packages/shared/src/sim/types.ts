@@ -19,6 +19,8 @@ export interface ShipState {
   ky: number;
   /** Extra turn rate from collisions (rad/s); fades out by itself. */
   spin: number;
+  /** Seconds since the ship last took damage (drives the shield recharge). */
+  sinceDamage: number;
 }
 
 export function createShipState(def: ShipDef, x: number, y: number, heading: number): ShipState {
@@ -35,6 +37,7 @@ export function createShipState(def: ShipDef, x: number, y: number, heading: num
     kx: 0,
     ky: 0,
     spin: 0,
+    sinceDamage: 0,
   };
 }
 
@@ -57,6 +60,7 @@ export function resetShipState(
   s.kx = 0;
   s.ky = 0;
   s.spin = 0;
+  s.sinceDamage = 0;
 }
 
 /** Team value of a ship that belongs to no team (offline sandbox targets, free-for-all). */

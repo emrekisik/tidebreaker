@@ -63,7 +63,7 @@ Starblast geliştiricilerinin 2017 r/gamedev AMA'sından çıkarılan bilgiler v
 ## 3. Oyun döngüsü ve oyuncu yolculuğu
 
 ```
-Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat yükselt → sınıf atla
+Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat yükselt → sınıf atla
    ▲                                                                              │
    └── öl → ganimet bırak → T1'de tekrar doğ ◄── risk: iç bölge, PvP, boss ◄──────┘
 ```
@@ -72,12 +72,12 @@ Gir (isim) → T1 gemide doğ → topla / vur → Gold + Score kazan → stat y�
 
 **İlk 60 saniye tasarımı**
 - Doğuş noktasının yakınında "starter cluster" (5–6 sandık/varil) garanti edilir. İlk ödül ≤ 10 sn içinde gelmeli.
-- 4 sn **spawn koruması** (ilk atışta ya da hareket etmeden 4 sn sonra biter, hasar almaz).
+- **Spawn koruması:** doğuştan sonra 3 sn (`MATCH.spawnProtectSec`) hasar alınmaz; **ilk atışta biter** (korumadan ateş edip kamp yapılamaz).
 - Ekranda 15 sn boyunca kontrol ipucu (WASD / nişan / ateş). Sonra kaybolur.
-- İlk upgrade'e (12 gold) ≈ 20–30 sn'de ulaşılmalı.
+- İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı.
 
 **Ölüm kuralı (io standardı)**
-- Gemi batınca tüm score/gold/upgrade sıfırlanır, T1'de yeniden doğulur.
+- Gemi batınca tüm score/para/upgrade sıfırlanır, T1'de yeniden doğulur.
 - Ölünce `YOU_DIED` ekranı: yaşama süresi, öldürme sayısı, score, öldüren kişi. "Tekrar oyna" ismi hatırlar.
 - Bağlantı kopması: son 10 sn içinde hasar alıp vermişse gemi 10 sn boyunca kontrolsüz yavaşlayarak kalır (combat-log koruması), yoksa anında kaldırılır.
 - AFK: portta değilken 45 sn girdi yoksa oyuncu menüye atılır.
@@ -125,7 +125,7 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 ka
 - **Maç akışı:** uçak gemisinin canı 0'a inince o takım yenilir. Galip takım duyurulur, 15 sn ara verilir, sonra yeni tur başlar: iki uçak gemisi tam canla yenilenir, herkes kendi uçak gemisinde yeniden doğar. Harita aynı kalır (seed sabit).
 - **Ölüm ve yeniden doğuş:** batan oyuncu `respawnSec` (5 sn) sonra kendi uçak gemisinde otomatik yeniden doğar (yeniden `PLAY` gerekmez). Sınıfını değiştirmek için yeniden `PLAY` gönderebilir.
 - **Dost ateşi / çarpışma:** takım arkadaşının mermisi hasar vermez. Takım arkadaşlarıyla gemi–gemi çarpışmasında itme olur, hasar olmaz.
-- **Gemi sınıfı (geçici):** ilerleme sistemi (puan, altın, T1–T5) takım modu için yeniden tasarlanana kadar oyuncu `PLAY` sırasında **herhangi bir sınıfı seçer** (test ve denge için). Altın/yükseltme, korsanlar, limanlar, kaleler, hazine adaları ve tüccar bu fazda yok; takım oyununa nasıl uyarlanacakları Faz 4–5'te ayrıca konuşulacak (§6, §7, §8 FFA varsayımıyla yazıldı).
+- **Gemi sınıfı (geçici):** ilerleme sistemi (puan, para, T1–T5) takım modu için yeniden tasarlanana kadar oyuncu `PLAY` sırasında **herhangi bir sınıfı seçer** (test ve denge için). Para/yükseltme, korsanlar, limanlar, kaleler, hazine adaları ve tüccar bu fazda yok; takım oyununa nasıl uyarlanacakları Faz 4–5'te ayrıca konuşulacak (§6, §7, §8 FFA varsayımıyla yazıldı).
 
 ---
 
@@ -183,10 +183,10 @@ interface WeaponDef {
 
 ### 5.4 Hasar modeli
 - Hasar önce **kalkan**ı, kalkan 0 olunca **gövde (hull)** canını düşürür.
-- **Kalkan yenilenme:** son hasardan 4 sn sonra başlar, hızı `maxShield / 6` sn⁻¹ (sınıf bazlı sabit, upgrade'siz).
+- **Kalkan yenilenme:** son hasardan 4 sn sonra başlar, boş bir kalkan 6 sn'de dolar (`COMBAT` config'i; sınıf bazlı sabit, upgrade'siz). **Uçak gemisi** de yenilenir ama çok yavaş: 10 sn sonra başlar, boştan doluya 60 sn. Sürekli baskı turu kazandırır, kısa bir saldırı kalıcı hasar bırakmaz demek değildir.
 - **Gövde yenilenme** (upgrade'li "health regen"): son hasardan 6 sn sonra, `seviye × %0.4 maxHull / sn`.
-- Limanda yenilenme ×4.
-- Can sıfırlanınca: batma animasyonu (≈ 2 sn), ganimet saçılır, `SHIP_SUNK` olayı.
+- Limanda yenilenme ×4 (Faz 5).
+- Can sıfırlanınca: batma animasyonu (≈ 2 sn), `SHIP_SUNK` olayı, kill feed ve skor tablosu güncellenir. Ganimet (kağıt para) saçılması ekonomiyle birlikte Faz 4'te tasarlanır.
 - **Vuruş testi:** mermi hareketi **swept segment–circle** testiyle yapılır (tünelleme yok). Gemi vuruş şekli: gövde boyunca daire zinciri.
 
 ---
@@ -195,8 +195,8 @@ interface WeaponDef {
 
 ### 6.1 İki sayaç
 - **Score:** sadece artar. Sınıf atlama kapısı + liderlik tablosu. Ölünce sıfırlanır.
-- **Gold:** harcanabilir cüzdan. Stat yükseltmeye gider.
-- Her kazanım (`gain(amount)`) ikisine birden eşit eklenir. Harcama sadece gold'u düşürür.
+- **Para (`cash`):** harcanabilir cüzdan, **kağıt para (banknot)** temalıdır: dünyada yeşil banknot destesi olarak görünür ve toplanır. Stat yükseltmeye gider.
+- Her kazanım (`gain(amount)`) ikisine birden eşit eklenir. Harcama sadece parayı düşürür.
 
 ### 6.2 Yükseltilebilir 5 stat
 | Stat | Etki (seviye L başına) | Kodda |
@@ -208,7 +208,7 @@ interface WeaponDef {
 | **Health regen** | `L × %0.4 maxHull / sn` (6 sn hasarsızlıktan sonra) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
-- **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` gold (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 129. Bir statı sonuna kadar çıkarmak ≈ 420 gold.
+- **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` para (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 129. Bir statı sonuna kadar çıkarmak ≈ 420 para.
 - Sınıf atlayınca stat seviyeleri korunur (yeni cap'e göre geçerlidir), can oranı korunur, kalkan tam dolar.
 
 ### 6.3 Gemi sınıfları (başlangıç değerleri, hepsi tunable)
@@ -233,7 +233,7 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 ```
 tierScore      = [0, 200, 800, 2400, 6000]
 killReward     = min(victimScore * 0.35, 1500) * tierDiffFactor * repeatFactor
-wreckLoot      = victimScore * 0.25            // max 25 coin entity, min coin değeri 5, 40 sn sonra söner
+wreckLoot      = victimScore * 0.25            // max 25 banknote entity, min banknote değeri 5, 40 sn sonra söner
 tierDiffFactor = victimTier >= killerTier ? 1 : (−1: 0.7, −2: 0.3, ≤−3: 0.1)
 repeatFactor   = aynı katil→aynı kurban 300 sn içinde 3. ve sonrası: 0.25
 pirateReward(playerTier) = base * clamp(1 − 0.25*(playerTier − pirateTier), 0.1, 1)
@@ -251,17 +251,17 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 
 | Öğe | Değer | Notlar |
 |---|---|---|
-| **Sandık (crate)** | 8 gold | Harita genelinde hedef ≈ 140 adet, 25 sn sonra yeniden doğar |
-| **Varil (barrel)** | 4 gold + %25 ihtimalle gövdeyi %15 onarır | ≈ 60 adet |
-| **Hazine sandığı (chest)** | 100 gold | ≈ 8 adet, kale ve hazine adalarının yakınında, 90 sn bekleme. Harita üstünde ışın işareti |
-| **Ganimet parası (coin)** | değişken | Batan gemilerden düşer |
-| **Deniz mayını (mine)** [P2] | patlayınca 5 gold | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
+| **Sandık (crate)** | 8 para | Harita genelinde hedef ≈ 140 adet, 25 sn sonra yeniden doğar |
+| **Varil (barrel)** | 4 para + %25 ihtimalle gövdeyi %15 onarır | ≈ 60 adet |
+| **Hazine sandığı (chest)** | 100 para | ≈ 8 adet, kale ve hazine adalarının yakınında, 90 sn bekleme. Harita üstünde ışın işareti |
+| **Ganimet parası (banknote)** | değişken | Batan gemilerden düşer |
+| **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
 
 Spawner kuralı: bölge ve hücre başına hedef sayıya göre, mevcut öğeler ve oyuncu mesafesi gözetilerek (oyuncunun görüş alanında aniden belirmez, ≥ 100 birim uzakta doğar).
 
 ### 7.2 Korsanlar ve PvE hedefleri
-| Hedef | Tier (ödül ölçeği için) | Hull | Davranış | Ödül (gold) |
+| Hedef | Tier (ödül ölçeği için) | Hull | Davranış | Ödül (para) |
 |---|---|---|---|---|
 | **Korsan Sandalı** (`skiff`) | 1 | 40 | Hızlı, zayıf, sürü halinde | 18 |
 | **Akıncı** (`raider`) | 2 | 130 | 1 taret + 2 yan top | 45 |
@@ -409,13 +409,15 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x81 | `WELCOME` | `u8 protoVersion, u32 mapSeed, u8 tickRate, u8 snapshotEvery, u32 serverTimeMs, u32 configHash` |
 | 0x8A | `JOINED` | `PLAY`'e yanıt: `u16 entityId, u8 team, u8 shipId`; her yeniden doğuşta da gönderilir |
 | 0x8B | `MATCH` | `u8 state (0 oynanıyor, 1 bitti), u8 winnerTeam, u8 restartSec, u16 killsBlue, u16 killsRed` (değişince ve 1 sn'de bir) |
+| 0x8C | `KILL` | Kill feed: `u16 killerId, u16 victimId, u8 killerTeam, u8 victimTeam, u8 weapon (255 = çarpışma), u8 len+killerName, u8 len+victimName`. Uçak gemisi katil ise `killerId` 1 ya da 2 |
+| 0x8D | `SCORES` | Skor tablosu: `u8 count`, her satır `u16 id, u8 team, u16 kills, u16 deaths, u8 len+name`. Değişince, en çok 1 sn'de bir |
 | 0x82 | `SNAPSHOT` | aşağıda |
 | 0x83 | `EVENTS` | `u32 tick, u8 count, event[]` |
-| 0x84 | `LEADERBOARD` | Her 1 sn: en iyi 10 (`u16 id, u32 score, name`) + kendi sıran |
+| 0x84 | `LEADERBOARD` | (FFA varsayımı; takım modunda `SCORES` kullanılır, ilerleme gelince yeniden değerlendirilir) Her 1 sn: en iyi 10 (`u16 id, u32 score, name`) + kendi sıran |
 | 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
-| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 gold, u8 tier, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (canTierUp)` |
+| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (canTierUp)` |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
 **El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
@@ -434,7 +436,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 LEAVE[]:  u16 id
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
-- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 coin, 8 mayın, 9 power-up, **10 uçak gemisi**.
+- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**.
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
 - Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`.
@@ -494,7 +496,7 @@ Her tick'in süresi ölçülür (`tickBusyMs`), halka tamponda tutulur (§11.6).
 
 ### 11.2 Tick sırası (sabit ve belgelenmiş)
 1. Gelen girdileri işle: **girdi tabanlı adım**. Her oyuncunun gemisi, kuyruktan aldığı **her `INPUT` için tam bir `stepShip` adımı** atar (adım uydurulmaz, boşsa gemi bu tick hareket etmez). Böylece istemci, sunucunun henüz görmediği girdileri birebir yeniden oynatabilir (reconciliation). Hız hilesine karşı oyuncu tick başına 1 adım kredi kazanır (kullanılmayan krediler en çok 12 adım birikir; takılma sonrası yığılan girdileri bu kredi eritir). Kuyruk 16 girdiyle sınırlıdır; fazlası atılır.
-2. `UPGRADE` / `TIER_UP` isteklerini uygula (doğrula: gold, cap, eşik)
+2. `UPGRADE` / `TIER_UP` isteklerini uygula (doğrula: para, cap, eşik)
 3. AI düşün (5 Hz dilimli) → korsan girdileri üret
 4. Gemi hareketi + çarpışmalar (ada, gemi–gemi, sınır)
 5. Mount ateşi → `PROJECTILE_SPAWN` olayı kuyruğa
@@ -540,7 +542,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.1 Render ve performans
 - three.js, `WebGLRenderer({ powerPreference: 'high-performance', antialias: <DPR < 2> })`. **`pixelRatio = min(devicePixelRatio, 2)`**.
 - **Çizim çağrısı bütçesi ≤ 120**, görünür üçgen ≤ 150k.
-- **Instancing:** mermiler, sandık/varil/coin, parçacıklar, kıç izi parçaları `InstancedMesh` ile.
+- **Instancing:** mermiler, sandık/varil/banknot, parçacıklar, kıç izi parçaları `InstancedMesh` ile.
 - Gemiler ayrı `Mesh` (≈ 30 görünür), **tek paylaşımlı materyal**, doku yok, **vertex color**. Takım/korsan rengi `userData` ile.
 - Işık: tek yönlü ışık + ortam ışığı (`MeshLambertMaterial` veya basit toon). **Gölge haritası yok**: geminin altındaki yumuşak gölge ve gövdeye yapışık köpük şeridi, su shader'ında gövdenin şeklini izleyen bir "stadyum" olarak çizilir (köpük haritasının B/A kanalları; her kare yeniden basılır). Düz disk/halka kullanılmaz, çünkü büyük gövdelerde dalga tepeleri tarafından kesilip bozuluyordu.
 - **Kalite katmanı yok:** tek kalite ayarı vardır (masaüstü hedefli). Bütçeler ve instancing ile performans korunur.
@@ -585,7 +587,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
 - **Can/kalkan çubukları:** kaybedilen kısım **beyaz** kalır ve erir (Dota 2 tarzı). **Her hasar kendi parçasıdır:** 0,1 sn bekler, sonra 0,9 sn'de yumuşakça erir; sürekli hasarda beyaz kısım sınırsız uzamaz, hasar hızıyla orantılı bir uzunlukta dengelenir. Hem gemi üstü çubuklarda hem oyuncu HUD'ında.
-- **HUD:** kalkan ve gövde çubuğu, score/gold, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (Faz 1b'de ilk sürümü eklendi: sol altta küçük, `M` ile büyür; tüm harita, adalar türüne göre işaretli, resifler, kıyı bandı, mesafe halkaları, 500 birimlik ölçek çubuğu, kameranın gördüğü alan, oyuncu oku ve düşman noktaları. İlerideki fazlarda AOI/limanlar/sandık ışınlarıyla genişler) (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
+- **HUD:** kalkan ve gövde çubuğu, score/para, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (Faz 1b'de ilk sürümü eklendi: sol altta küçük, `M` ile büyür; tüm harita, adalar türüne göre işaretli, resifler, kıyı bandı, mesafe halkaları, 500 birimlik ölçek çubuğu, kameranın gördüğü alan, oyuncu oku ve düşman noktaları. İlerideki fazlarda AOI/limanlar/sandık ışınlarıyla genişler) (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
 - **Ölüm ekranı:** özet + "Tekrar Oyna" (aynı isim).
 - Yerelleştirme: `tr` ve `en` metin dosyaları (JSON). Kullanıcı adı: Unicode harf/rakam/boşluk/`_`/`-`, 1–16 karakter.
 
@@ -605,7 +607,7 @@ Tarayıcı oyunlarında hile tamamen önlenemez (ör. aimbot). Hedef: **sunucu y
 
 | Konu | Önlem |
 |---|---|
-| Girdi doğrulama | `moveX/moveY ∈ [-127,127]`, `aim` u16, `seq` u16 sarmalı monoton, `UPGRADE/TIER_UP` sunucuda doğrulanır (gold, cap, eşik). İstemcinin gönderdiği hiçbir değer güvenilmez |
+| Girdi doğrulama | `moveX/moveY ∈ [-127,127]`, `aim` u16, `seq` u16 sarmalı monoton, `UPGRADE/TIER_UP` sunucuda doğrulanır (para, cap, eşik). İstemcinin gönderdiği hiçbir değer güvenilmez |
 | Mesaj hızı | Bağlantı başına token bucket: ≤ 40 mesaj/sn, aşan mesajlar düşer, tekrarlanırsa bağlantı kesilir |
 | Paket ayrıştırma | Sınır kontrollü okuyucu. Hatalı/kısa/uzun mesaj hata sayar, asla throw/loop etmez. **Fuzz testi** (rastgele bayt) |
 | İsim | NFC normalize, izinli karakter seti (`\p{L}\p{N} _-`), 1–16 karakter, çoklu boşluk daralt, TR+EN küfür/taklit kara listesi ("admin", "moderator"), kontrol karakterleri yasak |
@@ -702,10 +704,11 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 
 ### Faz 3: Savaş
 **Görevler:** (olay tabanlı mermiler, swept vuruş, kalkan/gövde, batma, yeniden doğuş Faz 2'de yapıldı) kalan: rejen, ganimet saçılması, öldürme akışı, spawn koruması, combat-log koruması, silah/denge ayarı.
+**Durum (ilk sürüm):** yapıldı, ganimet hariç (para ekonomisiyle Faz 4'e kaldı; kararla). Kalkan yenilenmesi (gemi ve uçak gemisi), spawn koruması (ilk atışta biter), combat-log (savaşta kopan oyuncu 10 sn kontrolsüz kalır, öldürülürse katile sayılır), `KILL`/`SCORES` mesajları (`PROTOCOL_VERSION` = 2), kill feed (sol üst), gemi üstü isim etiketi, `Tab` ile skor tablosu (tur arasında kendiliğinden açık), `pnpm balance-sim` (sınıf çiftleri ve uçak gemisi için batırma süreleri tablosu; ekonomi kısmı Faz 4'te eklenir).
 **KK:** iki oyuncu birbirini batırabilir · tünelleme testi geçer · mermi bant genişliği mermi sayısıyla artmaz (ölç) · ölüm/yeniden doğuş döngüsü entegrasyon testinde.
 
 ### Faz 4: Ekonomi ve ilerleme
-**Görevler:** sandık/varil/hazine sandığı spawner'ı (bölge çarpanları), `gain()` (score+gold), 5 stat + maliyet/cap, T1–T5 linear sınıflar + "Sınıf Atla" akışı, `STATS` mesajı, upgrade paneli, liderlik tablosu, öldürme ödülü formülleri (assist, tierDiff, repeat), `tools/balance-sim`.
+**Görevler:** sandık/varil/hazine sandığı spawner'ı (bölge çarpanları), `gain()` (score+cash), 5 stat + maliyet/cap, T1–T5 linear sınıflar + "Sınıf Atla" akışı, `STATS` mesajı, upgrade paneli, liderlik tablosu, öldürme ödülü formülleri (assist, tierDiff, repeat), `tools/balance-sim`.
 **KK:** ekonomi birim testleri · `balance-sim` zaman hedeflerini (§3) ±%30 içinde verir · T1→T5 oynanabilir · liderlik tablosu doğru.
 
 ### Faz 5: Korsanlar, kaleler, limanlar, tüccar
@@ -717,7 +720,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** 50 bot + 30 korsan + yoğun savaşta tick p99 ≤ 8 ms · oyuncu başına ≤ 4 KB/s · sıcak yolda allocation yok (benchmark) · 65% kapısı çalışıyor.
 
 ### Faz 7: Juice, görsel kalite, ses
-**Görevler:** nihai low-poly modeller (GLB hattı) ya da iyileştirilmiş placeholder'lar, su shader'ı + kıç izi + baş dalgası, top dumanı/isabet/patlama efektleri, kamera sarsıntısı, yalpa/yatma, batma animasyonu, coin patlaması, minimap, ses, yerelleştirme (tr/en).
+**Görevler:** nihai low-poly modeller (GLB hattı) ya da iyileştirilmiş placeholder'lar, su shader'ı + kıç izi + baş dalgası, top dumanı/isabet/patlama efektleri, kamera sarsıntısı, yalpa/yatma, batma animasyonu, banknot patlaması, minimap, ses, yerelleştirme (tr/en).
 **KK:** masaüstünde ≥ 60 fps · ilk yükleme ≤ 2.5 MB · iki dilde arayüz.
 
 ### Faz 8: Sağlamlaştırma
@@ -809,15 +812,15 @@ export const statCost = (level: number) => Math.ceil(STAT_COST_BASE * Math.pow(S
 export const STAT_EFFECT = {            // per level
   speed: 0.04, reload: 0.04, turn: 0.05, shield: 0.12, regenPctMaxHullPerSec: 0.004,
 } as const;
-export const KILL = { victimScorePct: 0.35, cap: 1500, wreckPct: 0.25, wreckMaxCoins: 25, coinMin: 5,
+export const KILL = { victimScorePct: 0.35, cap: 1500, wreckPct: 0.25, wreckMaxBanknotes: 25, banknoteMin: 5,
                       wreckDecaySec: 40, leaderBountyPct: 0.2, assistWindowSec: 10, repeatWindowSec: 300 };
 export const COMBAT = { shieldDelaySec: 4, shieldRechargeSec: 6, hullRegenDelaySec: 6, spawnProtectSec: 4 };
 
 // pickups.ts
 export const PICKUPS = {
-  crate:  { gold: 8,   target: 140, respawnSec: 25 },
-  barrel: { gold: 4,   target: 60,  respawnSec: 25, repairChance: 0.25, repairPct: 0.15 },
-  chest:  { gold: 100, target: 8,   respawnSec: 90 },
+  crate:  { cash: 8,   target: 140, respawnSec: 25 },
+  barrel: { cash: 4,   target: 60,  respawnSec: 25, repairChance: 0.25, repairPct: 0.15 },
+  chest:  { cash: 100, target: 8,   respawnSec: 90 },
 };
 
 // pirates.ts  (hull, speed, reward, detectRadius, tier)

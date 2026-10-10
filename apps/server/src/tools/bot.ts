@@ -66,6 +66,8 @@ const handler: ServerHandler = {
       `[${name}] match state=${state} winner=${winner} restart=${restart} kills=${kb}:${kr}`,
     ),
   youDied: (killer, killerName) => console.log(`[${name}] sunk by ${killer} ${killerName}`),
+  kill: () => {},
+  scores: () => {},
   pong: () => {},
   reject: (r) => {
     console.log(`[${name}] rejected (${r})`);
