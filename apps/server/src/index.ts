@@ -8,7 +8,8 @@ import { Room } from './room/room.ts';
  *   MAP_SEED          map seed (default: the practice map seed, so dev runs are repeatable)
  *   ALLOWED_ORIGINS   comma-separated Origin allow-list (default: the Vite dev server)
  *   REQUIRE_ORIGIN    "1" refuses connections without an Origin header (set in production)
- *   MAX_CONN_PER_IP   per-IP connection cap (default 4)
+ *   MAX_CONN_PER_IP   per-IP connection cap (default 4 in production; 40 otherwise, so a dev machine can host
+ *                     the test bots)
  */
 const port = Number(process.env['PORT'] ?? 9001);
 const seed = Number(process.env['MAP_SEED'] ?? TRAINING.mapSeed) >>> 0;
@@ -21,7 +22,9 @@ const transport = new WsTransport({
   port,
   allowedOrigins: origins,
   requireOrigin: process.env['REQUIRE_ORIGIN'] === '1',
-  maxConnectionsPerIp: Number(process.env['MAX_CONN_PER_IP'] ?? 4),
+  maxConnectionsPerIp: Number(
+    process.env['MAX_CONN_PER_IP'] ?? (process.env['NODE_ENV'] === 'production' ? 4 : 40),
+  ),
   status: () => room?.status() ?? { room: 'starting' },
 });
 room = new Room({ transport, seed });

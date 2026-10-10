@@ -46,7 +46,9 @@ Initial load <= 2.5 MB (JS <= ~350 KB gz) · client >= 60 fps on a mid-range des
 
 ## Commands (create these in Phase 0)
 ```
-pnpm dev          # server + client with hot reload
+pnpm dev          # server + client + 10 test bots (5 per team) with hot reload
+pnpm dev:solo     # the same without bots
+pnpm bots         # fill a running server with bots (pnpm bots --per-team 3)
 pnpm build        # production build (client bundle size check included)
 pnpm test         # vitest (unit, property, integration)
 pnpm bench        # server tick cost with a full room (hot-path benchmark)
@@ -54,7 +56,7 @@ pnpm lint         # eslint (including hot-path rules)
 pnpm typecheck    # tsc --noEmit across the workspace
 pnpm loadtest     # N fake clients against a local room, prints tick p99 / bandwidth
 pnpm netem        # WS proxy adding latency / jitter / stalls (then open the game with ?server=ws://localhost:9002)
-pnpm bot          # a simple bot opponent that joins a running server (pnpm bot --name X --ship corvette)
+pnpm bot          # one bot that joins a running server (pnpm bot --name X --ship corvette [--passive])
 pnpm balance-sim  # combat balance tables (time to sink each class pair and the carrier); economy pacing joins in Phase 4
 pnpm assets:build # optimize GLB models (gltf-transform)
 pnpm e2e          # Playwright smoke test
