@@ -42,6 +42,7 @@
   "stat.turn": "Turning",
   "stat.shield": "Shield",
   "stat.regen": "Repair",
+  "stat.damage": "Damage",
   "net.lost": "Connection lost. Reload the page.",
   "ship.coast_guard_boat": "T1 Coast guard boat",
   "ship.gunboat": "T2 Gunboat",

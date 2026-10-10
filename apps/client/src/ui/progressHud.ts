@@ -9,11 +9,12 @@ const STAT_KEYS: MessageKey[] = [
   'stat.turn',
   'stat.shield',
   'stat.regen',
+  'stat.damage',
 ];
 
 /**
- * The progress strip at the bottom of the screen: score and money, the five upgrade buttons (keys
- * 1-5 as well) and the "class up" button (key T). The server decides everything; this only shows
+ * The progress strip at the bottom of the screen: score and money, the six upgrade buttons (keys
+ * 1-6 as well) and the "class up" button (key T). The server decides everything; this only shows
  * what it last said and sends requests.
  */
 export class ProgressHud {

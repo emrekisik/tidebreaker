@@ -127,7 +127,7 @@ function setWorld(map: WorldMap): void {
 
 window.addEventListener('keydown', (e) => {
   if (online && !e.repeat && (e.target as HTMLElement).tagName !== 'INPUT') {
-    if (e.code >= 'Digit1' && e.code <= 'Digit5')
+    if (e.code >= 'Digit1' && e.code <= 'Digit6')
       progressHud.pressStat(Number(e.code.slice(5)) - 1);
     else if (e.code === 'KeyT') progressHud.pressTierUp();
   }

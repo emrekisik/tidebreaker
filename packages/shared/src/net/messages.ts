@@ -511,8 +511,9 @@ export class EventWriter {
     x: number,
     y: number,
     angle: number,
+    power = 0,
   ): void {
-    if (!this.room(12)) return;
+    if (!this.room(13)) return;
     const w = this.w;
     w.u8(EVENT.PROJECTILE_SPAWN);
     w.u16(projId);
@@ -521,6 +522,7 @@ export class EventWriter {
     w.u16(qPos(x));
     w.u16(qPos(y));
     w.u16(qAngle16(angle));
+    w.u8(power);
     this.count++;
   }
 
@@ -640,6 +642,7 @@ export interface ServerHandler {
     x: number,
     y: number,
     angle: number,
+    power: number,
   ): void;
   projectileEnd(tick: number, projId: number, reason: number, x: number, y: number): void;
   shipHit(
@@ -866,7 +869,8 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const x = dqPos(r.u16());
         const y = dqPos(r.u16());
         const angle = dqAngle16(r.u16());
-        if (r.ok) h.projectileSpawn(tick, id, owner, weapon, x, y, angle);
+        const power = r.u8();
+        if (r.ok) h.projectileSpawn(tick, id, owner, weapon, x, y, angle, power);
         break;
       }
       case EVENT.PROJECTILE_END: {

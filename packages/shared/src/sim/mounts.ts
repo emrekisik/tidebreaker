@@ -1,4 +1,5 @@
 import type { MountDef, ShipDef } from '../config/ships.ts';
+import { damageMul } from './progress.ts';
 import { MOUNT_CONVERGE_MIN, SALVO_GAP_SEC, WEAPONS, weaponIndex } from '../config/weapons.ts';
 import { DEG2RAD, angleDiff } from '../math/angle.ts';
 import type { ShipState } from './types.ts';
@@ -54,7 +55,7 @@ export function convergedAngle(
  * Ticks mount cooldowns and fires ready mounts whose arc contains `aim` (GAME_DESIGN.md §5.3).
  * Every weapon has its own reload; at most one mount fires per `SALVO_GAP_SEC`, in mount order,
  * so volleys roll out one barrel after another. Shots spawn at the barrel tip and converge on the
- * aim point `aimDist` away (0 = parallel). Returns the number of shots fired. `reload` scales every reload time (the reload upgrade).
+ * aim point `aimDist` away (0 = parallel). Returns the number of shots fired. `reload` scales every reload time and `damageLevel` raises the damage (the upgrades).
  */
 export function updateMounts(
   ship: ShipState,
@@ -67,6 +68,7 @@ export function updateMounts(
   sink: ProjectileSink,
   aimDist = 0,
   reload = 1,
+  damageLevel = 0,
 ): number {
   let shots = 0;
   ship.salvoCooldown = Math.max(0, ship.salvoCooldown - dt);
@@ -101,7 +103,7 @@ export function updateMounts(
       weapon.projectileSpeed * weapon.startSpeedPct,
       weapon.range,
       weapon.radius,
-      weapon.damage,
+      weapon.damage * damageMul(damageLevel),
       ownerId,
       weaponIndex(mount.weapon),
     );

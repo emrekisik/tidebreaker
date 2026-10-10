@@ -200,13 +200,14 @@ interface WeaponDef {
 - **Para (`cash`):** harcanabilir cüzdan, **kağıt para (banknot)** temalıdır: dünyada yeşil banknot destesi olarak görünür ve toplanır. Stat yükseltmeye gider.
 - Her kazanım (`gain(amount)`) ikisine birden eşit eklenir. Harcama sadece parayı düşürür.
 
-### 6.2 Yükseltilebilir 5 stat
+### 6.2 Yükseltilebilir 6 stat
 | Stat | Etki (seviye L başına) | Kodda |
 |---|---|---|
 | **Speed** | `vMax × (1 + 0.07·L)` | `speed` |
 | **Reload** (attack interval) | `interval × (1 − 0.07·L)`; mount'lar arası yaylım aralığı (`SALVO_GAP_SEC`) da aynı oranda kısalır, tick'e yuvarlanmayan süreler artık kayıpsız ortalanır | `reload` |
 | **Turn rate** | `turnRate × (1 + 0.09·L)` | `turn` |
 | **Max shield** | `maxShield × (1 + 0.12·L)` | `shield` |
+| **Damage** (hasar) | `damage × (1 + 0.10·L)` (tüm silahlar); mermi seviye başına %20 daha **kalın** (ve biraz uzun) çizilir, böylece güçlü mermiler görünür. Vuruş yarıçapı değişmez | `damage` |
 | **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
@@ -401,7 +402,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x01 | `HELLO` | `u8 protoVersion` |
 | 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 shipId` (`shipId` = `SHIP_IDS` sırası). Normalde sunucu bunu yok sayar: **herkes T1 başlar**. Yalnızca test sürümlerinde (`NODE_ENV` ≠ `production`) istenen sınıfla başlanır |
 | 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim, u8 aimDist` (9 bayt; `aimDist` = gemiden imlece uzaklık, birim, 0–255) |
-| 0x04 | `UPGRADE` | `u8 statId (0..4)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
+| 0x04 | `UPGRADE` | `u8 statId (0..5)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu skor eşiğini doğrular; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
 | 0x07 | `EMOTE` | `u8 emoteId` |
@@ -420,7 +421,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
-| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[5] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp)`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
+| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[6] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp)`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
 **El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
@@ -451,7 +452,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 `EVENTS` mesajı alt-olaylar taşır:
 | Olay | Alanlar |
 |---|---|
-| `PROJECTILE_SPAWN` | `u16 projId, u16 ownerId, u8 weaponId, x u16, y u16, angle u16` (doğuş tick'i mesaj başlığındaki `tick`) |
+| `PROJECTILE_SPAWN` | `u16 projId, u16 ownerId, u8 weaponId, x u16, y u16, angle u16, u8 power` (`power` = atanın hasar yükseltmesi seviyesi, mermi kalınlığı için; doğuş tick'i mesaj başlığındaki `tick`) |
 | `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED), x u16, y u16` |
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
@@ -592,7 +593,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
 - **Can/kalkan çubukları:** kaybedilen kısım **beyaz** kalır ve erir (Dota 2 tarzı). **Her hasar kendi parçasıdır:** 0,1 sn bekler, sonra 0,9 sn'de yumuşakça erir; sürekli hasarda beyaz kısım sınırsız uzamaz, hasar hızıyla orantılı bir uzunlukta dengelenir. Hem gemi üstü çubuklarda hem oyuncu HUD'ında.
-- **HUD:** kalkan ve gövde çubuğu, score/para, 5 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (Faz 1b'de ilk sürümü eklendi: sol altta küçük, `M` ile büyür; tüm harita, adalar türüne göre işaretli, resifler, kıyı bandı, mesafe halkaları, 500 birimlik ölçek çubuğu, kameranın gördüğü alan, oyuncu oku ve düşman noktaları. İlerideki fazlarda AOI/limanlar/sandık ışınlarıyla genişler) (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
+- **HUD:** kalkan ve gövde çubuğu, score/para, 6 upgrade butonu (seviye + maliyet, yetersizse soluk), "Sınıf Atla" butonu (eşik aşılınca titreşir), liderlik tablosu (top 10 + kendi sıran), **minimap** (Faz 1b'de ilk sürümü eklendi: sol altta küçük, `M` ile büyür; tüm harita, adalar türüne göre işaretli, resifler, kıyı bandı, mesafe halkaları, 500 birimlik ölçek çubuğu, kameranın gördüğü alan, oyuncu oku ve düşman noktaları. İlerideki fazlarda AOI/limanlar/sandık ışınlarıyla genişler) (2D canvas: adalar, limanlar, kendi konum, yakın gemiler (AOI), sandık ışınları, boss işareti), öldürme akışı (kill feed), duyurular (toast).
 - **Ölüm ekranı:** özet + "Tekrar Oyna" (aynı isim).
 - Yerelleştirme: `tr` ve `en` metin dosyaları (JSON). Kullanıcı adı: Unicode harf/rakam/boşluk/`_`/`-`, 1–16 karakter.
 
@@ -713,7 +714,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** iki oyuncu birbirini batırabilir · tünelleme testi geçer · mermi bant genişliği mermi sayısıyla artmaz (ölç) · ölüm/yeniden doğuş döngüsü entegrasyon testinde.
 
 ### Faz 4: Ekonomi ve ilerleme
-**Durum:** 4a yapıldı (para, skor, 5 stat + maliyet/cap, T1–T5 sınıf atlama, ölüm kuralı, ödüller, toplanabilirler, `STATS`/`UPGRADE`/`TIER_UP`/`PICKUP`, alttaki ilerleme paneli (`1–5` yükseltme, `T` sınıf atla), skor tablosunda skor ve sınıf, botlar toplayıp yükseltir, `pnpm balance-sim --economy`); 4b: görsel cila ve denge ayarı oyun testine göre.
+**Durum:** 4a yapıldı (para, skor, 6 stat (hasar sonradan eklendi) + maliyet/cap, T1–T5 sınıf atlama, ölüm kuralı, ödüller, toplanabilirler, `STATS`/`UPGRADE`/`TIER_UP`/`PICKUP`, alttaki ilerleme paneli (`1–6` yükseltme, `T` sınıf atla), skor tablosunda skor ve sınıf, botlar toplayıp yükseltir, `pnpm balance-sim --economy`); 4b: görsel cila ve denge ayarı oyun testine göre.
 **Görevler:** sandık/varil/hazine sandığı spawner'ı (bölge çarpanları), `gain()` (score+cash), 5 stat + maliyet/cap, T1–T5 linear sınıflar + "Sınıf Atla" akışı, `STATS` mesajı, upgrade paneli, liderlik tablosu, öldürme ödülü formülleri (assist, tierDiff, repeat), `tools/balance-sim`.
 **KK:** ekonomi birim testleri · `balance-sim` zaman hedeflerini (§3) ±%30 içinde verir · T1→T5 oynanabilir · liderlik tablosu doğru.
 

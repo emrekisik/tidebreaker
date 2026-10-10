@@ -12,10 +12,11 @@ export function statCap(tier: number): number {
   return caps[Math.max(0, Math.min(caps.length - 1, tier))]!;
 }
 
-/** Multipliers for the levels of the speed, reload, turn and shield stats. */
+/** Multipliers for the levels of the speed, reload, turn, shield and damage stats. */
 export const speedMul = (level: number): number => 1 + ECONOMY.perLevel.speed * level;
 export const reloadMul = (level: number): number => 1 - ECONOMY.perLevel.reload * level;
 export const turnMul = (level: number): number => 1 + ECONOMY.perLevel.turn * level;
+export const damageMul = (level: number): number => 1 + ECONOMY.perLevel.damage * level;
 export const shieldMul = (level: number): number => 1 + ECONOMY.perLevel.shield * level;
 
 /** Tier index (0 = T1) of a ship class. */

@@ -588,13 +588,14 @@ export class OnlineGame implements GameSession, ServerHandler {
     x: number,
     y: number,
     angle: number,
+    power: number,
   ): void {
     if (id >= MAX_PROJECTILES) return;
     const def = WEAPONS[WEAPON_IDS[weapon]!];
     if (!def) return;
     const events = this.deps.events;
-    const launch = (set: ProjectileSet): number =>
-      set.spawn(
+    const launch = (set: ProjectileSet): number => {
+      const slot = set.spawn(
         x,
         y,
         angle,
@@ -605,6 +606,10 @@ export class OnlineGame implements GameSession, ServerHandler {
         owner,
         weapon,
       );
+      // The damage upgrade makes the shot thicker.
+      set.power[slot] = power;
+      return slot;
+    };
     const mine = owner === this.myId;
     this.shots.noteSpawn(id, mine, weapon);
     if (mine) {

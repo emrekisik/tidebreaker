@@ -48,7 +48,15 @@ export interface Heard {
   enters: EnterEntry[];
   updates: UpdateEntry[];
   leaves: number[];
-  spawns: { tick: number; id: number; owner: number; weapon: number; x: number; y: number }[];
+  spawns: {
+    tick: number;
+    id: number;
+    owner: number;
+    weapon: number;
+    x: number;
+    y: number;
+    power: number;
+  }[];
   ends: { tick: number; id: number; reason: number }[];
   hits: { target: number; attacker: number; damage: number; shield: boolean }[];
   sunk: { id: number; killer: number }[];
@@ -112,8 +120,8 @@ export class TestClient {
       enter: (e) => h.enters.push({ ...e }),
       update: (u) => h.updates.push({ ...u }),
       leave: (id) => h.leaves.push(id),
-      projectileSpawn: (tick, id, owner, weapon, x, y) =>
-        h.spawns.push({ tick, id, owner, weapon, x, y }),
+      projectileSpawn: (tick, id, owner, weapon, x, y, _angle, power) =>
+        h.spawns.push({ tick, id, owner, weapon, x, y, power }),
       projectileEnd: (tick, id, reason) => h.ends.push({ tick, id, reason }),
       shipHit: (_t, target, attacker, damage, shield) =>
         h.hits.push({ target, attacker, damage, shield }),

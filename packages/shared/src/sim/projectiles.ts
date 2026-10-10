@@ -76,6 +76,8 @@ export class ProjectileSet implements ProjectileSink {
   readonly ramp: Float32Array;
   readonly age: Float32Array;
   readonly owner: Uint16Array;
+  /** Damage upgrade level of the shooter: only used to draw the shot thicker (client). */
+  readonly power: Uint8Array;
   /** Owner team: projectiles pass through their own team. */
   readonly team: Uint8Array;
   readonly active: Uint8Array;
@@ -97,6 +99,7 @@ export class ProjectileSet implements ProjectileSink {
     this.radius = new Float32Array(capacity);
     this.damage = new Float32Array(capacity);
     this.weapon = new Uint8Array(capacity);
+    this.power = new Uint8Array(capacity);
     this.startSpeed = new Float32Array(capacity);
     this.maxSpeed = new Float32Array(capacity);
     this.ramp = new Float32Array(capacity);
@@ -138,6 +141,7 @@ export class ProjectileSet implements ProjectileSink {
     this.radius[slot] = radius;
     this.damage[slot] = damage;
     this.weapon[slot] = weaponIdx;
+    this.power[slot] = 0;
     const def = WEAPONS[WEAPON_IDS[weaponIdx]!];
     this.maxSpeed[slot] = def ? def.projectileSpeed : speed;
     this.startSpeed[slot] = speed;

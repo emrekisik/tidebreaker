@@ -860,6 +860,32 @@ describe('money and progress', () => {
   });
 });
 
+describe('damage upgrade', () => {
+  it('raises the damage of every shot, and tells clients how strong the shot is', async () => {
+    const hitDamage = async (level: number): Promise<{ damage: number; power: number }> => {
+      const { room, join, tick } = setup({ anyClass: true });
+      const a = await join('Shooter', 'corvette');
+      const b = await join('Target', 'coast_guard_boat');
+      await tick(2);
+      const aSlot = a.heard.joined[0]!.entityId - 1;
+      room.world.levels[aSlot * STAT_COUNT + STAT.DAMAGE] = level;
+      for (let i = 0; i < 100 && a.heard.hits.length === 0; i++) {
+        place(room, a, 530, 550, 0);
+        place(room, b, 570, 550, 0);
+        a.input(0, 0, 0, 40, true);
+        await tick(1);
+      }
+      const spawn = a.heard.spawns.find((x) => x.owner === aSlot + 1)!;
+      return { damage: a.heard.hits[0]!.damage, power: spawn.power };
+    };
+    const plain = await hitDamage(0);
+    const strong = await hitDamage(5);
+    expect(plain.power).toBe(0);
+    expect(strong.power).toBe(5);
+    expect(strong.damage).toBeGreaterThan(plain.damage * 1.3);
+  });
+});
+
 describe('upgrade effects', () => {
   it('the speed and reload upgrades change how the ship behaves', async () => {
     const { room, join, tick } = setup({ anyClass: false });
@@ -915,7 +941,7 @@ describe('upgrades belong to the class', () => {
     // The shield capacity went back to the plain class value, filled.
     expect(w.slots[slot]!.state.shield).toBeCloseTo(w.slots[slot]!.def.shield, 3);
     const stats = a.heard.stats[a.heard.stats.length - 1]!;
-    expect(Array.from(stats.levels)).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(stats.levels)).toEqual(new Array(STAT_COUNT).fill(0));
   });
 
   it('sinking drops the class and with it the upgrades; a T1 ship keeps its own', async () => {

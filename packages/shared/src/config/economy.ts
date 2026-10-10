@@ -1,9 +1,9 @@
 import { TEAM_COUNT } from './match.ts';
 import type { ShipId } from './ships.ts';
 
-/** The five upgradable stats (GAME_DESIGN.md §6.2). The index is also the wire value. */
-export const STAT = { SPEED: 0, RELOAD: 1, TURN: 2, SHIELD: 3, REGEN: 4 } as const;
-export const STAT_COUNT = 5;
+/** The six upgradable stats (GAME_DESIGN.md §6.2). The index is also the wire value. */
+export const STAT = { SPEED: 0, RELOAD: 1, TURN: 2, SHIELD: 3, REGEN: 4, DAMAGE: 5 } as const;
+export const STAT_COUNT = 6;
 
 /** The class ladder a player climbs, T1 to T5 (the other models are side branches for later). */
 export const TIER_SHIPS: readonly ShipId[] = [
@@ -29,7 +29,7 @@ export const ECONOMY = {
   /** `statCost(L) = ceil(base * growth^L)` money for going from level L to L+1. */
   statCost: { base: 12, growth: 1.4 },
   /** Effect of one level of each stat (see sim/progress.ts). */
-  perLevel: { speed: 0.07, reload: 0.07, turn: 0.09, shield: 0.12 },
+  perLevel: { speed: 0.07, reload: 0.07, turn: 0.09, shield: 0.12, damage: 0.1 },
 
   /** What sinking costs the loser. */
   death: {

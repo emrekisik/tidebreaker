@@ -3,6 +3,7 @@ import { ECONOMY, TIER_SHIPS } from '../config/economy.ts';
 import { SHIPS } from '../config/ships.ts';
 import {
   canTierUp,
+  damageMul,
   killReward,
   reloadMul,
   shieldMul,
@@ -30,12 +31,13 @@ describe('upgrade costs and effects', () => {
   });
 
   it('level 0 changes nothing, higher levels help', () => {
-    for (const f of [speedMul, reloadMul, turnMul, shieldMul]) {
+    for (const f of [speedMul, reloadMul, turnMul, shieldMul, damageMul]) {
       expect(f(0)).toBe(1);
     }
     expect(speedMul(3)).toBeGreaterThan(1);
     expect(turnMul(3)).toBeGreaterThan(1);
     expect(shieldMul(3)).toBeGreaterThan(1);
+    expect(damageMul(3)).toBeGreaterThan(1);
     expect(reloadMul(3)).toBeLessThan(1);
     // The best reload level must not reach zero or go negative.
     expect(reloadMul(ECONOMY.statCap[4]!)).toBeGreaterThan(0.3);

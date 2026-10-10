@@ -1,6 +1,6 @@
 import type { InstancedMesh } from 'three';
 import { rocketHeight, rocketPitch } from './rocketArc.ts';
-import { WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
+import { FX, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
 import type { ProjectileSet, ProjectileVisual } from '@tidebreaker/shared';
 
 const HEIGHT = 1.2;
@@ -54,6 +54,9 @@ export class ProjectileView {
       const speed = Math.sqrt(vx * vx + vy * vy) || 1;
       const dx = vx / speed;
       const dy = vy / speed;
+      // Shots of a ship with the damage upgrade are thicker (and a little longer).
+      const thick = 1 + FX.power.thicken * set.power[i]!;
+      const long = 1 + (thick - 1) * 0.5;
       if (m === ROCKET_MESH) {
         // Lobbed flight: climb a little, then drop; the nose follows the arc.
         const w = set.weapon[i]!;
@@ -68,25 +71,26 @@ export class ProjectileView {
         const ux = -sp * dx;
         const uy = cp;
         const uz = -sp * dy;
-        arr[o] = fx;
-        arr[o + 1] = fy;
-        arr[o + 2] = fz;
-        arr[o + 4] = ux;
-        arr[o + 5] = uy;
-        arr[o + 6] = uz;
-        arr[o + 8] = fy * uz - fz * uy;
-        arr[o + 9] = fz * ux - fx * uz;
-        arr[o + 10] = fx * uy - fy * ux;
+        arr[o] = fx * long;
+        arr[o + 1] = fy * long;
+        arr[o + 2] = fz * long;
+        arr[o + 4] = ux * thick;
+        arr[o + 5] = uy * thick;
+        arr[o + 6] = uz * thick;
+        arr[o + 8] = (fy * uz - fz * uy) * thick;
+        arr[o + 9] = (fz * ux - fx * uz) * thick;
+        arr[o + 10] = (fx * uy - fy * ux) * thick;
         arr[o + 12] = set.x[i]! - vx * back;
         arr[o + 13] = rocketHeight(u);
         arr[o + 14] = set.y[i]! - vy * back;
         continue;
       }
       // Rotation about y that turns local +x toward the velocity (sim y is world z).
-      arr[o] = dx;
-      arr[o + 2] = dy;
-      arr[o + 8] = -dy;
-      arr[o + 10] = dx;
+      arr[o] = dx * long;
+      arr[o + 2] = dy * long;
+      arr[o + 5] = thick;
+      arr[o + 8] = -dy * thick;
+      arr[o + 10] = dx * thick;
       arr[o + 12] = set.x[i]! - vx * back;
       arr[o + 13] = HEIGHT;
       arr[o + 14] = set.y[i]! - vy * back;

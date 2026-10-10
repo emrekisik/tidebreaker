@@ -94,6 +94,9 @@ export const FX = {
     smokeLife: 1.8,
   },
 
+  /** Shots of a ship with the damage upgrade are drawn thicker: +this much of the size per level. */
+  power: { thicken: 0.2 },
+
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },
   sinkingSmokeRate: 16,

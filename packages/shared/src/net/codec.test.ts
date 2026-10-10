@@ -248,7 +248,7 @@ describe('server messages', () => {
       cash: 56,
       tier: 2,
       shipId: 3,
-      levels: new Uint8Array([1, 2, 3, 0, 4]),
+      levels: new Uint8Array([1, 2, 3, 0, 4, 5]),
       maxHull: 320,
       maxShield: 177,
       canTierUp: true,
@@ -266,7 +266,7 @@ describe('server messages', () => {
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
       'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
-      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4],"maxHull":320,"maxShield":177,"canTierUp":true}',
+      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true}',
       'pong 10,20',
       'reject 2',
     ]);
@@ -355,7 +355,7 @@ describe('server messages', () => {
   it('events round-trip', () => {
     const ev = new EventWriter();
     ev.begin(100);
-    ev.projectileSpawn(12, 3, 4, 50.25, 60.5, 1.0);
+    ev.projectileSpawn(12, 3, 4, 50.25, 60.5, 1.0, 5);
     ev.projectileEnd(12, END_REASON.HIT_SHIP, 51, 61);
     ev.shipHit(8, 3, 16.4, true, 4, 51, 61);
     ev.shipSunk(8, 3, 51, 61);
@@ -365,7 +365,7 @@ describe('server messages', () => {
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
     expect(log).toEqual([
-      `spawn 100,12,3,4,50.25,60.5,${dqAngle16(qAngle16(1.0))}`,
+      `spawn 100,12,3,4,50.25,60.5,${dqAngle16(qAngle16(1.0))},5`,
       'end 100,12,0,51,61',
       'hit 100,8,3,16,true,4,51,61',
       'sunk 100,8,3,51,61',

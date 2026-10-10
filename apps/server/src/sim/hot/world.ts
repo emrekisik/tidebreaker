@@ -493,6 +493,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this,
         this.inAimDist[i]!,
         reloadMul(this.level(i, STAT.RELOAD)),
+        this.level(i, STAT.DAMAGE),
       );
       // The first shot ends the spawn protection: no sniping from safety.
       if (shots > 0) this.protectLeft[i] = 0;
@@ -619,7 +620,15 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       weaponIdx,
       team,
     );
-    this.events.projectileSpawn(id, ownerId, weaponIdx, x, y, angle);
+    this.events.projectileSpawn(
+      id,
+      ownerId,
+      weaponIdx,
+      x,
+      y,
+      angle,
+      this.level(ownerId - 1, STAT.DAMAGE),
+    );
   }
 
   onHit(
