@@ -57,7 +57,7 @@ pnpm typecheck    # tsc --noEmit across the workspace
 pnpm loadtest     # N fake clients against a local room, prints tick p99 / bandwidth
 pnpm netem        # WS proxy adding latency / jitter / stalls (then open the game with ?server=ws://localhost:9002)
 pnpm bot          # one bot that joins a running server (pnpm bot --name X --ship corvette [--passive])
-pnpm balance-sim  # combat balance tables (time to sink each class pair and the carrier); economy pacing joins in Phase 4
+pnpm balance-sim  # combat balance tables (time to sink each class pair and the carrier); --economy: pacing of pickups-only progress
 pnpm assets:build # optimize GLB models (gltf-transform)
 pnpm e2e          # Playwright smoke test
 ```

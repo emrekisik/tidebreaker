@@ -68,16 +68,17 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
    └── öl → ganimet bırak → T1'de tekrar doğ ◄── risk: iç bölge, PvP, boss ◄──────┘
 ```
 
-**Zaman hedefleri (aktif oyuncu, tahmini):** T2 ≈ 2–3 dk · T3 ≈ 6–9 dk · T4 ≈ 15–20 dk · T5 ≈ 30–40 dk. `tools/balance-sim` ile doğrulanır, config ile ayarlanır.
+**Zaman hedefleri (takım modu, kararlaştırıldı: "orta" tempo):** T2 ≈ 1,5 dk · T3 ≈ 4 dk · T4 ≈ 8 dk · T5 ≈ 15 dk (tur bir uçak gemisi batana kadar sürer; **her tur herkes T1'den başlar**). `pnpm balance-sim --economy` yalnızca toplanabilirlerle ilerlemeyi ölçer (yavaş uç: şu an T2 ≈ 2 dk, T3 ≈ 5 dk, T4 ≈ 10 dk); savaş geliri (öldürme, uçak gemisine hasar) bunun üstüne eklenir. Sayılar `config/economy.ts` içindedir ve oynayarak ayarlanır.
 
 **İlk 60 saniye tasarımı**
 - Doğuş noktasının yakınında "starter cluster" (5–6 sandık/varil) garanti edilir. İlk ödül ≤ 10 sn içinde gelmeli.
 - **Spawn koruması:** doğuştan sonra 3 sn (`MATCH.spawnProtectSec`) hasar alınmaz; **ilk atışta biter** (korumadan ateş edip kamp yapılamaz).
 - Ekranda 15 sn boyunca kontrol ipucu (WASD / nişan / ateş). Sonra kaybolur.
-- İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı.
+- İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı. Her uçak gemisinin yanında 6 başlangıç sandığı vardır (doğduğun yerin hemen önünde, 25 sn'de yeniden çıkar).
 
 **Ölüm kuralı (io standardı)**
-- Gemi batınca tüm score/para/upgrade sıfırlanır, T1'de yeniden doğulur.
+- **Takım modunda ölüm kuralı (kararlaştırıldı):** batan oyuncunun cebindeki **tüm para** banknot yığınları (en çok 5, 40 sn kalır) olarak batık yerine saçılır ve herkes toplayabilir; gemisi **bir sınıf geriler** (T1'in altına inmez), skoru yeni sınıfın alt sınırına iner, **yükseltmeleri kalır** (yeni sınıfın sınırına kadar kırpılır). Kendi uçak gemisinde 5 sn sonra yeni sınıfta doğar. Yeni turda herkes sıfırdan T1'dir.
+- Eski FFA kuralı (her şey sıfırlanır, T1'de doğ) yalnızca tasarım geçmişidir.
 - Ölünce `YOU_DIED` ekranı: yaşama süresi, öldürme sayısı, score, öldüren kişi. "Tekrar oyna" ismi hatırlar.
 - Bağlantı kopması: son 10 sn içinde hasar alıp vermişse gemi 10 sn boyunca kontrolsüz yavaşlayarak kalır (combat-log koruması), yoksa anında kaldırılır.
 - AFK: portta değilken 45 sn girdi yoksa oyuncu menüye atılır.
@@ -232,9 +233,10 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 
 ### 6.4 Ödül formülleri (config'te)
 ```
-tierScore      = [0, 200, 800, 2400, 6000]
+tierScore      = [0, 120, 450, 1200, 2600]      // config/economy.ts (güncel; sınıf tablosundaki "Min score" eski tahmindi)
 killReward     = min(victimScore * 0.35, 1500) * tierDiffFactor * repeatFactor
-wreckLoot      = victimScore * 0.25            // max 25 banknote entity, min banknote değeri 5, 40 sn sonra söner
+wreckLoot      = victim'in CEBİNDEKİ PARA      // takım modu: en çok 5 yığın, yığın başına en az 5, 40 sn sonra söner
+carrierDamage  = hasar * 0.25                   // düşman uçak gemisine verilen her hasar puanı skor + para (ECONOMY.carrier)
 tierDiffFactor = victimTier >= killerTier ? 1 : (−1: 0.7, −2: 0.3, ≤−3: 0.1)
 repeatFactor   = aynı katil→aynı kurban 300 sn içinde 3. ve sonrası: 0.25
 pirateReward(playerTier) = base * clamp(1 − 0.25*(playerTier − pirateTier), 0.1, 1)
@@ -252,14 +254,14 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 
 | Öğe | Değer | Notlar |
 |---|---|---|
-| **Sandık (crate)** | 8 para | Harita genelinde hedef ≈ 140 adet, 25 sn sonra yeniden doğar |
-| **Varil (barrel)** | 4 para + %25 ihtimalle gövdeyi %15 onarır | ≈ 60 adet |
-| **Hazine sandığı (chest)** | 100 para | ≈ 8 adet, kale ve hazine adalarının yakınında, 90 sn bekleme. Harita üstünde ışın işareti |
+| **Sandık (crate)** | 10 para | Harita genelinde 60 adet (küçülen harita alanına göre), 25 sn sonra yeniden doğar. Her uçak gemisinin yanında 6 başlangıç sandığı ayrıca vardır |
+| **Varil (barrel)** | 4 para + %25 ihtimalle gövdeyi %15 onarır | 25 adet |
+| **Hazine sandığı (chest)** | 100 para | 5 adet, kale ve hazine adalarının kıyısında (6–14 birim açıkta), 90 sn bekleme. Harita üstünde ışın işareti (sonra) |
 | **Ganimet parası (banknote)** | değişken | Batan gemilerden düşer |
 | **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
 
-Spawner kuralı: bölge ve hücre başına hedef sayıya göre, mevcut öğeler ve oyuncu mesafesi gözetilerek (oyuncunun görüş alanında aniden belirmez, ≥ 100 birim uzakta doğar).
+Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alınınca bekleme süresinden sonra aynı yuvada yeni, geçerli (kara olmayan, hiçbir canlı gemiye ≥ 50 birim yakın olmayan) bir yerde yeniden çıkar. Değer, çıktığı bölgenin çarpanıyla çarpılır (iç ×2,5 · orta ×1,5 · dış ×1). Uçak gemisi çevresi (baseClear × 0,6) başlangıç sandıklarına ayrılmıştır.
 
 ### 7.2 Korsanlar ve PvE hedefleri
 | Hedef | Tier (ödül ölçeği için) | Hull | Davranış | Ödül (para) |
@@ -711,6 +713,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** iki oyuncu birbirini batırabilir · tünelleme testi geçer · mermi bant genişliği mermi sayısıyla artmaz (ölç) · ölüm/yeniden doğuş döngüsü entegrasyon testinde.
 
 ### Faz 4: Ekonomi ve ilerleme
+**Durum:** 4a yapıldı (para, skor, 5 stat + maliyet/cap, T1–T5 sınıf atlama, ölüm kuralı, ödüller, toplanabilirler, `STATS`/`UPGRADE`/`TIER_UP`/`PICKUP`, alttaki ilerleme paneli (`1–5` yükseltme, `T` sınıf atla), skor tablosunda skor ve sınıf, botlar toplayıp yükseltir, `pnpm balance-sim --economy`); 4b: görsel cila ve denge ayarı oyun testine göre.
 **Görevler:** sandık/varil/hazine sandığı spawner'ı (bölge çarpanları), `gain()` (score+cash), 5 stat + maliyet/cap, T1–T5 linear sınıflar + "Sınıf Atla" akışı, `STATS` mesajı, upgrade paneli, liderlik tablosu, öldürme ödülü formülleri (assist, tierDiff, repeat), `tools/balance-sim`.
 **KK:** ekonomi birim testleri · `balance-sim` zaman hedeflerini (§3) ±%30 içinde verir · T1→T5 oynanabilir · liderlik tablosu doğru.
 
