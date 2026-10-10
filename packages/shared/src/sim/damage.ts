@@ -43,3 +43,18 @@ export function regenShield(
   if (s.sinceDamage < delaySec || s.shield >= maxShield) return;
   s.shield = Math.min(maxShield, s.shield + (maxShield / rechargeSec) * dt);
 }
+
+/**
+ * Slowly repairs the hull of a living ship that has been left alone for `delaySec`, by
+ * `pctPerSec` of its full hull per second (GAME_DESIGN.md §5.4). Call once per tick.
+ */
+export function regenHull(
+  s: ShipState,
+  maxHull: number,
+  delaySec: number,
+  pctPerSec: number,
+  dt: number,
+): void {
+  if (!s.alive || s.sinceDamage < delaySec || s.hull >= maxHull) return;
+  s.hull = Math.min(maxHull, s.hull + maxHull * pctPerSec * dt);
+}

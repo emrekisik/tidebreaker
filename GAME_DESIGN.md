@@ -124,6 +124,7 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 ka
 - **Otomatik savunma:** uçak gemisinin tareti (modelde iki taret düğümü) menzildeki en yakın **düşman** gemiyi kendi seçer, hedefin hızına göre öne nişan alıp ateş eder (roketin yavaş kalkışı da hesaba katılır). Birinci taret makineli tüfek (`carrier_gun`: hasar 8, 0,25 sn, menzil 60, hız 75), ikinci taret **roket atar** (`carrier_rocket`: hasar 36, 1,5 sn, menzil 70; uçak gemisi için taret tipi istisnasıdır). Dost ateşi yoktur.
 - **Maç akışı:** uçak gemisinin canı 0'a inince o takım yenilir. Galip takım duyurulur, 15 sn ara verilir, sonra yeni tur başlar: iki uçak gemisi tam canla yenilenir, herkes kendi uçak gemisinde yeniden doğar. Harita aynı kalır (seed sabit).
 - **Ölüm ve yeniden doğuş:** batan oyuncu `respawnSec` (5 sn) sonra kendi uçak gemisinde otomatik yeniden doğar (yeniden `PLAY` gerekmez). Sınıfını değiştirmek için yeniden `PLAY` gönderebilir.
+- **Küçük gemiler ve uçak gemisi (karar):** T1–T2 gibi küçük gemiler uçak gemisine tek başına pek zarar veremez (örn. 1 sahil güvenlik botu ≈ 14 dk). Bu **bilerek böyledir**: oyuncuyu önce güçlenmeye (sınıf atlamaya) ve takımla saldırmaya teşvik eder. `pnpm balance-sim` bu süreleri gösterir.
 - **Dost ateşi / çarpışma:** takım arkadaşının mermisi hasar vermez. Takım arkadaşlarıyla gemi–gemi çarpışmasında itme olur, hasar olmaz.
 - **Gemi sınıfı (geçici):** ilerleme sistemi (puan, para, T1–T5) takım modu için yeniden tasarlanana kadar oyuncu `PLAY` sırasında **herhangi bir sınıfı seçer** (test ve denge için). Para/yükseltme, korsanlar, limanlar, kaleler, hazine adaları ve tüccar bu fazda yok; takım oyununa nasıl uyarlanacakları Faz 4–5'te ayrıca konuşulacak (§6, §7, §8 FFA varsayımıyla yazıldı).
 
@@ -184,7 +185,7 @@ interface WeaponDef {
 ### 5.4 Hasar modeli
 - Hasar önce **kalkan**ı, kalkan 0 olunca **gövde (hull)** canını düşürür.
 - **Kalkan yenilenme:** son hasardan 4 sn sonra başlar, boş bir kalkan 6 sn'de dolar (`COMBAT` config'i; sınıf bazlı sabit, upgrade'siz). **Uçak gemisi** de yenilenir ama çok yavaş: 10 sn sonra başlar, boştan doluya 60 sn. Sürekli baskı turu kazandırır, kısa bir saldırı kalıcı hasar bırakmaz demek değildir.
-- **Gövde yenilenme** (upgrade'li "health regen"): son hasardan 6 sn sonra, `seviye × %0.4 maxHull / sn`.
+- **Gövde yenilenme (tamir):** her gemide **temel olarak vardır ama çok yavaştır**: son hasardan 6 sn sonra gövdenin saniyede %0,3'ü kadar onarılır (boştan doluya ≈ 5,5 dk; `COMBAT.hullRegenPctPerSec`). Oyuncu bunu **yükseltilebilir bir özellik** olarak güçlendirir: "health regen" stat'ı seviye başına saniyede %0,4 ekler (`hullRegenUpgradePctPerSec`, §6.2). Yani yükseltme sıfırdan bir yetenek açmaz, mevcut yavaş tamiri hızlandırır; böylece savaştan kaçıp toparlanmak ödüllendirilir ve yatırım bir tercih olur. Uçak gemisi gövdesini **hiç onarmaz** (yalnızca kalkanı yenilenir). Sunucuda `World.regenLevel[slot]` bu seviyeyi tutar (Faz 4'e kadar 0).
 - Limanda yenilenme ×4 (Faz 5).
 - Can sıfırlanınca: batma animasyonu (≈ 2 sn), `SHIP_SUNK` olayı, kill feed ve skor tablosu güncellenir. Ganimet (kağıt para) saçılması ekonomiyle birlikte Faz 4'te tasarlanır.
 - **Vuruş testi:** mermi hareketi **swept segment–circle** testiyle yapılır (tünelleme yok). Gemi vuruş şekli: gövde boyunca daire zinciri.
@@ -205,7 +206,7 @@ interface WeaponDef {
 | **Reload** (attack interval) | `interval × (1 − 0.04·L)` | `reload` |
 | **Turn rate** | `turnRate × (1 + 0.05·L)` | `turn` |
 | **Max shield** | `maxShield × (1 + 0.12·L)` | `shield` |
-| **Health regen** | `L × %0.4 maxHull / sn` (6 sn hasarsızlıktan sonra) | `regen` |
+| **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.
 - **Maliyet:** `statCost(L) = ceil(12 × 1.4^L)` para (L = mevcut seviye). L=0→1: 12, 1→2: 17, 2→3: 24, … 7→8: 129. Bir statı sonuna kadar çıkarmak ≈ 420 para.

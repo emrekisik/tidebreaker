@@ -43,6 +43,7 @@ import { SnapshotBuffer } from '../net/interpolation.ts';
 import type { PoseSample } from '../net/interpolation.ts';
 import { NetClient } from '../net/netClient.ts';
 import { Predictor } from '../net/prediction.ts';
+import { ShotTable } from '../net/shotTable.ts';
 import type { AssetProvider } from '../render/assets.ts';
 import type { BarKit } from '../render/barKit.ts';
 import type { GameEvents } from './localGame.ts';
@@ -145,9 +146,8 @@ export class OnlineGame implements GameSession, ServerHandler {
   private readonly deps: OnlineDeps;
   private readonly others = new ProjectileSet(MAX_PROJECTILES);
   private readonly mine = new ProjectileSet(MAX_PROJECTILES);
-  /** Projectile id -> which set holds it (0 = others, 1 = mine, -1 = none) and its slot there. */
-  private readonly projSet = new Int8Array(MAX_PROJECTILES).fill(-1);
-  private readonly projSlot = new Int16Array(MAX_PROJECTILES);
+  /** Which shot an id means, and where it lives (see ShotTable). */
+  private readonly shots = new ShotTable(MAX_PROJECTILES);
   private obstacles: Obstacles | null = null;
   private readonly remotes = new Map<number, Remote>();
   private readonly queue: Action[] = [];
@@ -526,21 +526,21 @@ export class OnlineGame implements GameSession, ServerHandler {
         owner,
         weapon,
       );
-    if (owner === this.myId) {
+    const mine = owner === this.myId;
+    this.shots.noteSpawn(id, mine, weapon);
+    if (mine) {
       // Yours: shown right away, caught up by the time the message spent on the way.
       const slot = launch(this.mine);
       const nowTick = Math.floor(this.clock.serverNow(performance.now()) / STEP_MS);
       const late = Math.max(0, Math.min(CATCH_UP_MAX, nowTick - tick));
       this.mine.advance(slot, late, STEP_SEC, noopHits, this.obstacles ?? undefined);
-      this.projSet[id] = 1;
-      this.projSlot[id] = slot;
+      this.shots.bind(id, true, slot);
       events.onShot(x, y, angle, weapon);
       return;
     }
     this.at(tick * STEP_MS, () => {
       const slot = launch(this.others);
-      this.projSet[id] = 0;
-      this.projSlot[id] = slot;
+      this.shots.bind(id, false, slot);
       const shooter = this.remotes.get(owner);
       if (shooter) {
         shooter.entity.aim = angle;
@@ -553,17 +553,16 @@ export class OnlineGame implements GameSession, ServerHandler {
   projectileEnd(tick: number, id: number, reason: number, x: number, y: number): void {
     if (id >= MAX_PROJECTILES) return;
     const events = this.deps.events;
+    // Whose shot this is is decided now, in message order, not when the delayed action runs.
+    const mine = this.shots.isMine(id);
+    const weapon = this.shots.weaponOf(id);
     const finish = (): void => {
-      const which = this.projSet[id]!;
-      const weapon =
-        which >= 0 ? (which === 1 ? this.mine : this.others).weapon[this.projSlot[id]!]! : 0;
-      if (which === 1) this.mine.remove(this.projSlot[id]!);
-      else if (which === 0) this.others.remove(this.projSlot[id]!);
-      this.projSet[id] = -1;
+      const slot = this.shots.take(id, mine);
+      if (slot >= 0) (mine ? this.mine : this.others).remove(slot);
       if (reason === END_REASON.HIT_ISLAND) events.onBlocked(x, y, weapon);
       else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon);
     };
-    if (this.projSet[id] === 1) finish();
+    if (mine) finish();
     else this.at(tick * STEP_MS, finish);
   }
 

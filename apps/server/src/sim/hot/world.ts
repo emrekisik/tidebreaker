@@ -20,6 +20,7 @@ import {
   collideIslands,
   createCombatant,
   generateMap,
+  regenHull,
   regenShield,
   resetShipState,
   resolveCollisions,
@@ -81,6 +82,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly combatAge: Float32Array;
   /** A player who dropped out while fighting: seconds their ship still drifts in the water. */
   readonly ghostLeft: Float32Array;
+  /** Levels of the "health regen" upgrade (Phase 4); 0 until upgrades exist. */
+  readonly regenLevel: Uint8Array;
   readonly teamKills: Uint16Array = new Uint16Array(TEAM_COUNT);
   readonly projectiles = new ProjectileSet(MAX_PROJECTILES);
   readonly events = new EventWriter();
@@ -128,6 +131,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.deaths = new Uint16Array(n);
     this.combatAge = new Float32Array(n).fill(PEACEFUL);
     this.ghostLeft = new Float32Array(n);
+    this.regenLevel = new Uint8Array(n);
     this.savedHull = new Float32Array(n);
     this.savedShield = new Float32Array(n);
 
@@ -155,6 +159,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.shipIdx[i] = shipIdx;
       this.kills[i] = 0;
       this.deaths[i] = 0;
+      this.regenLevel[i] = 0;
       this.ghostLeft[i] = 0;
       this.lastSeq[i] = 0;
       this.inSteer[i] = 0;
@@ -382,6 +387,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         );
       } else {
         regenShield(c.state, c.def.shield, COMBAT.shieldDelaySec, COMBAT.shieldRechargeSec, dt);
+        regenHull(
+          c.state,
+          c.def.hull,
+          COMBAT.hullRegenDelaySec,
+          COMBAT.hullRegenPctPerSec + this.regenLevel[i]! * COMBAT.hullRegenUpgradePctPerSec,
+          dt,
+        );
         this.combatAge[i] = Math.min(PEACEFUL, this.combatAge[i]! + dt);
       }
     }
@@ -469,7 +481,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   ): void {
     this.events.projectileEnd(slot, END_REASON.HIT_SHIP, x, y);
     const target = targetId - 1;
-    if (this.protectLeft[target]! > 0) return;
+    if (this.protectLeft[target]! > 0) {
+      // Absorbed by the spawn protection: sparks on the shield, no damage.
+      this.events.shipHit(targetId, ownerId, 0, true, weaponIdx, x, y);
+      return;
+    }
     this.events.shipHit(targetId, ownerId, damage, shieldHit, weaponIdx, x, y);
     if (target >= CARRIER_SLOTS) this.combatAge[target] = 0;
     if (ownerId - 1 >= CARRIER_SLOTS) this.combatAge[ownerId - 1] = 0;

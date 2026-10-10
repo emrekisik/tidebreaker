@@ -276,7 +276,9 @@ describe('combat', () => {
       await tick(1);
     }
     expect(room.world.slots[slotB]!.state.hull).toBe(SHIPS.coast_guard_boat.hull);
-    expect(a.heard.hits.filter((h) => h.target === b.heard.joined[0]!.entityId)).toHaveLength(0);
+    // The shots are reported (sparks on the shield) but do no damage.
+    const onB = a.heard.hits.filter((h) => h.target === b.heard.joined[0]!.entityId);
+    expect(onB.every((h) => h.damage === 0)).toBe(true);
   });
 
   it('the carrier shoots enemies that come close, and only enemies', async () => {
@@ -504,6 +506,39 @@ describe('shield recharge', () => {
     const gained = carrier.state.shield / CARRIER.shield;
     expect(gained).toBeGreaterThan(0.05);
     expect(gained).toBeLessThan(0.15);
+  });
+});
+
+describe('hull repair', () => {
+  it('mends slowly after a quiet spell, and the upgrade level speeds it up', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    await tick(1);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const s = room.world.slots[slot]!.state;
+    const max = room.world.slots[slot]!.def.hull;
+    s.hull = max * 0.5;
+    s.sinceDamage = 0;
+    await tick(Math.floor((COMBAT.hullRegenDelaySec - 0.5) * TICK_RATE));
+    expect(s.hull).toBeCloseTo(max * 0.5, 3);
+    await tick(10 * TICK_RATE);
+    const slow = s.hull - max * 0.5;
+    expect(slow).toBeGreaterThan(0);
+    // About 0.3% of the hull per second, so ten seconds is a few percent at most.
+    expect(slow).toBeLessThan(max * 0.05);
+    room.world.regenLevel[slot] = 3;
+    const before = s.hull;
+    await tick(5 * TICK_RATE);
+    expect(s.hull - before).toBeGreaterThan(slow / 2);
+  });
+
+  it('never repairs a carrier hull', async () => {
+    const { room, tick } = setup();
+    const carrier = room.world.slots[0]!.state;
+    carrier.hull = 1000;
+    carrier.sinceDamage = 100;
+    await tick(10 * TICK_RATE);
+    expect(carrier.hull).toBe(1000);
   });
 });
 

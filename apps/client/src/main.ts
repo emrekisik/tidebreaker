@@ -141,7 +141,7 @@ const events: OnlineEvents = {
     effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
   },
   onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true) {
-    if (showNumber) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
+    if (showNumber && damage > 0) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
     effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     if (killed) {
       const c = target.combatant;
