@@ -76,6 +76,7 @@ export class BotClient {
     shield: 1,
     ready: false,
   };
+  private readonly shot = { angle: 0, dist: 0 };
   private seq = 0;
   private tick = 0;
   private retreating = false;
@@ -214,6 +215,23 @@ export class BotClient {
     return true;
   }
 
+  /**
+   * What to shoot at, whatever the ship is doing (fleeing bots keep firing back): the nearest enemy
+   * ship in range, else the enemy carrier if it is in range. Writes the lead angle and distance
+   * into `shot` and returns true, or returns false when nothing is in range.
+   */
+  private pickShot(nearest: Seen | null, nearestD: number, carrier: Seen | null): boolean {
+    const range = this.weaponRange * 0.95;
+    const t = nearest && nearestD < range ? nearest : carrier;
+    if (!t) return false;
+    const d = Math.hypot(t.x - this.me.x, t.y - this.me.y);
+    if (d >= range) return false;
+    const flight = d / this.shotSpeed;
+    this.shot.angle = Math.atan2(t.y + t.vy * flight - this.me.y, t.x + t.vx * flight - this.me.x);
+    this.shot.dist = d;
+    return true;
+  }
+
   private think(): void {
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     this.tick++;
@@ -260,6 +278,7 @@ export class BotClient {
       this.sendInput(false, 0, 0.5, me.heading, 0);
       return;
     }
+    const canShoot = this.pickShot(nearest, nearestD, enemyCarrier);
 
     const dist = Math.hypot(target.x - me.x, target.y - me.y);
     // Lead a moving target by the time a shot needs to reach it.
@@ -298,7 +317,7 @@ export class BotClient {
     }
     if (!found) {
       // Boxed in: back out.
-      this.sendInput(false, 1, -1, aimAngle, dist);
+      this.sendInput(canShoot, 1, -1, this.shot.angle, this.shot.dist);
       return;
     }
     const diff = angleDiff(heading, me.heading);
@@ -306,8 +325,9 @@ export class BotClient {
     // Slow down in a sharp turn so the ship can follow.
     if (Math.abs(diff) > 1.2) throttle = Math.min(throttle, 0.4);
 
-    const fire = !this.retreating && dist < this.weaponRange * 0.95;
-    this.sendInput(fire, steer, throttle, aimAngle, dist);
+    // Shooting does not depend on where the ship is sailing: a retreating bot shoots back.
+    if (canShoot) this.sendInput(true, steer, throttle, this.shot.angle, this.shot.dist);
+    else this.sendInput(false, steer, throttle, aimAngle, dist);
   }
 
   private sendInput(
