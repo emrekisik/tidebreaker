@@ -81,6 +81,11 @@ export class Effects {
   }
 
   /** Short-lived additive flash. */
+  /** Size factor of the effects of a shot fired with `power` levels of the damage upgrade. */
+  private powerScale(power: number): number {
+    return 1 + FX.power.effect * power;
+  }
+
   private flash(
     x: number,
     h: number,
@@ -94,11 +99,12 @@ export class Effects {
   }
 
   /** Shot leaves the barrel: flash, forward streaks and smoke (heavier for cannons and rockets). */
-  muzzle(x: number, y: number, angle: number, visual: ProjectileVisual): void {
+  muzzle(x: number, y: number, angle: number, visual: ProjectileVisual, power = 0): void {
     const m = FX.muzzle[visual];
+    const ps = this.powerScale(power);
     const dx = Math.cos(angle);
     const dz = Math.sin(angle);
-    this.flash(x + dx * 0.25, 1.4, y + dz * 0.25, m.flash * 1.6, m.flashLife, C.white, C.fire);
+    this.flash(x + dx * 0.25, 1.4, y + dz * 0.25, m.flash * 1.6 * ps, m.flashLife, C.white, C.fire);
     for (let i = 0; i < m.sparks; i++) {
       const a = angle + this.r(-0.4, 0.4);
       const sp = this.r(10, 22);
@@ -110,7 +116,7 @@ export class Effects {
         this.r(-0.5, 1.5),
         Math.sin(a) * sp,
         this.r(0.1, 0.24),
-        0.1 + m.flash * 0.05,
+        (0.1 + m.flash * 0.05) * ps,
         0.02,
         0,
         2,
@@ -131,8 +137,8 @@ export class Effects {
         this.r(0.6, 1.6),
         dz * sp + FX.wind.z * 0.4 + this.r(-0.4, 0.4),
         m.smokeLife * this.r(0.8, 1.2),
-        m.smoke * 0.35,
-        m.smoke,
+        m.smoke * 0.35 * ps,
+        m.smoke * ps,
         0,
         1.4,
         C.smokeLight,
@@ -152,8 +158,8 @@ export class Effects {
         0.4,
         dz * 9,
         0.5,
-        0.4,
-        1.3,
+        0.4 * ps,
+        1.3 * ps,
         0,
         4,
         C.smokeLight,
@@ -175,8 +181,8 @@ export class Effects {
           this.r(0.3, 1),
           -dz * sp,
           0.9,
-          0.5,
-          1.8,
+          0.5 * ps,
+          1.8 * ps,
           0,
           2,
           C.smokeLight,
@@ -186,14 +192,14 @@ export class Effects {
           0,
         );
       }
-      this.flash(x - dx * 0.6, 1.2, y - dz * 0.6, 1.4, 0.12, C.flash, C.fire);
+      this.flash(x - dx * 0.6, 1.2, y - dz * 0.6, 1.4 * ps, 0.12, C.flash, C.fire);
     }
   }
 
   /** A shot hit a ship: flash, streaking sparks, hull chips and a lick of fire. */
-  impact(x: number, y: number, shield: boolean, visual: ProjectileVisual): void {
+  impact(x: number, y: number, shield: boolean, visual: ProjectileVisual, power = 0): void {
     const I = FX.impact;
-    const k = FX.impactScale[visual];
+    const k = FX.impactScale[visual] * this.powerScale(power);
     const sk = Math.sqrt(k);
     if (shield) {
       this.fire.spawn(
@@ -330,8 +336,8 @@ export class Effects {
   }
 
   /** A shot hit an island or reef: a puff of dust and rock chips (more for shells and rockets). */
-  blocked(x: number, y: number, visual: ProjectileVisual): void {
-    const k = FX.impactScale[visual];
+  blocked(x: number, y: number, visual: ProjectileVisual, power = 0): void {
+    const k = FX.impactScale[visual] * this.powerScale(power);
     const sk = Math.sqrt(k);
     for (let i = 0; i < 2 + Math.round(sk * 2); i++) {
       this.puff.spawn(
@@ -427,8 +433,8 @@ export class Effects {
   }
 
   /** A shot landed in the water: a column of spray, droplets, a foam ring and a slow ripple. */
-  splash(x: number, y: number, visual: ProjectileVisual): void {
-    const sc = FX.splashScale[visual];
+  splash(x: number, y: number, visual: ProjectileVisual, power = 0): void {
+    const sc = FX.splashScale[visual] * this.powerScale(power);
     const lift = Math.sqrt(sc);
     const columns = Math.max(2, Math.round(3 * sc));
     for (let i = 0; i < columns; i++) {
@@ -675,6 +681,7 @@ export class Effects {
       if (set.active[i] === 0) continue;
       const w = set.weapon[i]!;
       const kind = this.kindOfWeapon[w]!;
+      const ps = this.powerScale(set.power[i]!);
       const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : R.everySec;
       let carry = carries[i]! + dt;
       while (carry >= every) {
@@ -698,8 +705,8 @@ export class Effects {
             0,
             vz * -0.3,
             B.life,
-            B.size,
-            B.size * 0.2,
+            B.size * ps,
+            B.size * 0.2 * ps,
             0,
             0,
             C.flash,
@@ -718,8 +725,8 @@ export class Effects {
             0,
             vz * -0.3,
             S.life,
-            S.streak,
-            S.streak * 0.2,
+            S.streak * ps,
+            S.streak * 0.2 * ps,
             0,
             0,
             C.flash,
@@ -740,8 +747,8 @@ export class Effects {
               0,
               0,
               G.life,
-              G.size,
-              G.endSize,
+              G.size * ps,
+              G.endSize * ps,
               0,
               0,
               C.shellGlow,
@@ -759,8 +766,8 @@ export class Effects {
             0,
             0,
             N.life,
-            N.size,
-            N.size * 0.4,
+            N.size * ps,
+            N.size * 0.4 * ps,
             0,
             0,
             C.flash,
@@ -782,8 +789,8 @@ export class Effects {
             this.r(0.2, 0.7),
             vz * -0.04 + FX.wind.z * 0.3 + this.r(-0.3, 0.3),
             R.life * this.r(0.8, 1.2),
-            R.startSize,
-            R.endSize,
+            R.startSize * ps,
+            R.endSize * ps,
             0,
             1.2,
             C.smokeLight,
@@ -803,8 +810,8 @@ export class Effects {
             0,
             0,
             0.12,
-            0.95,
-            0.15,
+            0.95 * ps,
+            0.15 * ps,
             0,
             0,
             C.white,
@@ -822,8 +829,8 @@ export class Effects {
             0,
             vz * -0.55,
             0.12,
-            0.3,
-            0.08,
+            0.3 * ps,
+            0.08 * ps,
             0,
             0,
             C.flash,
@@ -833,7 +840,24 @@ export class Effects {
             0,
             C.fireHot,
           );
-          this.glow.spawn(nx, py, nz, 0, 0, 0, 0.1, 3.2, 1.2, 0, 0, C.glow, C.fireDeep, 0.5, 0, 0);
+          this.glow.spawn(
+            nx,
+            py,
+            nz,
+            0,
+            0,
+            0,
+            0.1,
+            3.2 * ps,
+            1.2 * ps,
+            0,
+            0,
+            C.glow,
+            C.fireDeep,
+            0.5,
+            0,
+            0,
+          );
         }
       }
       carries[i] = carry;

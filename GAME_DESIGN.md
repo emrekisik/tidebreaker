@@ -207,7 +207,7 @@ interface WeaponDef {
 | **Reload** (attack interval) | `interval × (1 − 0.07·L)`; mount'lar arası yaylım aralığı (`SALVO_GAP_SEC`) da aynı oranda kısalır, tick'e yuvarlanmayan süreler artık kayıpsız ortalanır | `reload` |
 | **Turn rate** | `turnRate × (1 + 0.09·L)` | `turn` |
 | **Max shield** | `maxShield × (1 + 0.12·L)` | `shield` |
-| **Damage** (hasar) | `damage × (1 + 0.10·L)` (tüm silahlar); mermi seviye başına %20 daha **kalın** (ve biraz uzun) çizilir, böylece güçlü mermiler görünür. Vuruş yarıçapı değişmez | `damage` |
+| **Damage** (hasar) | `damage × (1 + 0.10·L)` (tüm silahlar); güçlü mermi görünür olsun diye: **makineli tüfek mermisi** seviye başına %20, **top mermisi ve roket gövdesi** yalnızca %4 kalınlaşır (çok büyümesin); **namlu ışığı, mermi izi ve vuruş/su patlaması** seviye başına %14 büyür (`FX.power`). Vuruş yarıçapı değişmez | `damage` |
 | **Health regen** (tamir hızı) | temel `%0,3 + L × %0,4 maxHull / sn` (6 sn hasarsızlıktan sonra; temel kısım upgrade'siz de vardır) | `regen` |
 
 - Her stat seviyesi 0..cap. **Cap sınıfa bağlıdır:** `statCap(tier) = [3, 4, 5, 7, 8][tier-1]`. Yani sınıf atlamak yeni stat potansiyeli açar.

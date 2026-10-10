@@ -8,6 +8,7 @@
 export class ShotTable {
   private readonly lastMine: Uint8Array;
   private readonly weapons: Uint8Array;
+  private readonly powers: Uint8Array;
   private readonly slotMine: Int16Array;
   private readonly slotOthers: Int16Array;
   /** Which id currently lives in each slot of a set (a slot can be freed and reused locally). */
@@ -17,6 +18,7 @@ export class ShotTable {
   constructor(capacity: number) {
     this.lastMine = new Uint8Array(capacity);
     this.weapons = new Uint8Array(capacity);
+    this.powers = new Uint8Array(capacity);
     this.slotMine = new Int16Array(capacity).fill(-1);
     this.slotOthers = new Int16Array(capacity).fill(-1);
     this.holderMine = new Int16Array(capacity).fill(-1);
@@ -24,9 +26,10 @@ export class ShotTable {
   }
 
   /** A SPAWN message arrived (in message order, before any delay). */
-  noteSpawn(id: number, mine: boolean, weapon: number): void {
+  noteSpawn(id: number, mine: boolean, weapon: number, power = 0): void {
     this.lastMine[id] = mine ? 1 : 0;
     this.weapons[id] = weapon;
+    this.powers[id] = power;
   }
 
   /** The shot now lives in `slot` of its set. */
@@ -42,6 +45,11 @@ export class ShotTable {
 
   weaponOf(id: number): number {
     return this.weapons[id]!;
+  }
+
+  /** Damage upgrade level of the shooter when the shot was fired. */
+  powerOf(id: number): number {
+    return this.powers[id]!;
   }
 
   /**

@@ -169,6 +169,8 @@ export class OnlineGame implements GameSession, ServerHandler {
   private readonly mine = new ProjectileSet(MAX_PROJECTILES);
   /** Which shot an id means, and where it lives (see ShotTable). */
   private readonly shots = new ShotTable(MAX_PROJECTILES);
+  /** Damage upgrade level of each ship that fired lately (for the size of its hit effects). */
+  private readonly powerOfShip = new Uint8Array(64);
   private obstacles: Obstacles | null = null;
   private readonly remotes = new Map<number, Remote>();
   private readonly queue: Action[] = [];
@@ -611,7 +613,8 @@ export class OnlineGame implements GameSession, ServerHandler {
       return slot;
     };
     const mine = owner === this.myId;
-    this.shots.noteSpawn(id, mine, weapon);
+    this.shots.noteSpawn(id, mine, weapon, power);
+    if (owner < this.powerOfShip.length) this.powerOfShip[owner] = power;
     if (mine) {
       // Yours: shown right away, caught up by the time the message spent on the way.
       const slot = launch(this.mine);
@@ -619,7 +622,7 @@ export class OnlineGame implements GameSession, ServerHandler {
       const late = Math.max(0, Math.min(CATCH_UP_MAX, nowTick - tick));
       this.mine.advance(slot, late, STEP_SEC, noopHits, this.obstacles ?? undefined);
       this.shots.bind(id, true, slot);
-      events.onShot(x, y, angle, weapon);
+      events.onShot(x, y, angle, weapon, power);
       return;
     }
     this.at(tick * STEP_MS, () => {
@@ -630,7 +633,7 @@ export class OnlineGame implements GameSession, ServerHandler {
         shooter.entity.aim = angle;
         shooter.lastFireMs = tick * STEP_MS;
       }
-      events.onShot(x, y, angle, weapon);
+      events.onShot(x, y, angle, weapon, power);
     });
   }
 
@@ -640,11 +643,12 @@ export class OnlineGame implements GameSession, ServerHandler {
     // Whose shot this is is decided now, in message order, not when the delayed action runs.
     const mine = this.shots.isMine(id);
     const weapon = this.shots.weaponOf(id);
+    const power = this.shots.powerOf(id);
     const finish = (): void => {
       const slot = this.shots.take(id, mine);
       if (slot >= 0) (mine ? this.mine : this.others).remove(slot);
-      if (reason === END_REASON.HIT_ISLAND) events.onBlocked(x, y, weapon);
-      else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon);
+      if (reason === END_REASON.HIT_ISLAND) events.onBlocked(x, y, weapon, power);
+      else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon, power);
     };
     if (mine) finish();
     else this.at(tick * STEP_MS, finish);
@@ -673,6 +677,7 @@ export class OnlineGame implements GameSession, ServerHandler {
         e,
         weapon,
         attacker === this.myId || target === this.myId,
+        this.powerOfShip[attacker] ?? 0,
       );
     };
     if (target === this.myId) apply();

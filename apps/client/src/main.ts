@@ -150,22 +150,22 @@ window.addEventListener('blur', () => scoreboard.hold(false));
 // ---- effects shared by the sandbox and online matches
 
 const events: OnlineEvents = {
-  onShot(x, y, angle, weaponIdx) {
-    effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+  onShot(x, y, angle, weaponIdx, power = 0) {
+    effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
   },
-  onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true) {
+  onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true, power = 0) {
     if (showNumber && damage > 0) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
-    effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+    effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
     if (killed) {
       const c = target.combatant;
       effects.explode(c.state.x, c.state.y, c.def.length);
     }
   },
-  onMiss(x, y, weaponIdx) {
-    effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+  onMiss(x, y, weaponIdx, power = 0) {
+    effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
   },
-  onBlocked(x, y, weaponIdx) {
-    effects.blocked(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+  onBlocked(x, y, weaponIdx, power = 0) {
+    effects.blocked(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
   },
   onIslandHit(x, y, impact, ship) {
     effects.shore(x, y, impact);

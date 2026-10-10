@@ -10,6 +10,8 @@ const ROCKET_MESH = 2;
 /** Writes projectile transforms straight into the instance buffers (no allocation per frame). */
 export class ProjectileView {
   private readonly meshes: readonly InstancedMesh[];
+  /** mesh index -> how much a damage level thickens the body */
+  private readonly thickenOfMesh = new Float32Array(3);
   /** weapon index -> mesh index */
   private readonly meshOfWeapon: Uint8Array;
   private readonly counts: Int32Array;
@@ -19,6 +21,10 @@ export class ProjectileView {
   constructor(meshes: readonly InstancedMesh[], order: readonly ProjectileVisual[]) {
     this.meshes = meshes;
     this.counts = new Int32Array(meshes.length);
+    for (let m = 0; m < 3; m++) {
+      const v = order[m];
+      this.thickenOfMesh[m] = v ? FX.power.thicken[v] : 0;
+    }
     this.meshOfWeapon = new Uint8Array(WEAPON_IDS.length);
     this.rangeOfWeapon = new Float32Array(WEAPON_IDS.length);
     for (let w = 0; w < WEAPON_IDS.length; w++) {
@@ -55,7 +61,7 @@ export class ProjectileView {
       const dx = vx / speed;
       const dy = vy / speed;
       // Shots of a ship with the damage upgrade are thicker (and a little longer).
-      const thick = 1 + FX.power.thicken * set.power[i]!;
+      const thick = 1 + this.thickenOfMesh[m]! * set.power[i]!;
       const long = 1 + (thick - 1) * 0.5;
       if (m === ROCKET_MESH) {
         // Lobbed flight: climb a little, then drop; the nose follows the arc.

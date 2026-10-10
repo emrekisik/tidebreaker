@@ -35,7 +35,7 @@ import type { BarKit } from '../render/barKit.ts';
 
 export interface GameEvents {
   /** A projectile left a barrel (muzzle position, fire angle, weapon index). */
-  onShot(x: number, y: number, angle: number, weaponIdx: number): void;
+  onShot(x: number, y: number, angle: number, weaponIdx: number, power?: number): void;
   onHit(
     x: number,
     y: number,
@@ -46,11 +46,13 @@ export interface GameEvents {
     weaponIdx: number,
     /** Online: only hits that involve the player show a damage number. */
     showNumber?: boolean,
+    /** Damage upgrade level of the shooter (bigger effects). */
+    power?: number,
   ): void;
   /** A projectile ended in the water. */
-  onMiss(x: number, y: number, weaponIdx: number): void;
+  onMiss(x: number, y: number, weaponIdx: number, power?: number): void;
   /** A projectile hit an island or reef. */
-  onBlocked(x: number, y: number, weaponIdx: number): void;
+  onBlocked(x: number, y: number, weaponIdx: number, power?: number): void;
   /** A ship ran into an island or reef at the given speed (only hard hits are reported). */
   onIslandHit(x: number, y: number, impact: number, ship: ShipEntity): void;
   /** Two ships collided at (x, y) with the given closing speed. */
