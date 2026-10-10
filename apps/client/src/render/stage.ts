@@ -8,7 +8,7 @@ import {
 } from 'three';
 import { CAMERA } from '@tidebreaker/shared';
 
-/** Renderer, scene, camera and lights (GAME_DESIGN.md §12.1). No shadows: blob shadows only. */
+/** Renderer, scene, camera and lights (GAME_DESIGN.md §12.1). No shadow maps: hull shadows are painted into the water. */
 export class Stage {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();

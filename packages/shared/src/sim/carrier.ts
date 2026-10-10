@@ -10,7 +10,7 @@ const READY_EPSILON = 1e-4;
 /**
  * Picks the target of one turret of a carrier (GAME_DESIGN.md §4.5): the nearest living enemy
  * within the weapon's range. Writes the world angle to fire at, leading a moving target for the
- * weapon's (constant) projectile speed, into `out[0]`. Returns the target's index or -1.
+ * weapon's projectile speed, into `out[0]`. Returns the target's index or -1.
  * The server uses it to shoot and the client to turn the turret model, so both always agree.
  */
 export function pickCarrierTarget(
@@ -48,7 +48,11 @@ export function pickCarrierTarget(
   const ts = Math.sin(t.heading);
   const vx = tc * t.speed + t.kx;
   const vy = ts * t.speed + t.ky;
-  const v = weapon.projectileSpeed;
+  // Rockets crawl out of the tube: the early slow part costs a fixed delay, so lead for the
+  // equivalent constant speed over this distance.
+  const dist = Math.sqrt(rx * rx + ry * ry);
+  const lag = (weapon.accelSec * (1 - weapon.startSpeedPct) * 2) / 3;
+  const v = dist > 1e-3 ? dist / (dist / weapon.projectileSpeed + lag) : weapon.projectileSpeed;
   // Intercept time: |r + v_t * time| = v * time.
   const a = vx * vx + vy * vy - v * v;
   const b = 2 * (rx * vx + ry * vy);

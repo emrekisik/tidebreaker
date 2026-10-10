@@ -120,6 +120,20 @@ export const FX = {
     fringeLength: 0.3,
     fringeStrength: 0.65,
   },
+
+  /**
+   * Where the hull meets the water, stamped into the foam map every frame (so it follows the waves
+   * and the hull outline instead of a flat disc). Widths are fractions of the hull half-width.
+   */
+  hull: {
+    /** Foam fringe hugging the hull: reach beyond the hull and strength (0..1, foam shows from ~0.3). */
+    foamWidth: 1.35,
+    foamStrength: 0.55,
+    /** Soft shadow: reach beyond the hull, strength (0..1) and how dark the water gets at full strength. */
+    shadowWidth: 1.7,
+    shadowStrength: 1,
+    shadowDarken: 0.35,
+  },
 } as const;
 
 export type MuzzleKind = keyof typeof FX.muzzle;

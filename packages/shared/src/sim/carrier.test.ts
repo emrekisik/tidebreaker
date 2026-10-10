@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARRIER, MATCH, TEAM_BLUE, TEAM_RED } from '../config/match.ts';
 import { SHIPS } from '../config/ships.ts';
-import { WEAPONS } from '../config/weapons.ts';
+import { WEAPONS, weaponIndex } from '../config/weapons.ts';
 import { configHash } from '../config/hash.ts';
 import { resolveCollisions } from './collisions.ts';
 import type { CollisionSink } from './collisions.ts';
@@ -29,6 +29,7 @@ interface Shot {
   y: number;
   angle: number;
   owner: number;
+  weapon: number;
 }
 
 function sinkOf(): { shots: Shot[]; sink: { spawn: (...a: number[]) => void } } {
@@ -37,7 +38,7 @@ function sinkOf(): { shots: Shot[]; sink: { spawn: (...a: number[]) => void } } 
     shots,
     sink: {
       spawn: (...a: number[]) => {
-        shots.push({ x: a[0]!, y: a[1]!, angle: a[2]!, owner: a[7]! });
+        shots.push({ x: a[0]!, y: a[1]!, angle: a[2]!, owner: a[7]!, weapon: a[8]! });
       },
     },
   };
@@ -91,9 +92,12 @@ describe('carrier turrets', () => {
     const enemy = boat(2, TEAM_RED, c.state.x + 30, c.state.y + 20);
     const { shots, sink } = sinkOf();
     for (let i = 0; i < 20; i++) updateCarrier(c, [enemy], 0.05, rng, sink);
-    // 1 second, two guns, 0.25 s reload: about 8 shots, never more than 10.
-    expect(shots.length).toBeGreaterThanOrEqual(6);
-    expect(shots.length).toBeLessThanOrEqual(10);
+    // 1 second: a machine gun (0.25 s reload) and a rocket launcher (1.5 s reload).
+    const bullets = shots.filter((x) => x.weapon === weaponIndex('carrier_gun'));
+    const rockets = shots.filter((x) => x.weapon === weaponIndex('carrier_rocket'));
+    expect(bullets.length).toBeGreaterThanOrEqual(3);
+    expect(bullets.length).toBeLessThanOrEqual(5);
+    expect(rockets.length).toBe(1);
     expect(shots.every((s) => s.owner === c.id)).toBe(true);
   });
 

@@ -164,7 +164,7 @@ export function createParticleKit(): ParticleKit {
     opaque: false,
     soft: true,
   });
-  foam.mesh.renderOrder = 1; // after the water, before the ships' blob shadows
+  foam.mesh.renderOrder = 1; // after the water, before the ships
   const puff = buffers(new IcosahedronGeometry(0.5, 1), cap.puff, MODE_UNIFORM, {
     lit: true,
     additive: false,

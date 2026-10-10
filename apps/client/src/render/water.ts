@@ -1,5 +1,6 @@
 import { Color, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
 import type { Texture } from 'three';
+import { FX } from '@tidebreaker/shared';
 import { WAKE_EXTENT } from './wakeMap.ts';
 import { WAVE_MAX, glslWaveFunction, glslWaveSlope } from './waves.ts';
 
@@ -113,15 +114,20 @@ void main() {
   // Ship wakes from the foam map: R = turbulent trail, G = bow wave and Kelvin arms.
   vec2 wuv = (p - uWakeOrigin) / uWakeExtent;
   vec2 edge = smoothstep(0.0, 0.06, wuv) * (1.0 - smoothstep(0.94, 1.0, wuv));
-  vec2 wk = texture2D(uWake, wuv).rg * (edge.x * edge.y);
+  vec4 wk4 = texture2D(uWake, wuv) * (edge.x * edge.y);
+  vec2 wk = wk4.rg;
+  // B = soft shadow of the hulls, laid on the water so it follows the waves.
+  col *= 1.0 - wk4.b * ${FX.hull.shadowDarken.toFixed(2)};
   // Most of the sea has no wake: skip the noise there.
-  if (wk.r + wk.g > 0.02) {
+  if (wk.r + wk.g + wk4.a > 0.02) {
     float wl = vnoise(p * 2.3 + vec2(uTime * 0.12, -uTime * 0.09)) * 0.55
              + vnoise(p * 5.9 - vec2(uTime * 0.2, uTime * 0.13)) * 0.45;
     float trail = smoothstep(0.16, 0.55, wk.r * (0.3 + 1.4 * wl));
     float bow = smoothstep(0.1, 0.42, wk.g * (0.55 + 0.9 * wl));
     col = mix(col, uShallow * 1.2 + 0.06, clamp(wk.r * 0.4, 0.0, 0.4));
-    col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8, 0.0, 0.9));
+    // A = foam where the hull meets the water: torn into lace by the same noise.
+    float hullFoam = smoothstep(0.12, 0.45, wk4.a * (0.5 + 1.0 * wl));
+    col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8 + hullFoam * 0.85, 0.0, 0.9));
   }
 
   // Fade into the haze before the edge of the plane.

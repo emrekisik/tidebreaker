@@ -941,6 +941,7 @@ export class Effects {
 
     if (s.alive && Math.abs(s.speed) > 0.8) this.wake(e, dt, length, width);
     else e.wakeReady = false;
+    if (s.alive) this.hullContact(e, length, width);
 
     const frac = s.hull / def.hull;
     const D = FX.damage;
@@ -1099,6 +1100,47 @@ export class Effects {
         C.ember,
       );
     }
+  }
+
+  /**
+   * Foam fringe and soft shadow hugging the hull outline: two stadium shapes along the ship, drawn
+   * into the water so they follow the waves (flat discs got cut by wave crests on big hulls).
+   */
+  private hullContact(e: ShipEntity, length: number, width: number): void {
+    const H = FX.hull;
+    const p = e.pose;
+    const c = Math.cos(p.heading);
+    const sn = Math.sin(p.heading);
+    const half = width * 0.5;
+    const foamW = half * H.foamWidth;
+    const foamReach = Math.max(0, length * 0.5 - foamW);
+    this.wakeMap.capsule(
+      p.x - c * foamReach,
+      p.y - sn * foamReach,
+      p.x + c * foamReach,
+      p.y + sn * foamReach,
+      foamW,
+      0,
+      0,
+      0,
+      0,
+      0,
+      H.foamStrength,
+    );
+    const shadowW = half * H.shadowWidth;
+    const shadowReach = Math.max(0, length * 0.5 - shadowW);
+    this.wakeMap.capsule(
+      p.x - c * shadowReach,
+      p.y - sn * shadowReach,
+      p.x + c * shadowReach,
+      p.y + sn * shadowReach,
+      shadowW,
+      0,
+      0,
+      0,
+      0,
+      H.shadowStrength,
+    );
   }
 
   /**

@@ -61,7 +61,7 @@ void main() {
           + fetch(uv + vec2(0.0, uTexel)) + fetch(uv - vec2(0.0, uTexel))) * 0.25;
   vec2 v = mix(c, n, uDiffuse) * uDecay;
   v = max(v - 0.0006, 0.0);
-  gl_FragColor = vec4(v, 0.0, 1.0);
+  gl_FragColor = vec4(v, 0.0, 0.0);
 }
 `;
 
@@ -72,14 +72,14 @@ uniform float uExtent;
 attribute vec2 aA;
 attribute vec2 aB;
 attribute float aW;
-attribute vec2 aV0;
-attribute vec2 aV1;
+attribute vec4 aV0;
+attribute vec4 aV1;
 varying vec2 vWorld;
 varying vec2 vA;
 varying vec2 vB;
 varying float vW;
-varying vec2 vV0;
-varying vec2 vV1;
+varying vec4 vV0;
+varying vec4 vV1;
 void main() {
   vec2 ab = aB - aA;
   float len = length(ab);
@@ -103,15 +103,15 @@ varying vec2 vWorld;
 varying vec2 vA;
 varying vec2 vB;
 varying float vW;
-varying vec2 vV0;
-varying vec2 vV1;
+varying vec4 vV0;
+varying vec4 vV1;
 void main() {
   vec2 pa = vWorld - vA;
   vec2 ba = vB - vA;
   float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.000001), 0.0, 1.0);
   float d = length(pa - ba * h);
   float f = 1.0 - smoothstep(vW * 0.2, vW, d);
-  gl_FragColor = vec4(mix(vV0, vV1, h) * f, 0.0, 1.0);
+  gl_FragColor = mix(vV0, vV1, h) * f;
 }
 `;
 
@@ -134,8 +134,8 @@ export class WakeMap {
   private readonly a = new Float32Array(CAPACITY * 2);
   private readonly b = new Float32Array(CAPACITY * 2);
   private readonly w = new Float32Array(CAPACITY);
-  private readonly v0 = new Float32Array(CAPACITY * 2);
-  private readonly v1 = new Float32Array(CAPACITY * 2);
+  private readonly v0 = new Float32Array(CAPACITY * 4);
+  private readonly v1 = new Float32Array(CAPACITY * 4);
   private readonly attrs: InstancedBufferAttribute[];
   private count = 0;
   private dt = 0;
@@ -179,8 +179,8 @@ export class WakeMap {
       new InstancedBufferAttribute(this.a, 2),
       new InstancedBufferAttribute(this.b, 2),
       new InstancedBufferAttribute(this.w, 1),
-      new InstancedBufferAttribute(this.v0, 2),
-      new InstancedBufferAttribute(this.v1, 2),
+      new InstancedBufferAttribute(this.v0, 4),
+      new InstancedBufferAttribute(this.v1, 4),
     ];
     const names = ['aA', 'aB', 'aW', 'aV0', 'aV1'];
     for (let i = 0; i < names.length; i++) {
@@ -228,6 +228,8 @@ export class WakeMap {
   /**
    * A soft capsule from (ax, az) to (bx, bz) in world xz, `width` = radius of influence, with foam
    * strengths (r0, g0) at the start and (r1, g1) at the end: r = turbulent trail, g = bow wave.
+   * `shadow` (blue) and `hullFoam` (alpha) are constant along the capsule and are not carried over
+   * to the next frame (no fading or spreading), so they must be re-stamped every frame.
    */
   capsule(
     ax: number,
@@ -239,6 +241,8 @@ export class WakeMap {
     g0: number,
     r1: number,
     g1: number,
+    shadow = 0,
+    hullFoam = 0,
   ): void {
     if (this.count >= CAPACITY) return;
     const i = this.count++;
@@ -247,10 +251,14 @@ export class WakeMap {
     this.b[i * 2] = bx;
     this.b[i * 2 + 1] = bz;
     this.w[i] = width;
-    this.v0[i * 2] = r0;
-    this.v0[i * 2 + 1] = g0;
-    this.v1[i * 2] = r1;
-    this.v1[i * 2 + 1] = g1;
+    this.v0[i * 4] = r0;
+    this.v0[i * 4 + 1] = g0;
+    this.v0[i * 4 + 2] = shadow;
+    this.v0[i * 4 + 3] = hullFoam;
+    this.v1[i * 4] = r1;
+    this.v1[i * 4 + 1] = g1;
+    this.v1[i * 4 + 2] = shadow;
+    this.v1[i * 4 + 3] = hullFoam;
   }
 
   /** Fades and shifts the old map, stamps this frame's capsules on top, and swaps the targets. */

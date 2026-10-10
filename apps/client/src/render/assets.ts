@@ -3,7 +3,6 @@ import {
   Box3,
   BoxGeometry,
   BufferGeometry,
-  CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -88,7 +87,7 @@ export class ShipModel {
   hullWidth = 0;
   private flashing = false;
   private readonly tmp = new Quaternion();
-  /** Flat things that must stay on the water surface (blob shadow, foam ring). */
+  /** Flat things that must stay on the water surface (the team ring). */
   private readonly decals: Mesh[] = [];
   private readonly decalLift: number[] = [];
 
@@ -265,14 +264,6 @@ export class AssetProvider {
     emissive: 0xffffff,
     emissiveIntensity: 0.4,
   });
-  private readonly shadowGeo = new CircleGeometry(1, 20).rotateX(-Math.PI / 2);
-  private readonly shadowMat = new MeshBasicMaterial({
-    color: 0x061c2e,
-    transparent: true,
-    opacity: 0.35,
-    depthWrite: false,
-  });
-  /** Foam where the hull meets the water. */
   /** Glowing team ring on the water under each ship. */
   private readonly glowRingGeo = new RingGeometry(0.93, 1, 56).rotateX(-Math.PI / 2);
   private readonly glowMats: Record<Team, MeshBasicMaterial> = {
@@ -287,13 +278,6 @@ export class AssetProvider {
   };
   private outlineOn = false;
   private readonly outlineMats = new Set<ShaderMaterial>();
-  private readonly ringGeo = new RingGeometry(0.8, 1, 28).rotateX(-Math.PI / 2);
-  private readonly ringMat = new MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.5,
-    depthWrite: false,
-  });
   private readonly cache = new Map<string, { hull: BufferGeometry; turret: BufferGeometry }>();
   private readonly loaded = new Map<string, LoadedModel>();
   /** Why a model fell back to the placeholder (shown in the test panel). */
@@ -419,19 +403,6 @@ export class AssetProvider {
     return new Mesh(mesh.geometry, mat);
   }
 
-  private foamRing(length: number, width: number): Mesh {
-    const ring = new Mesh(this.ringGeo, this.ringMat);
-    ring.scale.set(length * 0.56, 1, width * 0.7);
-    ring.renderOrder = 2;
-    return ring;
-  }
-
-  private shadow(length: number, width: number): Mesh {
-    const shadow = new Mesh(this.shadowGeo, this.shadowMat);
-    shadow.scale.set(length * 0.52, 1, width * 0.62);
-    return shadow;
-  }
-
   private buildFromGltf(loaded: LoadedModel, team: Team, ring: boolean): ShipModel {
     const mats = loaded.materials[team];
     const { spec } = loaded;
@@ -527,8 +498,6 @@ export class AssetProvider {
     model.hullLength = box.max.x - box.min.x;
     model.hullWidth = box.max.z - box.min.z;
     model.root.add(fit);
-    model.addDecal(this.shadow(spec.length, box.max.z - box.min.z), 0.2);
-    model.addDecal(this.foamRing(spec.length, box.max.z - box.min.z), 0.26);
     if (ring) this.addTeamRing(model, spec.length, team);
     return model;
   }
@@ -562,8 +531,6 @@ export class AssetProvider {
       ],
     );
     model.root.add(hull, turret);
-    model.addDecal(this.shadow(5, 1.9), 0.2);
-    model.addDecal(this.foamRing(5, 1.9), 0.26);
     if (ring) this.addTeamRing(model, 5, team);
     return model;
   }

@@ -101,6 +101,18 @@ export const WEAPONS = {
     accelSec: 0,
     visual: 'bullet',
   },
+  // The carrier's second turret fires rockets instead of bullets (an exception to its turret type).
+  carrier_rocket: {
+    damage: 36,
+    intervalSec: 1.5,
+    range: 70,
+    projectileSpeed: 66,
+    radius: 0.35,
+    spreadDeg: 2,
+    startSpeedPct: 0.25,
+    accelSec: 0.8,
+    visual: 'rocket',
+  },
 } as const satisfies Record<string, WeaponDef>;
 
 export type WeaponId = keyof typeof WEAPONS;

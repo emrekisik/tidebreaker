@@ -8,7 +8,7 @@ export const TEAM_COUNT = 2;
 
 /**
  * The team base: an aircraft carrier anchored near the world edge. It cannot move (vMax 0) and
- * defends itself with the two turrets of its model (pivots measured from the 3D model, like the
+ * defends itself with the two turrets of its model (a machine gun and a rocket launcher) (pivots measured from the 3D model, like the
  * other ships). Hit circles cover the hull: 60 long, about 21 wide.
  */
 export const CARRIER: ShipDef = {
@@ -42,7 +42,7 @@ export const CARRIER: ShipDef = {
       muzzle: 0.3,
       facingDeg: 0,
       arcDeg: 180,
-      weapon: 'carrier_gun',
+      weapon: 'carrier_rocket',
     },
   ],
 };

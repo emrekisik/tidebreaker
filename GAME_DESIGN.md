@@ -121,7 +121,7 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 ka
 **Amaç:** Karşı takımın uçak gemisini yok etmek. Her takımın üssü kendi uçak gemisinin bulunduğu yerdir.
 - **Takımlar:** 0 = mavi, 1 = kırmızı. Oda kapasitesi başlangıçta 20 oyuncu (takım başına 10, `MATCH.maxPlayers`). Yeni oyuncu oyuncu sayısı az olan takıma atanır (eşitse mavi). Takım seçimi yok.
 - **Uçak gemileri** (`aircraft_carrier` modeli, `MATCH.carriers`): haritanın iki karşıt kenarına demirli (mavi batı, kırmızı doğu), **hareketsiz**, yüksek can + kalkan (`hull 4000`, `shield 1500`, başlangıç tahmini). Gemi çarpışmalarında **itilemez** (sonsuz kütle), çarpan taraf hasar alır. Çevresinde ada üretilmez (`MAP.baseClear`).
-- **Otomatik savunma:** uçak gemisinin tareti (modelde iki taret düğümü) menzildeki en yakın **düşman** gemiyi kendi seçer, hedefin hızına göre öne nişan alıp ateş eder (sabit hızlı mermi için yaklaşık önden vurma). Silah: `carrier_gun` (hasar 8, 0,25 sn, menzil 60, hız 75). Dost ateşi yoktur.
+- **Otomatik savunma:** uçak gemisinin tareti (modelde iki taret düğümü) menzildeki en yakın **düşman** gemiyi kendi seçer, hedefin hızına göre öne nişan alıp ateş eder (roketin yavaş kalkışı da hesaba katılır). Birinci taret makineli tüfek (`carrier_gun`: hasar 8, 0,25 sn, menzil 60, hız 75), ikinci taret **roket atar** (`carrier_rocket`: hasar 36, 1,5 sn, menzil 70; uçak gemisi için taret tipi istisnasıdır). Dost ateşi yoktur.
 - **Maç akışı:** uçak gemisinin canı 0'a inince o takım yenilir. Galip takım duyurulur, 15 sn ara verilir, sonra yeni tur başlar: iki uçak gemisi tam canla yenilenir, herkes kendi uçak gemisinde yeniden doğar. Harita aynı kalır (seed sabit).
 - **Ölüm ve yeniden doğuş:** batan oyuncu `respawnSec` (5 sn) sonra kendi uçak gemisinde otomatik yeniden doğar (yeniden `PLAY` gerekmez). Sınıfını değiştirmek için yeniden `PLAY` gönderebilir.
 - **Dost ateşi / çarpışma:** takım arkadaşının mermisi hasar vermez. Takım arkadaşlarıyla gemi–gemi çarpışmasında itme olur, hasar olmaz.
@@ -542,7 +542,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - **Çizim çağrısı bütçesi ≤ 120**, görünür üçgen ≤ 150k.
 - **Instancing:** mermiler, sandık/varil/coin, parçacıklar, kıç izi parçaları `InstancedMesh` ile.
 - Gemiler ayrı `Mesh` (≈ 30 görünür), **tek paylaşımlı materyal**, doku yok, **vertex color**. Takım/korsan rengi `userData` ile.
-- Işık: tek yönlü ışık + ortam ışığı (`MeshLambertMaterial` veya basit toon). **Gölge yok**: gemi altında "blob gölge" quad'ı.
+- Işık: tek yönlü ışık + ortam ışığı (`MeshLambertMaterial` veya basit toon). **Gölge haritası yok**: geminin altındaki yumuşak gölge ve gövdeye yapışık köpük şeridi, su shader'ında gövdenin şeklini izleyen bir "stadyum" olarak çizilir (köpük haritasının B/A kanalları; her kare yeniden basılır). Düz disk/halka kullanılmaz, çünkü büyük gövdelerde dalga tepeleri tarafından kesilip bozuluyordu.
 - **Kalite katmanı yok:** tek kalite ayarı vardır (masaüstü hedefli). Bütçeler ve instancing ile performans korunur.
 - İstemcide de **kare başına allocation yok**: `Vector3`/`Quaternion` nesneleri yeniden kullanılır. HUD DOM güncellemesi ≤ 10 Hz.
 - `devicePixelRatio`/boyut değişimi `ResizeObserver` ile, `user-select: none`.
