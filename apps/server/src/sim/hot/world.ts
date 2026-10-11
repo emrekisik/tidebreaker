@@ -13,6 +13,8 @@ import {
   NO_TEAM,
   NO_WEAPON,
   PICKUP_ID_BASE,
+  PIRATE_COUNT,
+  PIRATE_TYPES,
   ProjectileSet,
   RIG,
   RIGS,
@@ -32,6 +34,7 @@ import {
   createCombatant,
   generateMap,
   killReward,
+  pirateReward,
   regenHull,
   regenShield,
   reloadMul,
@@ -49,6 +52,7 @@ import {
   updateMounts,
 } from '@tidebreaker/shared';
 import { Pickups } from './pickups.ts';
+import { Pirates } from './pirates.ts';
 import type {
   CollisionSink,
   Combatant,
@@ -59,7 +63,10 @@ import type {
   WorldMap,
 } from '@tidebreaker/shared';
 
-/** Slots 0 and 1 are the carriers, then one slot per player. Entity id = slot + 1. */
+/**
+ * Slots 0 and 1 are the carriers, then one slot per player, then one per pirate ship. Entity id =
+ * slot + 1.
+ */
 export const CARRIER_SLOTS = TEAM_COUNT;
 const DIED_CAPACITY = 64;
 const KIND_BARREL = KIND.BARREL;
@@ -77,6 +84,8 @@ const PEACEFUL = 1e6;
 export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink, Obstacles {
   readonly land: WorldMap;
   readonly maxPlayers: number;
+  /** One past the last player slot: pirates have the slots from here up to `slotCount`. */
+  readonly playerEnd: number;
   readonly slotCount: number;
   /** Every slot's combatant (used or not). */
   readonly slots: Combatant[] = new Array<Combatant>();
@@ -114,6 +123,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly statsDirty: Uint8Array;
   /** 1 = a ship changed class in place (tier-up): clients re-create it. */
   readonly pickups: Pickups;
+  readonly pirates: Pirates;
   /** Oil rigs: gauge from -1 (red) to +1 (blue) and the owning team (RIG_NO_OWNER = nobody). */
   readonly rigMeter = new Float32Array(RIG.count);
   readonly rigOwner = new Uint8Array(RIG.count).fill(RIG_NO_OWNER);
@@ -158,7 +168,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.land = generateMap(seed);
     this.rng = new Mulberry32(seed ^ 0x9e3779b9);
     this.maxPlayers = MATCH.maxPlayers;
-    this.slotCount = CARRIER_SLOTS + this.maxPlayers;
+    this.playerEnd = CARRIER_SLOTS + this.maxPlayers;
+    this.slotCount = this.playerEnd + PIRATE_COUNT;
     const n = this.slotCount;
     this.used = new Uint8Array(n);
     this.shipIdx = new Uint8Array(n);
@@ -201,6 +212,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.slots.push(c);
     }
     this.pickups = new Pickups(this.land, seed);
+    this.pirates = new Pirates(this, seed);
+    this.pirates.join();
     this.startRound();
   }
 
@@ -281,7 +294,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
   /** Puts a new player into the world on `team`. Returns the slot, or -1 when the room is full. */
   addPlayer(team: number, shipIdx: number): number {
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
       if (this.used[i] === 1) continue;
       this.used[i] = 1;
       this.slots[i]!.team = team;
@@ -334,7 +347,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   /** Number of players per team. */
   playersOnTeam(team: number): number {
     let n = 0;
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
       if (this.used[i] === 1 && this.slots[i]!.team === team) n++;
     }
     return n;
@@ -342,7 +355,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
   playerCount(): number {
     let n = 0;
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) n += this.used[i]!;
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) n += this.used[i]!;
     return n;
   }
 
@@ -363,6 +376,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.resetProgress(slot, shipIdx);
     this.scoresDirty = true;
     this.respawn(slot);
+  }
+
+  /** Forgets who damaged this ship (a ship that comes back owes nobody a reward). */
+  clearAssists(slot: number): void {
+    this.assistAge.fill(PEACEFUL, slot * this.slotCount, (slot + 1) * this.slotCount);
   }
 
   /** (Re)spawns a player at their carrier, facing the enemy, with a few seconds of protection. */
@@ -437,7 +455,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.used[t] = 1;
       if (this.combatants.indexOf(c) < 0) this.combatants.unshift(c);
     }
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
       if (this.used[i] === 0) continue;
       if (this.ghostLeft[i]! > 0) this.release(i);
       else {
@@ -447,6 +465,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
     }
     this.pairKills.fill(0);
+    this.pirates.reset();
     this.pickups.reset(this.combatants);
     this.rigMeter.fill(0);
     this.rigOwner.fill(RIG_NO_OWNER);
@@ -491,9 +510,12 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const ended = this.matchState === MATCH_STATE.ENDED;
 
     // Players whose connection dropped in the middle of a fight keep drifting, uncontrolled.
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
       if (this.ghostLeft[i]! > 0) this.moveShip(i, 0, 0);
     }
+
+    // 3. pirates think, steer and aim like players would
+    this.pirates.step(dt);
 
     // 4. collisions: ships, islands and reefs, world edge. Protected ships take no damage.
     this.saveProtected();
@@ -522,7 +544,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this.rng,
         this,
         this.inAimDist[i]!,
-        reloadMul(this.level(i, STAT.RELOAD)),
+        i < this.playerEnd ? reloadMul(this.level(i, STAT.RELOAD)) : this.pirates.reloadOf(i),
         this.level(i, STAT.DAMAGE),
       );
       // The first shot ends the spawn protection: no sniping from safety.
@@ -587,7 +609,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
 
     // 8. timers: respawn countdown, spawn protection, round restart, drifting ships
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
       if (this.used[i] === 0) continue;
       if (this.ghostLeft[i]! > 0) {
         this.ghostLeft[i] = this.ghostLeft[i]! - dt;
@@ -734,6 +756,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
       return;
     }
+    if (victim >= this.playerEnd) return this.pirateSunk(victim, killerId, weapon);
     this.respawnLeft[victim] = MATCH.respawnSec;
     this.inFire[victim] = 0;
     this.deaths[victim] = this.deaths[victim]! + 1;
@@ -751,18 +774,51 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     this.settleDeath(victim, killerId, x, y);
     const killer = killerId > 0 ? this.slots[killerId - 1] : undefined;
-    if (killer && killer.team !== NO_TEAM && killer.team !== v.team) {
-      if (killerId - 1 >= CARRIER_SLOTS) this.kills[killerId - 1] = this.kills[killerId - 1]! + 1;
+    if (killer && killer.team < TEAM_COUNT && killer.team !== v.team) {
+      if (killerId - 1 >= CARRIER_SLOTS && killerId - 1 < this.playerEnd) {
+        this.kills[killerId - 1] = this.kills[killerId - 1]! + 1;
+      }
       this.teamKills[killer.team] = this.teamKills[killer.team]! + 1;
       this.matchChanged = true;
     }
+  }
+
+  /**
+   * A pirate went down: whoever hurt it lately shares the reward by damage (less for a player of a
+   * much higher class), and it returns to its cove after a while.
+   */
+  private pirateSunk(victim: number, killerId: number, weapon: number): void {
+    const n = this.slotCount;
+    const p = victim - this.playerEnd;
+    const type = PIRATE_TYPES[this.pirates.type[p]!]!;
+    let total = 0;
+    for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
+      if (this.assistAge[victim * n + a]! <= ECONOMY.kill.assistWindowSec) {
+        total += this.assistDmg[victim * n + a]!;
+      }
+    }
+    if (total > 0) {
+      for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
+        if (this.assistAge[victim * n + a]! > ECONOMY.kill.assistWindowSec) continue;
+        const reward = pirateReward(type.reward, type.tier, this.tier[a]!);
+        this.gain(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
+      }
+    }
+    const killer = killerId - 1;
+    if (killer >= CARRIER_SLOTS && killer < this.playerEnd && this.feedCount < DIED_CAPACITY) {
+      this.feedKiller[this.feedCount] = killerId;
+      this.feedVictim[this.feedCount] = victim + 1;
+      this.feedWeapon[this.feedCount] = weapon;
+      this.feedCount++;
+    }
+    this.pirates.onSunk(p);
   }
 
   // ---- money: damage credit, kill rewards, loot, pickups
 
   /** Remembers who damaged whom (assists) and pays for damage done to the enemy carrier. */
   private noteDamage(attacker: number, target: number, damage: number): void {
-    if (attacker < CARRIER_SLOTS || attacker >= this.slotCount) return;
+    if (attacker < CARRIER_SLOTS || attacker >= this.playerEnd) return;
     if (target < CARRIER_SLOTS) {
       // Hurting the enemy carrier is the point of the game: it pays a little per damage point.
       const owed = this.carrierCarry[attacker]! + damage * ECONOMY.carrier.perDamage;
@@ -782,7 +838,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const n = this.slotCount;
     const v = this.slots[victim]!;
     const killerSlot = killerId - 1;
-    const killerIsPlayer = killerSlot >= CARRIER_SLOTS && killerSlot < n;
+    const killerIsPlayer = killerSlot >= CARRIER_SLOTS && killerSlot < this.playerEnd;
     if (killerIsPlayer && this.slots[killerSlot]!.team === v.team) return this.demote(victim, x, y);
     const killerTier = killerIsPlayer ? this.tier[killerSlot]! : this.tier[victim]!;
     let repeats = 0;
@@ -796,13 +852,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     // Everyone who hurt the victim lately shares the reward by damage; a collision gives it all
     // to the killer.
     let total = 0;
-    for (let a = CARRIER_SLOTS; a < n; a++) {
+    for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
       if (this.assistAge[victim * n + a]! <= ECONOMY.kill.assistWindowSec) {
         total += this.assistDmg[victim * n + a]!;
       }
     }
     if (total > 0) {
-      for (let a = CARRIER_SLOTS; a < n; a++) {
+      for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
         if (this.assistAge[victim * n + a]! > ECONOMY.kill.assistWindowSec) continue;
         this.gain(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
       }
@@ -848,7 +904,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   private collectPickups(): void {
     const p = this.pickups;
     const margin = ECONOMY.pickups.collectMargin;
-    for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+    for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
       if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
       const c = this.slots[s]!;
       const st = c.state;
@@ -890,7 +946,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       const rig = RIGS[i]!;
       let blue = 0;
       let red = 0;
-      for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+      for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
         if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
         const c = this.slots[s]!;
         if (!c.state.alive) continue;
@@ -922,7 +978,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     for (let i = 0; i < RIG.count; i++) {
       const team = this.rigOwner[i]!;
       if (team === RIG_NO_OWNER) continue;
-      for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+      for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
         if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
         if (this.slots[s]!.team === team) this.gain(s, RIG.incomeCash);
       }

@@ -3,7 +3,7 @@ import type { PerspectiveCamera, Scene } from 'three';
 import { disposeNameTag } from '../render/barKit.ts';
 import type { BarKit } from '../render/barKit.ts';
 
-type Team = 'blue' | 'red';
+type Team = 'blue' | 'red' | 'pirate';
 import { GhostTracker } from './ghost.ts';
 
 const WIDTH = 5;

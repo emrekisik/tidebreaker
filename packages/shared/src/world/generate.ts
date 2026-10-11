@@ -1,4 +1,5 @@
 import { MATCH } from '../config/match.ts';
+import { PIRATE, PIRATE_COVES } from '../config/pirates.ts';
 import { RIG, RIGS } from '../config/rigs.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { Mulberry32 } from '../math/rng.ts';
@@ -95,6 +96,9 @@ export function generateMap(seed: number): WorldMap {
             ok = false;
           }
         }
+        for (const cove of PIRATE_COVES) {
+          if (Math.hypot(cx - cove.x, cy - cove.y) < PIRATE.coveRadius + shape.bound) ok = false;
+        }
         for (const o of islands) {
           if (Math.hypot(cx - o.x, cy - o.y) < shape.bound + o.r + gap) {
             ok = false;
@@ -161,6 +165,9 @@ export function generateMap(seed: number): WorldMap {
       for (const rig of RIGS) {
         if (Math.hypot(x - rig.x, y - rig.y) < RIG.captureRadius + RIG.clearance + R.spread)
           ok = false;
+      }
+      for (const cove of PIRATE_COVES) {
+        if (Math.hypot(x - cove.x, y - cove.y) < PIRATE.coveRadius + R.spread) ok = false;
       }
       for (const o of islands) {
         if (Math.hypot(x - o.x, y - o.y) < o.r + R.islandGap) ok = false;

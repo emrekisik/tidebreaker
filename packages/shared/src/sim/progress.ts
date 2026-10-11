@@ -1,4 +1,5 @@
 import { ECONOMY, TIER_SHIPS } from '../config/economy.ts';
+import { PIRATE } from '../config/pirates.ts';
 import type { ShipDef } from '../config/ships.ts';
 
 /** Money needed to raise a stat from `level` to `level + 1`. */
@@ -52,4 +53,15 @@ export function killReward(
 export function zoneMultiplier(distFromCenter: number, inner: number, outer: number): number {
   const z = ECONOMY.pickups.zoneMul;
   return distFromCenter < inner ? z.inner : distFromCenter < outer ? z.middle : z.outer;
+}
+
+/**
+ * Money for sinking a pirate of tier `pirateTier` (1..3) when the player's class is tier index
+ * `playerTier` (0 = T1): the full `base` for a player no stronger than the pirate, less for each
+ * tier above it, so big ships do not get rich on skiffs.
+ */
+export function pirateReward(base: number, pirateTier: number, playerTier: number): number {
+  const above = Math.max(0, playerTier + 1 - pirateTier);
+  const factor = Math.max(PIRATE.rewardMinFactor, 1 - PIRATE.rewardTierPenalty * above);
+  return Math.round(base * factor);
 }

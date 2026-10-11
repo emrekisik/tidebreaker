@@ -7,6 +7,7 @@ import {
   RIGS,
   RIG_NO_OWNER,
   TEAM_BLUE,
+  TEAM_PIRATE,
   WORLD_SIZE,
 } from '@tidebreaker/shared';
 import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
@@ -203,6 +204,13 @@ export class Minimap {
       g.strokeRect(px * 0.04, ly - 5, 10, 10);
       g.fillStyle = '#fff';
       g.fillText(t('map.rig'), px * 0.04 + 16, ly);
+      ly += px * 0.045;
+      g.fillStyle = '#ffb347';
+      g.beginPath();
+      g.arc(px * 0.04 + 5, ly, 5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#fff';
+      g.fillText(t('map.pirate'), px * 0.04 + 16, ly);
     }
     return c;
   }
@@ -287,7 +295,8 @@ export class Minimap {
     for (const o of others) {
       const st = o.state;
       if (!st.alive) continue;
-      g.fillStyle = o.team === TEAM_BLUE ? '#4aa8ff' : '#ff4d5a';
+      g.fillStyle =
+        o.team === TEAM_BLUE ? '#4aa8ff' : o.team === TEAM_PIRATE ? '#ffb347' : '#ff4d5a';
       if (o.def.vMax === 0) {
         // A carrier: its hull seen from above, in its team color, with a white outline.
         g.save();
@@ -302,7 +311,7 @@ export class Minimap {
         continue;
       }
       g.beginPath();
-      g.arc(st.x * s, st.y * s, r, 0, Math.PI * 2);
+      g.arc(st.x * s, st.y * s, o.team === TEAM_PIRATE ? r * 0.8 : r, 0, Math.PI * 2);
       g.fill();
     }
     // The player: a blue arrow pointing where the ship heads.

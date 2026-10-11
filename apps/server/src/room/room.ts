@@ -5,6 +5,7 @@ import {
   MATCH_STATE,
   NO_TEAM,
   PICKUP_ID_BASE,
+  PIRATE_TYPES,
   PROTOCOL_VERSION,
   REJECT_REASON,
   RIG,
@@ -185,6 +186,10 @@ export class Room {
     this.names = new Array<string>(this.world.slotCount).fill('');
     this.names[0] = 'Carrier';
     this.names[1] = 'Carrier';
+    // Pirates are named by their type; the client shows the translated name.
+    for (let s = this.world.playerEnd; s < this.world.slotCount; s++) {
+      this.names[s] = PIRATE_TYPES[this.world.pirates.type[s - this.world.playerEnd]!]!.id;
+    }
     this.transport.onConnection = (conn): void => this.attach(conn);
   }
 
@@ -300,7 +305,7 @@ export class Room {
       encodeYouDied(this.small, killerId, killerName, Math.ceil(MATCH.respawnSec));
       this.send(victim, this.small.toBytes());
     }
-    for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
+    for (let s = CARRIER_SLOTS; s < w.playerEnd; s++) {
       if (w.respawned[s] === 0) continue;
       w.respawned[s] = 0;
       const c = this.bySlot[s];
@@ -343,7 +348,7 @@ export class Room {
     this.big.reset();
     const at = beginScores(this.big);
     let n = 0;
-    for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
+    for (let s = CARRIER_SLOTS; s < w.playerEnd; s++) {
       if (w.used[s] === 0) continue;
       writeScore(
         this.big,
@@ -366,7 +371,7 @@ export class Room {
   /** Each player hears about changes of their own score, money and upgrades. */
   private sendStats(): void {
     const w = this.world;
-    for (let s = CARRIER_SLOTS; s < w.slotCount; s++) {
+    for (let s = CARRIER_SLOTS; s < w.playerEnd; s++) {
       if (w.statsDirty[s] === 0) continue;
       const c = this.bySlot[s];
       if (!c) {
@@ -458,7 +463,7 @@ export class Room {
         if (present && c.known[s] === 0) {
           const e = this.enter;
           e.id = s + 1;
-          e.kind = s < CARRIER_SLOTS ? KIND.CARRIER : KIND.SHIP;
+          e.kind = s < CARRIER_SLOTS ? KIND.CARRIER : s < w.playerEnd ? KIND.SHIP : KIND.PIRATE;
           e.shipId = w.shipIdx[s]!;
           e.team = ship.team;
           e.x = ship.state.x;
@@ -466,7 +471,7 @@ export class Room {
           e.heading = ship.state.heading;
           e.hp = ship.state.hull / ship.def.hull;
           e.shield = ship.state.shield / w.maxShieldOf(s);
-          e.power = s < CARRIER_SLOTS ? 0 : w.level(s, STAT.DAMAGE);
+          e.power = s < CARRIER_SLOTS || s >= w.playerEnd ? 0 : w.level(s, STAT.DAMAGE);
           e.name = this.names[s]!;
           sb.enter(e);
           c.known[s] = 1;

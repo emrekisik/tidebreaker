@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MATCH } from '../config/match.ts';
+import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS } from '../config/pirates.ts';
 import { RIG, RIGS } from '../config/rigs.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { generateMap } from './generate.ts';
@@ -177,7 +178,7 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 573964748, 1337: 517806352, 987654: 4001098701 };
+const PINNED: Record<number, number> = { 1: 88855464, 1337: 1730491696, 987654: 1907920726 };
 
 describe('team bases', () => {
   it('keeps islands and reefs away from both carriers', () => {
@@ -237,6 +238,39 @@ describe('oil rigs', () => {
         expect(circleVsWorld(m, rig.x + RIG.captureRadius - 4, rig.y, 5, out)).toBe(false);
         expect(circleVsWorld(m, rig.x, rig.y + RIG.captureRadius - 4, 5, out)).toBe(false);
       });
+    }
+  });
+});
+
+describe('pirate coves', () => {
+  it('mirror left to right, so both teams are equally far from every cove', () => {
+    expect(PIRATE_COVES).toHaveLength(PIRATE_GARRISONS.length);
+    const [blue, red] = MATCH.carriers;
+    for (const cove of PIRATE_COVES) {
+      // The mirror image of a cove is as far from the red carrier as the cove is from the blue one.
+      expect(Math.hypot(WORLD_SIZE - cove.x - red!.x, cove.y - red!.y)).toBeCloseTo(
+        Math.hypot(cove.x - blue!.x, cove.y - blue!.y),
+        6,
+      );
+      // The mirror image of a cove is a cove too.
+      expect(
+        PIRATE_COVES.some(
+          (o) => Math.abs(o.x - (WORLD_SIZE - cove.x)) < 1e-9 && Math.abs(o.y - cove.y) < 1e-9,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('are open water on every map and far from the carriers', () => {
+    const out = new Float32Array(3);
+    for (let seed = 1; seed <= 100; seed++) {
+      const m = generateMap(seed);
+      for (const cove of PIRATE_COVES) {
+        expect(circleVsWorld(m, cove.x, cove.y, PIRATE.coveRadius * 0.8, out)).toBe(false);
+        for (const b of MATCH.carriers) {
+          expect(Math.hypot(cove.x - b.x, cove.y - b.y)).toBeGreaterThan(PIRATE.carrierAvoid * 2);
+        }
+      }
     }
   });
 });

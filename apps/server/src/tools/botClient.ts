@@ -3,6 +3,7 @@ import {
   ECONOMY,
   KIND,
   PICKUP_ID_BASE,
+  PIRATE_TYPES,
   RIGS,
   SHIPS,
   SHIP_IDS,
@@ -292,7 +293,8 @@ export class BotClient {
     },
     enter: (e) => {
       const isPickup = e.id >= PICKUP_ID_BASE;
-      const ship = SHIPS[SHIP_IDS[e.shipId]!];
+      const ship =
+        e.kind === KIND.PIRATE ? PIRATE_TYPES[e.shipId]?.def : SHIPS[SHIP_IDS[e.shipId]!];
       (isPickup ? this.pickups : this.seen).set(e.id, {
         x: e.x,
         y: e.y,

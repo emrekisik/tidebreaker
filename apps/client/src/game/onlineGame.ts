@@ -6,6 +6,7 @@ import {
   KIND,
   MAX_PROJECTILES,
   PICKUP_ID_BASE,
+  PIRATE_TYPES,
   ProjectileSet,
   SHIPS,
   SHIP_IDS,
@@ -14,6 +15,7 @@ import {
   STAT_COUNT,
   STEP_SEC,
   TEAM_BLUE,
+  TEAM_PIRATE,
   WEAPONS,
   WEAPON_IDS,
   configHash,
@@ -50,6 +52,8 @@ import type { PoseSample } from '../net/interpolation.ts';
 import { NetClient } from '../net/netClient.ts';
 import { Predictor } from '../net/prediction.ts';
 import { ShotTable } from '../net/shotTable.ts';
+import { t } from '../i18n/index.ts';
+import type { MessageKey } from '../i18n/index.ts';
 import type { AssetProvider } from '../render/assets.ts';
 import type { BarKit } from '../render/barKit.ts';
 import type { GameEvents } from './localGame.ts';
@@ -61,7 +65,7 @@ const PING_EVERY_MS = 2000;
 /** A shot fired by you is caught up by at most this many ticks when it is shown. */
 const CATCH_UP_MAX = 10;
 
-type TeamName = 'blue' | 'red';
+type TeamName = 'blue' | 'red' | 'pirate';
 
 /** What the game tells the UI beyond the effects shared with the sandbox. */
 export interface OnlineEvents extends GameEvents {
@@ -121,7 +125,11 @@ interface Action {
 
 const noopHits: HitSink = { onHit() {}, onExpire() {}, onBlocked() {} };
 const noTargets: Combatant[] = [];
-const teamName = (team: number): TeamName => (team === TEAM_BLUE ? 'blue' : 'red');
+const teamName = (team: number): TeamName =>
+  team === TEAM_BLUE ? 'blue' : team === TEAM_PIRATE ? 'pirate' : 'red';
+
+/** Pirates come over the wire named by their type ("skiff"); this is the text to show. */
+const pirateName = (type: string): string => t(`pirate.${type}` as MessageKey);
 
 export interface OnlineDeps {
   scene: Scene;
@@ -413,7 +421,8 @@ export class OnlineGame implements GameSession, ServerHandler {
     if (!this.player) return;
     this.predictor.enabled = false;
     this.player.combatant.state.alive = false;
-    this.deps.events.onDied(killerId, killerName, respawnSec);
+    const byPirate = this.remotes.get(killerId)?.kind === KIND.PIRATE;
+    this.deps.events.onDied(killerId, byPirate ? pirateName(killerName) : killerName, respawnSec);
   }
 
   kill(
@@ -431,8 +440,8 @@ export class OnlineGame implements GameSession, ServerHandler {
       killerTeam,
       victimTeam,
       weapon,
-      killerName,
-      victimName,
+      killerTeam === TEAM_PIRATE ? pirateName(killerName) : killerName,
+      victimTeam === TEAM_PIRATE ? pirateName(victimName) : victimName,
     );
   }
 
@@ -528,7 +537,12 @@ export class OnlineGame implements GameSession, ServerHandler {
     const old = this.remotes.get(e.id);
     if (old) this.removeRemote(e.id);
     const d = this.deps;
-    const def = e.kind === KIND.CARRIER ? CARRIER : (SHIPS[SHIP_IDS[e.shipId]!] as ShipDef);
+    const def =
+      e.kind === KIND.CARRIER
+        ? CARRIER
+        : e.kind === KIND.PIRATE
+          ? (PIRATE_TYPES[e.shipId]?.def ?? PIRATE_TYPES[0]!.def)
+          : (SHIPS[SHIP_IDS[e.shipId]!] as ShipDef);
     const combatant = createCombatant(e.id, def, e.team);
     combatant.state.x = e.x;
     combatant.state.y = e.y;
@@ -538,7 +552,7 @@ export class OnlineGame implements GameSession, ServerHandler {
       d.scene,
       d.bars,
       teamName(e.team),
-      e.kind === KIND.CARRIER ? undefined : e.name,
+      e.kind === KIND.CARRIER ? undefined : e.kind === KIND.PIRATE ? pirateName(e.name) : e.name,
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;

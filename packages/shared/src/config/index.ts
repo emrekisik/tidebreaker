@@ -11,3 +11,4 @@ export * from './combat.ts';
 export * from './hash.ts';
 export * from './economy.ts';
 export * from './rigs.ts';
+export * from './pirates.ts';

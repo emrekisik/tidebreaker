@@ -5,6 +5,7 @@ import {
   canTierUp,
   damageMul,
   killReward,
+  pirateReward,
   reloadMul,
   shieldMul,
   speedMul,
@@ -87,5 +88,19 @@ describe('zones', () => {
     expect(zoneMultiplier(100, 200, 375)).toBe(ECONOMY.pickups.zoneMul.inner);
     expect(zoneMultiplier(300, 200, 375)).toBe(ECONOMY.pickups.zoneMul.middle);
     expect(zoneMultiplier(500, 200, 375)).toBe(ECONOMY.pickups.zoneMul.outer);
+  });
+});
+
+describe('pirate rewards', () => {
+  it('pay in full up to the pirate tier and less for bigger ships, never below the floor', () => {
+    // A tier-1 pirate (skiff) worth 18: T1 gets all of it, T2 75%, T3 50%...
+    expect(pirateReward(18, 1, 0)).toBe(18);
+    expect(pirateReward(18, 1, 1)).toBe(Math.round(18 * 0.75));
+    expect(pirateReward(18, 1, 2)).toBe(9);
+    expect(pirateReward(18, 1, 4)).toBe(Math.round(18 * 0.1));
+    // A tier-3 corsair pays full to everyone up to T3.
+    expect(pirateReward(140, 3, 0)).toBe(140);
+    expect(pirateReward(140, 3, 2)).toBe(140);
+    expect(pirateReward(140, 3, 3)).toBeLessThan(140);
   });
 });

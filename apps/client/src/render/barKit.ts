@@ -1,6 +1,6 @@
 import { CanvasTexture, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from 'three';
 
-type Team = 'blue' | 'red';
+type Team = 'blue' | 'red' | 'pirate';
 
 function bar(color: number, opacity = 1): MeshBasicMaterial {
   return new MeshBasicMaterial({
@@ -14,7 +14,7 @@ function bar(color: number, opacity = 1): MeshBasicMaterial {
 
 const TAG_WIDTH = 9;
 const TAG_HEIGHT = 1.7;
-const TAG_COLOR: Record<Team, string> = { blue: '#9fd2ff', red: '#ffa3ad' };
+const TAG_COLOR: Record<Team, string> = { blue: '#9fd2ff', red: '#ffa3ad', pirate: '#ffc778' };
 
 /** Frees the texture and material of a name tag made by `BarKit.makeNameTag`. */
 export function disposeNameTag(tag: Mesh): void {
@@ -36,6 +36,7 @@ export class BarKit {
   readonly hullMat: Record<Team, MeshBasicMaterial> = {
     blue: bar(0x2aa5ff),
     red: bar(0xff2c46),
+    pirate: bar(0xffa83a),
   };
   /** Light cyan, clearly different from the blue team. */
   readonly shieldMat = bar(0x8ff6ff);

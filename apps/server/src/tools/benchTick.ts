@@ -24,7 +24,7 @@ for (let i = 0; i < MATCH.maxPlayers; i++) {
 await settle();
 
 const w = room.world;
-for (let s = 2; s < w.slotCount; s++) {
+for (let s = 2; s < w.playerEnd; s++) {
   // Two clusters in the middle of the map, shooting at each other across 40 units.
   const blue = w.slots[s]!.team === 0;
   const st = w.slots[s]!.state;
@@ -47,7 +47,7 @@ for (let i = -200; i < TICKS; i++) {
   if (i >= 0) times[i] = dt;
   maxProjectiles = Math.max(maxProjectiles, w.projectiles.activeCount);
   // Keep everyone alive and in place: this measures the steady state, not a massacre.
-  for (let s = 2; s < w.slotCount; s++) {
+  for (let s = 2; s < w.playerEnd; s++) {
     const st = w.slots[s]!.state;
     st.hull = w.slots[s]!.def.hull;
     st.shield = w.slots[s]!.def.shield;

@@ -65,7 +65,15 @@ export const EVENT = {
   POWER: 7,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
-export const KIND = { SHIP: 0, CRATE: 4, BARREL: 5, CHEST: 6, BANKNOTE: 7, CARRIER: 10 } as const;
+export const KIND = {
+  SHIP: 0,
+  CRATE: 4,
+  BARREL: 5,
+  CHEST: 6,
+  BANKNOTE: 7,
+  CARRIER: 10,
+  PIRATE: 1,
+} as const;
 /** Pickups get entity ids from here up; ships use 1 + slot. */
 export const PICKUP_ID_BASE = 1000;
 /** `otherId` of a BUMP event that hit an island or reef. */

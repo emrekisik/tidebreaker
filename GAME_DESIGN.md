@@ -25,7 +25,7 @@
 **Sütunlar**
 
 1. **Anında eğlence.** "Oyna" tuşundan ilk top atışına ≤ 10 sn. Hesap, kayıt, uzun öğretici yok.
-2. **Risk–ödül.** Değerli şeyler tehlikeli yerlerde durur (iç bölge, korsan kaleleri). Ölürsen her şeyi kaybedersin ama ganimet bırakırsın.
+2. **Risk–ödül.** Değerli şeyler tehlikeli yerlerde durur (iç bölge, korsan koyları). Ölürsen her şeyi kaybedersin ama ganimet bırakırsın.
 3. **Okunabilirlik.** Düz renkli low-poly siluetler. Gemi sınıfı bir bakışta anlaşılır, efektler bilgi taşır.
 4. **Ucuz ve ölçeklenebilir.** Bir VPS çekirdeği ≈ bir oda. Sıcak döngüde sıfır allocation, sıkı ikili protokol.
 5. **Tarayıcı öncelikli.** Masaüstü tarayıcı birincil platformdur (klavye + fare). Mobil/dokunmatik desteği hedeflenmez, kalite katmanı yoktur. Hedef: orta seviye masaüstünde ≥ 60 fps.
@@ -95,9 +95,9 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 ### 4.2 Bölgeler (risk–ödül)
 | Bölge | Merkeze uzaklık | Sandık/varil/hazine çarpanı | Korsan yoğunluğu |
 |---|---|---|---|
-| Dış (Güvenli Sular) | > 375 | ×1.0 | düşük |
-| Orta (Ticaret Yolları) | 200–375 | ×1.5 | orta |
-| İç (Korsan Suları) | < 200 | ×2.5 | yüksek, kaleler, boss |
+| Dış (Güvenli Sular) | > 375 | ×1.0 | düşük (kuzey ve güney kenarında 2 güçlü koy) |
+| Orta (Ticaret Yolları) | 200–375 | ×1.5 | orta (4 koy) |
+| İç (Petrol Kuyuları) | < 200 | ×2.5 | koy yok; kuyular (§4.6) ve boss (Faz 5c) |
 
 ### 4.6 Petrol kuyuları (ele geçirme noktaları)
 Haritanın ortasında, **iki uçak gemisinin tam ortasında** (aralarındaki doğrunun orta dikmesinde, yani **iki takıma da eşit uzaklıkta**) **3 deniz petrol kuyusu** vardır (`config/rigs.ts`: biri merkezde, ikisi 280 birim kuzey ve güneyinde). Her kuyunun etrafında 32 birim yarıçaplı bir **ele geçirme alanı** ve ortasında yarıçapı 6 birim, **katı** bir platform bulunur (mermiyi ve gemiyi engeller; haritada ilk 3 "resif" olarak tutulur). Harita üretimi kuyuların çevresini (alan + 28 birim) ada ve resiften boş bırakır.
@@ -113,7 +113,7 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz; liman ve hazine adası yalnı
 | Ada tipi | Adet | İşlev |
 |---|---|---|
 | **Liman (port)** | (iptal) | Oynanış işlevi yok (karar: yerine petrol kuyuları geldi, §4.6). Harita üretiminde hâlâ vardır, yalnızca görünüm adasıdır |
-| **Korsan kalesi (fort)** | 3 (orta/iç) | Sabit kale topları (PvE), merkez kulesi, ödül sandıkları. Yıkılınca 5 dk sonra yeniden kurulur |
+| **Korsan kalesi (fort)** | (iptal) | Kale mekaniği iptal edildi (karar). Kale adası yalnızca görünüm adasıdır; sandıklar (§7.1) yine kıyısında çıkar. Korsanlar kalede değil **koylarda** yaşar (§7.2) |
 | **Hazine adası** | (iptal) | Kazı mekaniği iptal edildi. Sandıklar (§7.1) yine hazine ve kale adalarının kıyısında çıkar |
 | **Düz ada** | 5 | Siper ve navigasyon engeli. Mermileri engeller |
 | **Fener** (opsiyonel, Faz 10) | 1 (merkez) | Ele geçirme noktası |
@@ -275,15 +275,16 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 ### 7.2 Korsanlar ve PvE hedefleri
 | Hedef | Tier (ödül ölçeği için) | Hull | Davranış | Ödül (para) |
 |---|---|---|---|---|
-| **Korsan Sandalı** (`skiff`) | 1 | 40 | Hızlı, zayıf, sürü halinde | 18 |
-| **Akıncı** (`raider`) | 2 | 130 | 1 taret + 2 yan top | 45 |
-| **Korsan Brigi** (`corsair`) | 3 | 380 | Güçlü, mesafe korur | 140 |
+| **Korsan Sandalı** (`skiff`) | 1 | 45 + 10 kalkan | Hızlı, zayıf, sürü halinde. Çok yaralanınca eve kaçar | 18 |
+| **Akıncı** (`raider`) | 2 | 140 + 30 kalkan | Orta boy, 2 makineli. Çok yaralanınca eve kaçar | 45 |
+| **Korsan Brigi** (`corsair`) | 3 | 380 + 90 kalkan | Güçlü (2 top + 2 roket), mesafe korur, kaçmaz | 140 |
 | **Kaptan Gemisi** (`flagship`, boss) | 5 | 1600 + 400 kalkan | Her ≈ 6 dk'da en çok 1 adet, tüm oyunculara duyurulur, haritada işaretli | 600 |
 | **Tüccar Gemisi** (`merchant`) | 3 | 700 | Silahsız, limanlar arası rota, saldırıya uğrayınca kaçar. Her ≈ 4 dk'da 1 adet | 350 + 3 sandık |
-| **Kale topu** (`fort_turret`) | 3 | 300 | Sabit, menzil 55, ada başına 3–4 adet | 80 |
-| **Kale çekirdeği** | — | 800 | Tüm toplar yıkılınca hasar alabilir | 300 + 3 hazine sandığı |
+| ~~Kale topu~~, ~~Kale çekirdeği~~ | | | Kaleler iptal edildi (karar) | |
 
-- Korsan sayısı hedefi: `clamp(10 + 0.5 × oyuncu, 10, 40)`; CPU kapısı açıksa.
+- **Koylar ve kadro (uygulandı, Faz 5b):** haritada sol–sağ simetrik **6 koy** vardır (`config/pirates.ts`): kuzey ve güney kenarın ortasında 2 koy (her birinde 1 brig + 2 sandal), diğer 4 koy ortada (her birinde 1 akıncı + 1 sandal), yani toplam **14 korsan** (2 brig, 4 akıncı, 8 sandal). Simetri sayesinde hiçbir koy bir takıma daha yakın değildir. Harita üretimi her koyun çevresini (40 birim) ada ve resiften boş bırakır. Batan korsan türüne göre **40 / 70 / 120 sn** sonra kendi koyunda yeniden doğar; yeni turda hepsi koyunda başlar.
+- **Takımlar:** korsanlar kendi takımındadır (`TEAM_PIRATE = 2`): iki takıma da düşmandır, birbirlerine ateş etmez, **uçak gemilerinin taretleri onlara da ateş eder**. Skor tablosunda yer almazlar, takım kill sayacına yazılmazlar; bir oyuncuyu batırırlarsa o oyuncu normal ölüm kuralına göre (para düşer, can gider) kaybeder.
+- **Ödül:** batıran(lar) hasar oranında paylaşır; oyuncunun sınıfı korsandan yüksekse ödül azalır: `reward × clamp(1 − 0.25 × (oyuncuTier − korsanTier), 0.1, 1)` (`pirateReward`, T1 = 1). Örnek: sandalı (18) T1 tam, T3 yarı alır.
 - Tüccar gemisi kasıtlı bir **PvP mıknatısı**: büyük ödül, oyuncuları aynı noktada çatıştırır.
 - Backlog olay fikirleri: **Kraken** (hull 3000, ödül hasar oranında paylaşılır), **Fırtına bölgesi**, **Korsan Armadası**.
 
@@ -292,8 +293,7 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 
 ### 7.4 Ada etkileşimleri
 - **Liman** ve **hazine adası kazısı** iptal edildi (karar). Yerine petrol kuyuları (§4.6).
-- **Kale:** topları yık, çekirdeği yık, ödülleri topla (Faz 5b).
-- **Kale:** topları yık, çekirdeği yık, ödülleri topla.
+- **Kale** mekaniği iptal edildi (karar).
 
 ---
 
@@ -303,7 +303,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 
 | Durum | Davranış | Geçiş |
 |---|---|---|
-| `PATROL` | Ev noktası (cove/kale) çevresinde rastgele hedefe seyir | Algılama yarıçapında (≈ 55–70 birim) oyuncu → `ENGAGE` |
+| `PATROL` | Koyun (cove) çevresinde (45 birim) rastgele noktalara seyir | Algılama yarıçapında (türe göre 65 / 75 / 85 birim) oyuncu → `ENGAGE` |
 | `ENGAGE` | Hedefe tercih edilen mesafeye (`0.7 × menzil`) yaklaş/orbit yap, yan borda yayına girmeye çalış, nişan al, ateş et | Hedef kayboldu veya uzaklaştı → `RETURN`; can < %25 (sadece `skiff`/`raider`) → `FLEE` |
 | `FLEE` | Hedeften uzaklaş, eve dön | Can toparlanınca/mesafe açılınca → `PATROL` |
 | `RETURN` | Ev noktasına dön (leash yarıçapı 150 birim) | Eve varınca → `PATROL` |
@@ -312,6 +312,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 - **Hedef seçimi:** algılama yarıçapındaki en yakın oyuncu (basit). Tek hedefe kilitlenme süresi ≥ 3 sn (titremeyi önler).
 - **Maliyet kontrolü:** AI düşünme 5 Hz (her 4. tick, `id % 4` ile ofsetli, yük dağılır). Hareket/ateş her tick.
 - Korsanlar **oyuncularla aynı** `stepShip` ve silah kodunu kullanır (girdi üreten AI katmanı).
+- **Uygulanan ek kurallar (Faz 5b):** hedef yalnızca **oyuncu gemisi** olur (uçak gemisine saldırmazlar); bir uçak gemisine 105 birimden yakın oyuncu hedef alınmaz ve korsan o bölgeden uzaklaşır (taretler onu parçalardı); spawn korumalı veya bağlantısı kopmuş (hayalet) oyuncular hedef olmaz. Hedef ≥ 3 sn kilitlenir. `ENGAGE`'de tercih edilen mesafe, en kısa menzilli silahın menzilinin %65–80'idir; hedefin etrafında yarım daire dolanır, çok yaklaşırsa açılır, uzaklaşırsa yaklaşır; atışlar hedefin hızıyla öndeyiz hesabı ve ±3,5° hata ile yapılır, adaya takılan atış yapılmaz. Sandal ve akıncı can %25'in altına düşünce `FLEE` (eve kaç), %60'a gelince çıkar. Koydan 150 birimden fazla uzaklaşan `RETURN` olur. Engel kaçınma: önde tek ışın (hız × 2,2 + 6 birim), kara varsa ±38°'lik adımlarla açık yön aranır. AI 5 Hz düşünür (`id` ile ofsetli), dümen/ateş her tick.
 - **Doldurma botları (fill bots, sahte oyuncu):** `FILL_BOTS=false` varsayılan. Açılırsa liderlik tablosunda ayrı işaretlenir ve kalıcı skor tutulmaz. Oyuncuları yanıltmamak için korsan botlar zaten "Korsan" adıyla ve farklı renkle gösterilir.
 
 ---
@@ -449,7 +450,7 @@ ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%,
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
-- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan, 2 tüccar, 3 kale topu, 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**.
+- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan (ENTER'da `shipId` = korsan türü, `team` = 2, `name` = tür adı: `skiff`/`raider`/`corsair`; istemci çevirir), 2 tüccar, 3 ~~kale topu~~ (iptal), 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**.
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
 - Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`. Toplanabilirlerin `id`'si `1000 + slot` (gemiler `1 + slot`); `ENTER`'daki `shipId` alanı toplanabilirde **görünüm sınıfı**dır (banknot yığını boyutu 0–3, diğerleri bölge 0–2). Bir toplanabilir toplanınca `PICKUP` olayı (id, toplayan, tür, değer, konum) ve `LEAVE` gelir.
@@ -728,9 +729,9 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **Görevler:** sandık/varil/hazine sandığı spawner'ı (bölge çarpanları), `gain()` (score+cash), 5 stat + maliyet/cap, T1–T5 linear sınıflar + "Sınıf Atla" akışı, `STATS` mesajı, upgrade paneli, liderlik tablosu, öldürme ödülü formülleri (assist, tierDiff, repeat), `tools/balance-sim`.
 **KK:** ekonomi birim testleri · `balance-sim` zaman hedeflerini (§3) ±%30 içinde verir · T1→T5 oynanabilir · liderlik tablosu doğru.
 
-### Faz 5: Korsanlar, kaleler, limanlar, tüccar
-**Karar (güncel):** limanlar ve hazine adası kazısı **iptal**; yerine **petrol kuyuları** (§4.6) geldi (Faz 5a: yapıldı). **Kalan görevler:** korsan FSM + engel kaçınma, korsan tipleri (skiff/raider/corsair), spawner + `FILL_BOTS=false`, kale topları + çekirdek (5b); tüccar gemisi + rota, flagship boss + duyuru (`NOTICE`) (5c); (P2) mayınlar ve şamandıralar.
-**KK:** korsanlar oyuncuya karşı makul davranır (kaçma/orbit/ateş) · portta silah çalışmaz, bağışıklık bütçesi doğru · AI maliyeti tick bütçesinde (ölç).
+### Faz 5: Korsanlar, petrol kuyuları, tüccar
+**Karar (güncel):** limanlar ve hazine adası kazısı **iptal**; yerine **petrol kuyuları** (§4.6) geldi (Faz 5a: yapıldı). **Kale mekaniği de iptal** (kale adaları görünüm adası). **Yapıldı (5b):** korsan FSM + engel kaçınma, 3 korsan türü, 6 koy ve sabit kadro, yeniden doğuş, hasar oranında ödül, uçak gemisi taretlerinin korsana ateşi, istemcide üçüncü boya (koyu gövde, kehribar halka ve isim plakası), mini haritada kehribar noktalar (`PROTOCOL_VERSION` = 8). **Kalan görevler:** tüccar gemisi + rota, flagship boss + duyuru (`NOTICE`) (5c); (P2) mayınlar ve şamandıralar.
+**KK:** korsanlar oyuncuya karşı makul davranır (kaçma/orbit/ateş) · AI maliyeti tick bütçesinde (ölç).
 
 ### Faz 6: Ölçeklenme (AOI, bant genişliği, GC, yük testi)
 **Görevler:** uzamsal grid + **AOI farkı** (`ENTER/UPDATE/LEAVE`), gönderim önceliği, struct-of-arrays mermi/toplanabilir, nesne havuzları, gönderim tamponu yeniden kullanımı, yük kapısı (`tickBusyEma`), `/status` ve `/metrics`, `tools/loadtest`, `node --inspect` ile profil, bütçe doğrulaması (§16).
@@ -840,15 +841,11 @@ export const PICKUPS = {
   chest:  { cash: 100, target: 8,   respawnSec: 90 },
 };
 
-// pirates.ts  (hull, speed, reward, detectRadius, tier)
+// pirates.ts  (gerçek dosya: PIRATE_TYPES, PIRATE, PIRATE_COVES, PIRATE_GARRISONS; aşağıdaki flagship/merchant Faz 5c)
 export const PIRATES = {
-  skiff:    { tier: 1, hull: 40,  speed: 15,  reward: 18,  detect: 55 },
-  raider:   { tier: 2, hull: 130, speed: 12.5, reward: 45, detect: 60 },
-  corsair:  { tier: 3, hull: 380, speed: 11,  reward: 140, detect: 70 },
   flagship: { tier: 5, hull: 1600, shield: 400, speed: 9.5, reward: 600, detect: 90, spawnEverySec: 360 },
   merchant: { tier: 3, hull: 700, speed: 7,   reward: 350, spawnEverySec: 240 },
 };
-export const PIRATE_TARGET = { base: 10, perPlayer: 0.5, min: 10, max: 40 };
 ```
 
 ## Ek B: Sözlük

@@ -1,4 +1,4 @@
-import { NO_WEAPON, TEAM_BLUE } from '@tidebreaker/shared';
+import { NO_WEAPON, TEAM_BLUE, TEAM_PIRATE } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 
 const MAX_ROWS = 6;
@@ -31,7 +31,10 @@ export class KillFeed {
   }
 
   private name(text: string, team: number): HTMLElement {
-    return this.text(text, team === TEAM_BLUE ? 'feed-blue' : 'feed-red');
+    return this.text(
+      text,
+      team === TEAM_BLUE ? 'feed-blue' : team === TEAM_PIRATE ? 'feed-pirate' : 'feed-red',
+    );
   }
 
   private text(text: string, cls: string): HTMLElement {

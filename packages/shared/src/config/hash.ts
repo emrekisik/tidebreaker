@@ -2,6 +2,7 @@ import { COLLISION, ISLAND_COLLISION } from './collision.ts';
 import { COMBAT } from './combat.ts';
 import { ECONOMY } from './economy.ts';
 import { CARRIER, MATCH } from './match.ts';
+import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS, PIRATE_TYPES } from './pirates.ts';
 import { RIG } from './rigs.ts';
 import { PROTOCOL_VERSION, SNAPSHOT_EVERY, TICK_RATE } from './net.ts';
 import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
@@ -34,6 +35,10 @@ export function configHash(): number {
     COMBAT,
     ECONOMY,
     RIG,
+    PIRATE,
+    PIRATE_COVES,
+    PIRATE_GARRISONS,
+    PIRATE_TYPES,
   ]);
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {

@@ -28,16 +28,24 @@ import { FX, convergedAngle } from '@tidebreaker/shared';
 import { MODEL_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
-export type Team = 'blue' | 'red';
+export type Team = 'blue' | 'red' | 'pirate';
 
 /**
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
 /** Default team paint colors (the Appearance panel can change them at runtime). */
-export const DEFAULT_TEAM_TINT: Record<Team, number> = { blue: 0x72a9e4, red: 0xff6b78 };
+export const DEFAULT_TEAM_TINT: Record<Team, number> = {
+  blue: 0x72a9e4,
+  red: 0xff6b78,
+  pirate: 0x74604f,
+};
 /** Glow ring and accent color of each team (sRGB). */
-export const DEFAULT_TEAM_RING: Record<Team, number> = { blue: 0x23b4ff, red: 0xff2a45 };
+export const DEFAULT_TEAM_RING: Record<Team, number> = {
+  blue: 0x23b4ff,
+  red: 0xff2a45,
+  pirate: 0xffa83a,
+};
 /** Outline thickness around the hull, in world units. */
 const OUTLINE_WORLD = 0.13;
 /** Brightness boost so the tinted paint does not come out darker than the original grey. */
@@ -55,6 +63,7 @@ export interface TeamStyle {
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
   blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
   red: { hull: 0xb5412f, deck: 0xe8d9c8, trim: 0x3a2a24, gun: 0x2b2b2b },
+  pirate: { hull: 0x3a3f46, deck: 0x8a7a63, trim: 0xffa83a, gun: 0x1e2226 },
 };
 
 const UP = new Vector3(0, 1, 0);
@@ -283,10 +292,15 @@ export class AssetProvider {
   private readonly glowMats: Record<Team, MeshBasicMaterial> = {
     blue: this.makeGlow(DEFAULT_TEAM_RING.blue),
     red: this.makeGlow(DEFAULT_TEAM_RING.red),
+    pirate: this.makeGlow(DEFAULT_TEAM_RING.pirate),
   };
   /** Live team paint settings (see TeamStyle). */
   readonly style: TeamStyle = {
-    tint: { blue: new Color(DEFAULT_TEAM_TINT.blue), red: new Color(DEFAULT_TEAM_TINT.red) },
+    tint: {
+      blue: new Color(DEFAULT_TEAM_TINT.blue),
+      red: new Color(DEFAULT_TEAM_TINT.red),
+      pirate: new Color(DEFAULT_TEAM_TINT.pirate),
+    },
     boost: { value: DEFAULT_TEAM_BOOST },
     glow: { value: DEFAULT_TEAM_GLOW },
   };
@@ -343,6 +357,10 @@ export class AssetProvider {
       red: {
         normal: teamMaterial(map, 'red', false, this.style),
         flash: teamMaterial(map, 'red', true, this.style),
+      },
+      pirate: {
+        normal: teamMaterial(map, 'pirate', false, this.style),
+        flash: teamMaterial(map, 'pirate', true, this.style),
       },
     };
   }

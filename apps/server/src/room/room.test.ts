@@ -7,6 +7,11 @@ import {
   NO_WEAPON,
   PICKUP_CAPACITY,
   PICKUP_ID_BASE,
+  PIRATE,
+  PIRATE_COUNT,
+  PIRATE_COVES,
+  PIRATE_GARRISONS,
+  PIRATE_TYPES,
   PROTOCOL_VERSION,
   RIG,
   RIGS,
@@ -18,6 +23,7 @@ import {
   STAT_COUNT,
   STEP_SEC,
   TEAM_BLUE,
+  TEAM_PIRATE,
   TEAM_RED,
   TICK_RATE,
   ECONOMY,
@@ -31,6 +37,7 @@ import {
   dqAxis,
   encodeTierUp,
   encodeUpgrade,
+  pirateReward,
   qAngle16,
   qAxis,
   stepShip,
@@ -43,6 +50,7 @@ import { NOTE_START } from '../sim/hot/pickups.ts';
 import { Room } from './room.ts';
 
 const SEED = 1337;
+const PIRATE_SKIFF_INDEX = 0;
 const idx = (id: keyof typeof SHIPS): number => SHIP_IDS.indexOf(id);
 
 /** A room driven by hand: every `tick()` advances the clock by exactly one step. */
@@ -168,8 +176,8 @@ describe('snapshots and prediction', () => {
     await tick(4);
     // A hears about both carriers and B.
     const ids = a.heard.enters
+      .filter((e) => e.id < PICKUP_ID_BASE && e.kind !== KIND.PIRATE)
       .map((e) => e.id)
-      .filter((id) => id < PICKUP_ID_BASE)
       .sort();
     expect(ids).toEqual([1, 2, b.heard.joined[0]!.entityId]);
     expect(a.heard.enters.find((e) => e.id === 1)!.kind).toBe(10);
@@ -676,19 +684,22 @@ describe('money and progress', () => {
     }
     expect(crate).toBeGreaterThanOrEqual(0);
     const value = p.value[crate]!;
+    // (The spawn point may happen to sit on another crate: count from what the ship holds now.)
+    const cash0 = room.world.cash[slot]!;
+    const score0 = room.world.score[slot]!;
     const s = room.world.slots[slot]!.state;
     s.x = p.x[crate]!;
     s.y = p.y[crate]!;
     await tick(2);
-    expect(room.world.cash[slot]).toBe(value);
-    expect(room.world.score[slot]).toBe(value);
+    expect(room.world.cash[slot]).toBe(cash0 + value);
+    expect(room.world.score[slot]).toBe(score0 + value);
     expect(p.active[crate]).toBe(0);
     expect(
       a.heard.pickups.some((e) => e.id === PICKUP_ID_BASE + crate && e.collector === slot + 1),
     ).toBe(true);
     const stats = a.heard.stats[a.heard.stats.length - 1]!;
-    expect(stats.cash).toBe(value);
-    expect(stats.score).toBe(value);
+    expect(stats.cash).toBe(cash0 + value);
+    expect(stats.score).toBe(score0 + value);
     // B is told it is gone, and that it came back after the respawn delay (somewhere else).
     expect(b.heard.leaves).toContain(PICKUP_ID_BASE + crate);
     const entersBefore = b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + crate).length;
@@ -836,6 +847,7 @@ describe('money and progress', () => {
     const slot = a.heard.joined[0]!.entityId - 1;
     const rc = MATCH.carriers[1]!;
     const before = room.world.score[slot]!;
+    const cashBefore = room.world.cash[slot]!;
     for (let i = 0; i < 80; i++) {
       place(room, a, rc.x - 45, rc.y, 0);
       const mine = room.world.slots[slot]!;
@@ -845,7 +857,7 @@ describe('money and progress', () => {
       await tick(1);
     }
     expect(room.world.score[slot]!).toBeGreaterThan(before);
-    expect(room.world.cash[slot]!).toBe(room.world.score[slot]! - before);
+    expect(room.world.cash[slot]! - cashBefore).toBe(room.world.score[slot]! - before);
   });
 
   it('a new round starts everyone over as T1', async () => {
@@ -1207,5 +1219,164 @@ describe('oil rigs', () => {
     await tick(2);
     expect(a.heard.rigs.length).toBeGreaterThan(0);
     expect(a.heard.rigs[0]).toHaveLength(RIG.count);
+  });
+});
+
+describe('pirates', () => {
+  /** Slot of pirate `p` and the cove it lives at. */
+  const slotOf = (room: Room, p: number): number => room.world.playerEnd + p;
+  const coveOf = (p: number): { x: number; y: number } => {
+    let n = 0;
+    for (let c = 0; c < PIRATE_GARRISONS.length; c++) {
+      n += PIRATE_GARRISONS[c]!.length;
+      if (p < n) return PIRATE_COVES[c]!;
+    }
+    throw new Error('no such pirate');
+  };
+  /** The first pirate of this type. */
+  const firstOf = (room: Room, typeIdx: number): number => {
+    for (let p = 0; p < PIRATE_COUNT; p++) if (room.world.pirates.type[p] === typeIdx) return p;
+    throw new Error('no such type');
+  };
+
+  it('are in every snapshot from the start: kind PIRATE, their own team, named by type', async () => {
+    const { join, tick } = setup();
+    const a = await join('A');
+    await tick(4);
+    const seen = a.heard.enters.filter((e) => e.kind === KIND.PIRATE);
+    expect(seen).toHaveLength(PIRATE_COUNT);
+    for (const e of seen) {
+      expect(e.team).toBe(TEAM_PIRATE);
+      expect(PIRATE_TYPES[e.shipId]!.id).toBe(e.name);
+    }
+    // They are not on the scoreboard.
+    expect(a.heard.scores.at(-1)?.some((r) => r.team === TEAM_PIRATE) ?? false).toBe(false);
+  });
+
+  it('wait at their cove while nobody is near, and never end up in land', async () => {
+    const { room, join, tick } = setup();
+    await join('A');
+    await tick(TICK_RATE * 30);
+    const out = new Float32Array(3);
+    for (let p = 0; p < PIRATE_COUNT; p++) {
+      const st = room.world.slots[slotOf(room, p)]!.state;
+      const cove = coveOf(p);
+      expect(st.alive).toBe(true);
+      expect(Math.hypot(st.x - cove.x, st.y - cove.y)).toBeLessThan(PIRATE.patrolRadius + 25);
+      expect(circleVsWorld(room.world.land, st.x, st.y, 1, out)).toBe(false);
+    }
+  });
+
+  it('attack a player who comes near their cove, and keep out of land while chasing', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('A', 'heavy_frigate');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const me = w.slots[slot]!;
+    const cove = PIRATE_COVES[2]!;
+    const start = me.state.hull + me.state.shield;
+    const out = new Float32Array(3);
+    for (let i = 0; i < TICK_RATE * 20; i++) {
+      // The player stays at the edge of the cove, a bit outside the pirates' guns at first.
+      place(room, a, cove.x + 35, cove.y + 10, Math.PI);
+      me.state.hull = me.def.hull;
+      me.state.shield = me.def.shield;
+      await tick(1);
+      for (let p = 0; p < PIRATE_COUNT; p++) {
+        const st = w.slots[slotOf(room, p)]!.state;
+        if (st.alive) expect(circleVsWorld(w.land, st.x, st.y, 1, out)).toBe(false);
+      }
+    }
+    // Their shots arrived: a pirate hit this ship at least once (the player's health is topped up
+    // every tick, so look at what the projectiles did instead).
+    expect(a.heard.hits.some((h) => h.target === slot + 1 && h.attacker > w.playerEnd)).toBe(true);
+    expect(start).toBeGreaterThan(0);
+  });
+
+  it("leave a player alone who is under a carrier's guns", async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('A', 'heavy_frigate');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const home = MATCH.carriers[0]!;
+    const ps = slotOf(room, firstOf(room, 1));
+    const rs = w.slots[ps]!.state;
+    // A raider sits 15 units from the player, who is inside the carrier's safe zone: it must not
+    // shoot (the carrier's guns would sink it), even though the carrier cannot reach it yet.
+    for (let i = 0; i < TICK_RATE * 6; i++) {
+      place(room, a, home.x + 70, home.y + 20, 0);
+      rs.x = home.x + 85;
+      rs.y = home.y + 20;
+      rs.speed = 0;
+      await tick(1);
+    }
+    expect(a.heard.hits.some((h) => h.attacker === ps + 1)).toBe(false);
+    expect(a.heard.spawns.some((sp) => sp.owner === ps + 1)).toBe(false);
+    expect(slot).toBeGreaterThanOrEqual(0);
+  });
+
+  it('pay whoever sank them by damage, scaled to the player class, and come back later', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A'); // T1
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const p = firstOf(room, 0); // a skiff
+    const ps = slotOf(room, p);
+    const st = w.slots[ps]!.state;
+    const cash0 = w.cash[slot]!;
+    const gen0 = w.spawnGen[ps]!;
+    // A big shot, owned by the player, lands right on the pirate.
+    w.spawn(st.x - 4, st.y, 0, 60, 30, 0.15, 500, slot + 1, 0);
+    await tick(2);
+    expect(st.alive).toBe(false);
+    const type = PIRATE_TYPES[PIRATE_SKIFF_INDEX]!;
+    expect(w.cash[slot]! - cash0).toBe(pirateReward(type.reward, type.tier, 0));
+    expect(a.heard.kills.some((k) => k.victimId === ps + 1 && k.killerId === slot + 1)).toBe(true);
+    expect(a.heard.leaves).toContain(ps + 1);
+    // Sinking it does not cost the player a life or give a team kill.
+    expect(w.lives[slot]).toBe(ECONOMY.death.lives);
+    expect(w.teamKills[0]! + w.teamKills[1]!).toBe(0);
+    // It is back at its cove after its respawn time, as a new ship.
+    await tick(Math.ceil((type.respawnSec + 2) * TICK_RATE));
+    expect(st.alive).toBe(true);
+    expect(w.spawnGen[ps]).not.toBe(gen0);
+    const cove = coveOf(p);
+    expect(Math.hypot(st.x - cove.x, st.y - cove.y)).toBeLessThan(PIRATE.coveRadius + 20);
+  });
+
+  it('shoot players dead too, and that costs a life like any other kill', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const ps = slotOf(room, firstOf(room, 0));
+    place(room, a, 300, 700, 0);
+    // A pirate shot with enough damage sinks the T1 ship at once.
+    w.spawn(w.slots[slot]!.state.x - 4, w.slots[slot]!.state.y, 0, 60, 30, 0.15, 900, ps + 1, 0);
+    await tick(2);
+    expect(w.slots[slot]!.state.alive).toBe(false);
+    expect(w.lives[slot]).toBe(ECONOMY.death.lives - 1);
+    expect(a.heard.youDied.at(-1)?.killerId).toBe(ps + 1);
+    expect(w.teamKills[0]! + w.teamKills[1]!).toBe(0);
+  });
+
+  it('are shot at by the carriers', async () => {
+    const { room, join, tick } = setup();
+    await join('A');
+    await tick(2);
+    const w = room.world;
+    const p = firstOf(room, 1); // a raider
+    const ps = slotOf(room, p);
+    const st = w.slots[ps]!.state;
+    const home = MATCH.carriers[0]!;
+    st.x = home.x + 35;
+    st.y = home.y + 15;
+    const full = st.hull + st.shield;
+    await tick(TICK_RATE);
+    expect(!st.alive || st.hull + st.shield < full).toBe(true);
   });
 });
