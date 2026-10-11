@@ -1,4 +1,5 @@
 import { MATCH } from '../config/match.ts';
+import { RIG, RIGS } from '../config/rigs.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { Mulberry32 } from '../math/rng.ts';
 import { ISLAND_TYPES } from './types.ts';
@@ -86,6 +87,14 @@ export function generateMap(seed: number): WorldMap {
         for (const b of MATCH.carriers) {
           if (Math.hypot(cx - b.x, cy - b.y) < MAP.baseClear + shape.bound) ok = false;
         }
+        for (const rig of RIGS) {
+          if (
+            Math.hypot(cx - rig.x, cy - rig.y) <
+            RIG.captureRadius + RIG.clearance + shape.bound
+          ) {
+            ok = false;
+          }
+        }
         for (const o of islands) {
           if (Math.hypot(cx - o.x, cy - o.y) < shape.bound + o.r + gap) {
             ok = false;
@@ -133,7 +142,12 @@ export function generateMap(seed: number): WorldMap {
 
   // Reef groups in open water.
   const R = MAP.reefs;
-  const reefs: { x: number; y: number; r: number }[] = [];
+  // The rigs' platforms come first: they are solid, like reefs, and the client draws them as rigs.
+  const reefs: { x: number; y: number; r: number }[] = RIGS.map((rig) => ({
+    x: quant(rig.x),
+    y: quant(rig.y),
+    r: RIG.platformRadius,
+  }));
   const centers: { x: number; y: number }[] = [];
   for (let g = 0; g < R.groups; g++) {
     for (let attempt = 0; attempt < MAP.attempts; attempt++) {
@@ -143,6 +157,10 @@ export function generateMap(seed: number): WorldMap {
       let ok = true;
       for (const b of MATCH.carriers) {
         if (Math.hypot(x - b.x, y - b.y) < MAP.baseClear + R.spread * 1.5) ok = false;
+      }
+      for (const rig of RIGS) {
+        if (Math.hypot(x - rig.x, y - rig.y) < RIG.captureRadius + RIG.clearance + R.spread)
+          ok = false;
       }
       for (const o of islands) {
         if (Math.hypot(x - o.x, y - o.y) < o.r + R.islandGap) ok = false;

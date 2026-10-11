@@ -44,9 +44,10 @@ function overlaps(m: WorldMap, s: ReturnType<typeof createShipState>): boolean {
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
   for (const circle of def.hitCircles) {
-    // Allow a hair of overlap: the push-out leaves a tiny float residue.
+    // Allow a hair of overlap: the push-out leaves a tiny float residue, and a ship caught
+    // diagonally between two close reefs (a gap narrower than its length) stays pinched by up to ~0.15.
     if (
-      circleVsWorld(m, s.x + c * circle.offset, s.y + sn * circle.offset, circle.radius - 0.02, out)
+      circleVsWorld(m, s.x + c * circle.offset, s.y + sn * circle.offset, circle.radius - 0.3, out)
     ) {
       return true;
     }

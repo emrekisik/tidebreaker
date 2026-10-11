@@ -21,6 +21,7 @@ import {
   encodePlay,
   encodePong,
   encodeReject,
+  encodeRigs,
   encodeStats,
   encodeTierUp,
   encodeUpgrade,
@@ -55,6 +56,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     youDied: (...a) => log.push(`youDied ${a.join(',')}`),
     stats: (m) => log.push(`stats ${JSON.stringify({ ...m, levels: Array.from(m.levels) })}`),
     pickup: (...a) => log.push(`pickup ${a.join(',')}`),
+    rigs: (rows) => log.push(`rigs ${JSON.stringify(rows)}`),
     power: (...a) => log.push(`power ${a.join(',')}`),
     kill: (...a) => log.push(`kill ${a.join(',')}`),
     scores: (rows) => log.push(`scores ${JSON.stringify(rows)}`),
@@ -256,6 +258,8 @@ describe('server messages', () => {
       lives: 2,
     });
     send();
+    encodeRigs(w, [1, -0.5, 0], [0, 1, 255]);
+    send();
     encodePong(w, 10, 20);
     send();
     encodeReject(w, 2);
@@ -269,6 +273,11 @@ describe('server messages', () => {
       'kill 1,4,1,0,255,Carrier,Veli',
       'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
       'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2}',
+      `rigs ${JSON.stringify([
+        { meter: 1, owner: 0 },
+        { meter: -63 / 127, owner: 1 },
+        { meter: 0, owner: 255 },
+      ])}`,
       'pong 10,20',
       'reject 2',
     ]);

@@ -41,6 +41,8 @@ import { MODEL_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
+import { RigView } from './render/rigs.ts';
+import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
 import { ProgressHud } from './ui/progressHud.ts';
@@ -97,6 +99,8 @@ const progressHud = new ProgressHud(
   (stat) => online?.net.upgrade(stat),
   () => online?.net.tierUp(),
 );
+const rigView = new RigView(stage.scene);
+const rigHud = new RigHud();
 const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement);
 const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement);
 const stormEl = document.getElementById('storm') as HTMLElement;
@@ -196,6 +200,10 @@ const events: OnlineEvents = {
   onStats(m) {
     progressHud.update(m);
   },
+  onRigs(rows) {
+    rigView.set(rows);
+    rigHud.update(rows);
+  },
   onPickup(kind, value, x, y) {
     damageNumbers.showGain(stage.camera, x, y, value);
   },
@@ -288,6 +296,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
   pickerEl.classList.add('hidden');
   matchHud.show(true);
   progressHud.show(true);
+  rigHud.show(true);
   menu.hide();
   document.body.classList.remove('in-menu');
 }
@@ -373,7 +382,7 @@ function update(nowMs: number): void {
     others.push(e.combatant);
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
-  minimap?.update(ps, others, stage.camera);
+  minimap?.update(ps, others, stage.camera, online?.rigState ?? null);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;

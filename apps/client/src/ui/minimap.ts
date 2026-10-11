@@ -1,7 +1,15 @@
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { ISLAND_TYPES, MAP, TEAM_BLUE, WORLD_SIZE } from '@tidebreaker/shared';
-import type { Combatant, WorldMap } from '@tidebreaker/shared';
+import {
+  ISLAND_TYPES,
+  MAP,
+  RIG,
+  RIGS,
+  RIG_NO_OWNER,
+  TEAM_BLUE,
+  WORLD_SIZE,
+} from '@tidebreaker/shared';
+import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
@@ -11,9 +19,9 @@ const BIG = 600;
 
 /** Marker color of each island type (also used by the legend). */
 const MARK: Record<string, { color: string; label: MessageKey }> = {
-  port: { color: '#4cc9f0', label: 'map.port' },
+  port: { color: '', label: 'map.port' },
   fort: { color: '#ff5a5f', label: 'map.fort' },
-  treasure: { color: '#ffd166', label: 'map.treasure' },
+  treasure: { color: '', label: 'map.treasure' },
   flat: { color: '', label: 'map.flat' },
 };
 
@@ -123,7 +131,7 @@ export class Minimap {
       g.fill();
     }
     g.fillStyle = '#7b8189';
-    for (let i = 0; i < m.reefCount; i++) {
+    for (let i = RIG.count; i < m.reefCount; i++) {
       g.beginPath();
       g.arc(m.reefX[i]! * s, m.reefY[i]! * s, Math.max(1.5, m.reefR[i]! * s), 0, Math.PI * 2);
       g.fill();
@@ -189,17 +197,64 @@ export class Minimap {
         g.fillText(t(info.label), px * 0.04 + 16, ly);
         ly += px * 0.045;
       }
+      g.fillStyle = '#1b2026';
+      g.fillRect(px * 0.04, ly - 5, 10, 10);
+      g.strokeStyle = '#fff';
+      g.strokeRect(px * 0.04, ly - 5, 10, 10);
+      g.fillStyle = '#fff';
+      g.fillText(t('map.rig'), px * 0.04 + 16, ly);
     }
     return c;
   }
 
   /** Redraws the dynamic layer: ships and the camera's view area. */
-  update(player: MapShip, others: readonly Combatant[], camera: PerspectiveCamera): void {
+  update(
+    player: MapShip,
+    others: readonly Combatant[],
+    camera: PerspectiveCamera,
+    rigs: readonly RigState[] | null = null,
+  ): void {
     const px = this.canvas.width;
     const g = this.ctx;
     const s = px / WORLD_SIZE;
     g.clearRect(0, 0, px, px);
     if (this.base) g.drawImage(this.base, 0, 0);
+
+    // Oil rigs: the capture circle in the owner's color, the gauge around it, and a derrick mark.
+    for (let i = 0; i < RIGS.length; i++) {
+      const rig = RIGS[i]!;
+      const st = rigs?.[i];
+      const cx = rig.x * s;
+      const cy = rig.y * s;
+      const rr = RIG.captureRadius * s;
+      const owner = st?.owner ?? RIG_NO_OWNER;
+      g.fillStyle =
+        owner === RIG_NO_OWNER
+          ? 'rgba(255,255,255,0.12)'
+          : owner === TEAM_BLUE
+            ? 'rgba(74,168,255,0.35)'
+            : 'rgba(255,77,90,0.35)';
+      g.beginPath();
+      g.arc(cx, cy, rr, 0, Math.PI * 2);
+      g.fill();
+      g.lineWidth = Math.max(2, px * 0.007);
+      g.strokeStyle = 'rgba(255,255,255,0.45)';
+      g.beginPath();
+      g.arc(cx, cy, rr, 0, Math.PI * 2);
+      g.stroke();
+      if (st && Math.abs(st.meter) > 0.005) {
+        g.strokeStyle = st.meter > 0 ? '#4aa8ff' : '#ff4d5a';
+        g.beginPath();
+        g.arc(cx, cy, rr, -Math.PI / 2, -Math.PI / 2 + Math.abs(st.meter) * Math.PI * 2);
+        g.stroke();
+      }
+      g.fillStyle = '#1b2026';
+      g.strokeStyle = '#fff';
+      g.lineWidth = 1;
+      const h = Math.max(2.5, px * 0.012);
+      g.fillRect(cx - h, cy - h, h * 2, h * 2);
+      g.strokeRect(cx - h, cy - h, h * 2, h * 2);
+    }
 
     // What the camera sees: the four screen corners projected onto the water.
     let ok = true;

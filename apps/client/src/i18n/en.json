@@ -43,6 +43,8 @@
   "stat.shield": "Shield",
   "stat.regen": "Repair",
   "stat.damage": "Damage",
+  "rig.name": "Rig",
+  "map.rig": "Oil rig",
   "net.lost": "Connection lost. Reload the page.",
   "ship.coast_guard_boat": "T1 Coast guard boat",
   "ship.gunboat": "T2 Gunboat",

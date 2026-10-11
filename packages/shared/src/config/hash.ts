@@ -2,6 +2,7 @@ import { COLLISION, ISLAND_COLLISION } from './collision.ts';
 import { COMBAT } from './combat.ts';
 import { ECONOMY } from './economy.ts';
 import { CARRIER, MATCH } from './match.ts';
+import { RIG } from './rigs.ts';
 import { PROTOCOL_VERSION, SNAPSHOT_EVERY, TICK_RATE } from './net.ts';
 import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
 import { SALVO_GAP_SEC, WEAPONS } from './weapons.ts';
@@ -32,6 +33,7 @@ export function configHash(): number {
     MATCH,
     COMBAT,
     ECONOMY,
+    RIG,
   ]);
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {

@@ -7,6 +7,7 @@ import {
   PICKUP_ID_BASE,
   PROTOCOL_VERSION,
   REJECT_REASON,
+  RIG,
   SHIP_IDS,
   SNAPSHOT_EVERY,
   STAT,
@@ -26,6 +27,7 @@ import {
   encodeMatch,
   encodePong,
   encodeReject,
+  encodeRigs,
   encodeStats,
   encodeWelcome,
   encodeYouDied,
@@ -167,6 +169,9 @@ export class Room {
   tickBusyEma = 0;
   private ticksSinceMatch = 0;
   private lastScoresTick = -TICK_RATE;
+  /** Last oil rig state sent: gauge byte and owner for each rig. */
+  private readonly lastRigs = new Int16Array(RIG.count * 2).fill(-999);
+  private lastRigsTick = 0;
 
   constructor(options: RoomOptions) {
     this.transport = options.transport;
@@ -302,6 +307,7 @@ export class Room {
       if (c) this.sendJoined(c);
     }
     this.sendStats();
+    this.broadcastRigs(false);
     this.ticksSinceMatch++;
     if (w.matchChanged || this.ticksSinceMatch >= TICK_RATE) this.broadcastMatch();
   }
@@ -382,6 +388,29 @@ export class Room {
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
     }
+  }
+
+  /** Oil rig gauges: sent when something changed (at most twice a second), or to a newcomer. */
+  private broadcastRigs(force: boolean, only?: Client): void {
+    const w = this.world;
+    let changed = force;
+    for (let i = 0; i < RIG.count; i++) {
+      const m = Math.round(w.rigMeter[i]! * 127);
+      const o = w.rigOwner[i]!;
+      if (this.lastRigs[i * 2] !== m || this.lastRigs[i * 2 + 1] !== o) changed = true;
+    }
+    if (!changed) return;
+    if (!force && w.tick - this.lastRigsTick < TICK_RATE / 2) return;
+    this.lastRigsTick = w.tick;
+    for (let i = 0; i < RIG.count; i++) {
+      this.lastRigs[i * 2] = Math.round(w.rigMeter[i]! * 127);
+      this.lastRigs[i * 2 + 1] = w.rigOwner[i]!;
+    }
+    this.small.reset();
+    encodeRigs(this.small, w.rigMeter, w.rigOwner);
+    const bytes = this.small.toBytes();
+    if (only) this.send(only, bytes);
+    else for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
   }
 
   private broadcastMatch(): void {
@@ -644,6 +673,7 @@ export class Room {
     w.respawned[slot] = 0;
     this.sendJoined(c);
     this.broadcastMatch();
+    this.broadcastRigs(true, c);
   }
 
   private onInput(c: Client): void {

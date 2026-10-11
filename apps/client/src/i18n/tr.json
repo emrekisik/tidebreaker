@@ -43,6 +43,8 @@
   "stat.shield": "Kalkan",
   "stat.regen": "Tamir",
   "stat.damage": "Hasar",
+  "rig.name": "Kuyu",
+  "map.rig": "Petrol kuyusu",
   "net.lost": "Bağlantı koptu. Sayfayı yenile.",
   "ship.coast_guard_boat": "T1 Sahil güvenlik botu",
   "ship.gunboat": "T2 Gambot",

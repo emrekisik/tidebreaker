@@ -8,6 +8,9 @@ import {
   PICKUP_CAPACITY,
   PICKUP_ID_BASE,
   PROTOCOL_VERSION,
+  RIG,
+  RIGS,
+  RIG_NO_OWNER,
   REJECT_REASON,
   SHIPS,
   SHIP_IDS,
@@ -235,13 +238,13 @@ describe('combat', () => {
     const b = await join('Target', 'coast_guard_boat');
     await tick(1);
     // Blue shooter at x=300, red target 40 units east. Teams differ (blue vs red).
-    place(room, a, 530, 550, 0);
-    place(room, b, 570, 550, 0);
+    place(room, a, 530, 480, 0);
+    place(room, b, 570, 480, 0);
     const slotB = b.heard.joined[0]!.entityId - 1;
     const hull0 = room.world.slots[slotB]!.state.hull;
     for (let i = 0; i < 120 && a.heard.sunk.length === 0; i++) {
       // Keep the target where it is (a steady aim is all this test needs).
-      place(room, b, 570, 550, 0);
+      place(room, b, 570, 480, 0);
       room.world.protectLeft[a.heard.joined[0]!.entityId - 1] = 0;
       a.input(0, 0, 0, 40, true);
       await tick(1);
@@ -266,12 +269,12 @@ describe('combat', () => {
     await join('Mid'); // red
     const c = await join('C', 'coast_guard_boat'); // blue
     await tick(1);
-    place(room, a, 530, 550, 0);
-    place(room, c, 570, 550, 0);
+    place(room, a, 530, 480, 0);
+    place(room, c, 570, 480, 0);
     const slotC = c.heard.joined[0]!.entityId - 1;
     const hull0 = room.world.slots[slotC]!.state.hull;
     for (let i = 0; i < 80; i++) {
-      place(room, c, 570, 550, 0);
+      place(room, c, 570, 480, 0);
       a.input(0, 0, 0, 40, true);
       await tick(1);
     }
@@ -285,12 +288,12 @@ describe('combat', () => {
     const a = await join('A', 'corvette');
     const b = await join('B', 'coast_guard_boat');
     await tick(1);
-    place(room, a, 530, 550, 0);
-    place(room, b, 570, 550, 0);
+    place(room, a, 530, 480, 0);
+    place(room, b, 570, 480, 0);
     const slotB = b.heard.joined[0]!.entityId - 1;
     for (let i = 0; i < 40; i++) {
       room.world.protectLeft[slotB] = 1; // always protected
-      place(room, b, 570, 550, 0);
+      place(room, b, 570, 480, 0);
       room.world.protectLeft[slotB] = 1;
       a.input(0, 0, 0, 40, true);
       await tick(1);
@@ -438,12 +441,12 @@ describe('kill feed and scoreboard', () => {
     const a = await join('Shooter', 'corvette');
     const b = await join('Target', 'coast_guard_boat');
     await tick(1);
-    place(room, a, 530, 550, 0);
-    place(room, b, 570, 550, 0);
+    place(room, a, 530, 480, 0);
+    place(room, b, 570, 480, 0);
     const aId = a.heard.joined[0]!.entityId;
     const bId = b.heard.joined[0]!.entityId;
     for (let i = 0; i < 160 && a.heard.kills.length === 0; i++) {
-      place(room, b, 570, 550, 0);
+      place(room, b, 570, 480, 0);
       room.world.protectLeft[aId - 1] = 0;
       a.input(0, 0, 0, 40, true);
       await tick(1);
@@ -474,8 +477,8 @@ describe('kill feed and scoreboard', () => {
     await tick(1);
     const aId = a.heard.joined[0]!.entityId;
     const bId = b.heard.joined[0]!.entityId;
-    place(room, a, 530, 550, 0);
-    place(room, b, 531, 550, 0);
+    place(room, a, 530, 480, 0);
+    place(room, b, 531, 480, 0);
     room.world.slots[bId - 1]!.state.hull = 1;
     room.world.slots[bId - 1]!.state.shield = 0;
     room.world.slots[aId - 1]!.state.speed = 10;
@@ -612,10 +615,10 @@ describe('combat-log protection', () => {
     b.conn.close();
     await settle();
     for (let i = 0; i < 200 && room.world.used[slotB] === 1; i++) {
-      place(room, a, 530, 550, 0);
+      place(room, a, 530, 480, 0);
       const sb = room.world.slots[slotB]!.state;
       sb.x = 570;
-      sb.y = 550;
+      sb.y = 480;
       room.world.protectLeft[slotB] = 0;
       a.input(0, 0, 0, 40, true);
       await tick(1);
@@ -782,8 +785,8 @@ describe('money and progress', () => {
     w.levels[bSlot * 5 + 0] = 7; // above the cap of T3 (5): must be clipped
     const scoreBefore = w.score[aSlot]!;
     for (let i = 0; i < 400 && w.deaths[bSlot] === 0; i++) {
-      place(room, a, 530, 550, 0);
-      place(room, b, 570, 550, 0);
+      place(room, a, 530, 480, 0);
+      place(room, b, 570, 480, 0);
       a.input(0, 0, 0, 40, true);
       await tick(1);
     }
@@ -871,8 +874,8 @@ describe('damage upgrade', () => {
       const aSlot = a.heard.joined[0]!.entityId - 1;
       room.world.levels[aSlot * STAT_COUNT + STAT.DAMAGE] = level;
       for (let i = 0; i < 100 && a.heard.hits.length === 0; i++) {
-        place(room, a, 530, 550, 0);
-        place(room, b, 570, 550, 0);
+        place(room, a, 530, 480, 0);
+        place(room, b, 570, 480, 0);
         a.input(0, 0, 0, 40, true);
         await tick(1);
       }
@@ -984,8 +987,8 @@ describe('upgrades belong to the class', () => {
     // Shoot one victim at a time until it sinks, then look at what is left of it.
     const sink = async (client: TestClient, slot: number, x: number): Promise<void> => {
       for (let i = 0; i < 300 && w.deaths[slot] === 0; i++) {
-        place(room, a, 530, 550, 0);
-        place(room, client, x, 550, 0);
+        place(room, a, 530, 480, 0);
+        place(room, client, x, 480, 0);
         const s = w.slots[slot]!.state;
         s.hull = Math.min(s.hull, 1);
         s.shield = 0;
@@ -1018,8 +1021,8 @@ describe('lives', () => {
     const sinkOnce = async (): Promise<void> => {
       const before = w.deaths[bSlot]!;
       for (let i = 0; i < 400 && w.deaths[bSlot] === before; i++) {
-        place(room, a, 530, 550, 0);
-        place(room, b, 570, 550, 0);
+        place(room, a, 530, 480, 0);
+        place(room, b, 570, 480, 0);
         const s = w.slots[bSlot]!.state;
         s.hull = Math.min(s.hull, 1);
         s.shield = 0;
@@ -1092,5 +1095,117 @@ describe('pickups are only where a ship can collect them', () => {
         }
       }
     }
+  });
+});
+
+describe('oil rigs', () => {
+  /** A rig's centre, and a spot inside its capture circle (clear of the platform). */
+  const rig = RIGS[1]!;
+  const inside = { x: rig.x + 16, y: rig.y };
+
+  const keep = (room: Room, c: TestClient, spot = inside): void =>
+    place(room, c, spot.x, spot.y, 0);
+
+  it('a lone ship moves the gauge at the documented speed; the owner is paid every few seconds', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const blue = await join('Blue'); // blue team
+    const red = await join('Red'); // red team, far away
+    const blue2 = await join('Blue2'); // second blue player, also far away
+    await tick(2);
+    const w = room.world;
+    const blueSlot = blue.heard.joined[0]!.entityId - 1;
+    const blue2Slot = blue2.heard.joined[0]!.entityId - 1;
+    const redSlot = red.heard.joined[0]!.entityId - 1;
+    // Half the capture time: half full, nobody owns it yet.
+    const half = Math.round((RIG.captureSecPerPower / 2) * TICK_RATE);
+    for (let i = 0; i < half; i++) {
+      keep(room, blue);
+      await tick(1);
+    }
+    expect(w.rigMeter[1]).toBeGreaterThan(0.45);
+    expect(w.rigMeter[1]).toBeLessThan(0.55);
+    expect(w.rigOwner[1]).toBe(RIG_NO_OWNER);
+    for (let i = 0; i < half + 10; i++) {
+      keep(room, blue);
+      await tick(1);
+    }
+    expect(w.rigMeter[1]).toBe(1);
+    expect(w.rigOwner[1]).toBe(TEAM_BLUE);
+    // Now it pays every blue player (not only the one standing there), nothing to red.
+    const before = [w.cash[blueSlot]!, w.cash[blue2Slot]!, w.cash[redSlot]!];
+    for (let i = 0; i < RIG.incomeEverySec * TICK_RATE * 4; i++) {
+      keep(room, blue);
+      await tick(1);
+    }
+    expect(w.cash[blueSlot]! - before[0]!).toBeGreaterThanOrEqual(3 * RIG.incomeCash);
+    expect(w.cash[blue2Slot]! - before[1]!).toBeGreaterThanOrEqual(3 * RIG.incomeCash);
+    expect(w.cash[redSlot]! - before[2]!).toBe(0);
+    // Everybody hears the gauge.
+    const last = blue2.heard.rigs[blue2.heard.rigs.length - 1]!;
+    expect(last).toHaveLength(RIG.count);
+    expect(last[1]).toEqual({ meter: 1, owner: TEAM_BLUE });
+  });
+
+  it('equal power is a standoff; more power wins, and the owner keeps it until the gauge is neutral', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const blue = await join('Blue', 'coast_guard_boat');
+    const red = await join('Red', 'coast_guard_boat');
+    await tick(2);
+    const w = room.world;
+    // Both inside: nothing moves.
+    for (let i = 0; i < 100; i++) {
+      keep(room, blue, { x: rig.x + 16, y: rig.y });
+      keep(room, red, { x: rig.x - 16, y: rig.y });
+      await tick(1);
+    }
+    expect(w.rigMeter[1]).toBe(0);
+    // Blue captures it alone.
+    for (let i = 0; i < (RIG.captureSecPerPower + 2) * TICK_RATE; i++) {
+      keep(room, blue);
+      place(room, red, 300, 300, 0);
+      await tick(1);
+    }
+    expect(w.rigOwner[1]).toBe(TEAM_BLUE);
+    // Red turns up with a stronger ship: the gauge goes back, the rig is lost at neutral, and with
+    // enough time it turns red.
+    const redSlot = red.heard.joined[0]!.entityId - 1;
+    w.tier[redSlot] = 4; // power 3
+    let lostAt = -1;
+    for (let i = 0; i < 40 * TICK_RATE; i++) {
+      place(room, blue, 300, 300, 0);
+      keep(room, red);
+      await tick(1);
+      if (lostAt < 0 && w.rigOwner[1] === RIG_NO_OWNER) lostAt = i;
+    }
+    expect(lostAt).toBeGreaterThan(0);
+    expect(w.rigOwner[1]).toBe(TEAM_RED);
+    expect(w.rigMeter[1]).toBe(-1);
+  });
+
+  it('an empty rig keeps its gauge, and a new round resets every rig', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const blue = await join('Blue');
+    await tick(2);
+    const w = room.world;
+    for (let i = 0; i < 5 * TICK_RATE; i++) {
+      keep(room, blue);
+      await tick(1);
+    }
+    const reached = w.rigMeter[1]!;
+    expect(reached).toBeGreaterThan(0.1);
+    place(room, blue, 300, 300, 0);
+    await tick(3 * TICK_RATE);
+    expect(w.rigMeter[1]).toBeCloseTo(reached, 5);
+    w.startRound();
+    expect(w.rigMeter[1]).toBe(0);
+    expect(w.rigOwner[1]).toBe(RIG_NO_OWNER);
+  });
+
+  it('a newcomer is told the state of the rigs at once', async () => {
+    const { join, tick } = setup();
+    const a = await join('A');
+    await tick(2);
+    expect(a.heard.rigs.length).toBeGreaterThan(0);
+    expect(a.heard.rigs[0]).toHaveLength(RIG.count);
   });
 });

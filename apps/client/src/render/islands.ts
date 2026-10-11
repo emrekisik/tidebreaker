@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
 } from 'three';
-import { ISLAND_TYPES, Mulberry32 } from '@tidebreaker/shared';
+import { ISLAND_TYPES, Mulberry32, RIG } from '@tidebreaker/shared';
 import type { WorldMap } from '@tidebreaker/shared';
 import { WAVE_MAX } from './waves.ts';
 
@@ -728,7 +728,8 @@ export class IslandView {
     const soup = new Soup();
     const pos: number[] = [];
     const col: number[] = [];
-    for (let i = 0; i < map.reefCount; i++) {
+    // (The first reefs are the oil rig platforms: they are drawn as rigs, not as rocks.)
+    for (let i = RIG.count; i < map.reefCount; i++) {
       addReef(soup, map, i);
       const r = map.reefR[i]!;
       addShore(pos, col, () => r * 0.95, map.reefX[i]!, map.reefY[i]!, i * 17 + 1);

@@ -99,14 +99,22 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 | Orta (Ticaret Yolları) | 200–375 | ×1.5 | orta |
 | İç (Korsan Suları) | < 200 | ×2.5 | yüksek, kaleler, boss |
 
+### 4.6 Petrol kuyuları (ele geçirme noktaları)
+Haritanın ortasında, **iki uçak gemisinin tam ortasında** (aralarındaki doğrunun orta dikmesinde, yani **iki takıma da eşit uzaklıkta**) **3 deniz petrol kuyusu** vardır (`config/rigs.ts`: biri merkezde, ikisi 280 birim kuzey ve güneyinde). Her kuyunun etrafında 32 birim yarıçaplı bir **ele geçirme alanı** ve ortasında yarıçapı 6 birim, **katı** bir platform bulunur (mermiyi ve gemiyi engeller; haritada ilk 3 "resif" olarak tutulur). Harita üretimi kuyuların çevresini (alan + 28 birim) ada ve resiften boş bırakır.
+- **Ele geçirme:** alanın içindeki canlı gemilerin **gücü** toplanır (gücü = `1 + sınıf × 0,5`: T1 = 1 … T5 = 3). Gücü yüksek olan takıma doğru **ibre** kayar (`+1` mavi, `−1` kırmızı). Güç eşitse ibre durur; alan boşsa ibre olduğu yerde kalır. Hız: 1 güç puanı ibreyi nötrden tama **30 sn**'de götürür (tam sağdan tam sola 60 sn); en çok 3 puanlık üstünlük hesaba katılır.
+- **Sahiplik:** ibre bir uçta **tam dolunca** o takım kuyuyu ele geçirir; ibre **nötre (0) dönene kadar** kuyu onundur (rakip önce ibreyi sıfıra getirmelidir).
+- **Gelir:** sahip olunan her kuyu için, **takımın her oyuncusuna** (alanda olsun olmasın) **3 saniyede 1 para** (ve skor) verilir (`RIG.incomeCash` / `incomeEverySec`). Yeni turda tüm kuyular nötrdür.
+- **Gösterim:** kuyular 3B dünyada platform + yerde ibreyi gösteren renkli halka olarak, üstte 3 küçük ibre göstergesi (sahibinin renginde çerçeve) ve mini haritada (çevre halkası + ibre yayı + simge) görünür. Sunucu `RIGS` mesajıyla (0x8E) ibre ve sahibi yalnızca değişince yollar.
+- **Botlar:** her takımın yarısı (ve tüm küçük botlar) kuyuları tutar; ele geçirilmemiş en yakın kuyuya gider ve çevresinde dolanır.
+
 ### 4.3 Adalar
-Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz) + 45 resif kümesi (≈ 90 kaya). Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 12–30; liman ≥ 18, kale ≥ 20, çünkü binalar sığmalı).
+Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz; liman ve hazine adası yalnızca görünüm) + 45 resif kümesi (≈ 90 kaya). Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 12–30; liman ≥ 18, kale ≥ 20, çünkü binalar sığmalı).
 
 | Ada tipi | Adet | İşlev |
 |---|---|---|
-| **Liman (port)** | 3 (dış/orta bölgede, ~120° aralıklı) | Güvenli bölge: silahlar kapalı, can/kalkan rejenerasyonu ×4. Hasar bağışıklığı bütçesi: ziyaret başına 12 sn, ayrıldıktan 30 sn sonra yenilenir. Bütçe bitince savunmasız ama silahlar yine kapalı, yani saklanıp kamp yapmak cazip değil |
+| **Liman (port)** | (iptal) | Oynanış işlevi yok (karar: yerine petrol kuyuları geldi, §4.6). Harita üretiminde hâlâ vardır, yalnızca görünüm adasıdır |
 | **Korsan kalesi (fort)** | 3 (orta/iç) | Sabit kale topları (PvE), merkez kulesi, ödül sandıkları. Yıkılınca 5 dk sonra yeniden kurulur |
-| **Hazine adası** | 3 (orta) | Sahil halkasında 4 sn durarak "kazı" yapılır, sandık çıkar (ada başına 120 sn bekleme) |
+| **Hazine adası** | (iptal) | Kazı mekaniği iptal edildi. Sandıklar (§7.1) yine hazine ve kale adalarının kıyısında çıkar |
 | **Düz ada** | 5 | Siper ve navigasyon engeli. Mermileri engeller |
 | **Fener** (opsiyonel, Faz 10) | 1 (merkez) | Ele geçirme noktası |
 
@@ -187,7 +195,7 @@ interface WeaponDef {
 - Hasar önce **kalkan**ı, kalkan 0 olunca **gövde (hull)** canını düşürür.
 - **Kalkan yenilenme:** son hasardan 4 sn sonra başlar, boş bir kalkan 6 sn'de dolar (`COMBAT` config'i; sınıf bazlı sabit, upgrade'siz). **Uçak gemisi** de yenilenir ama çok yavaş: 10 sn sonra başlar, boştan doluya 60 sn. Sürekli baskı turu kazandırır, kısa bir saldırı kalıcı hasar bırakmaz demek değildir.
 - **Gövde yenilenme (tamir):** her gemide **temel olarak vardır ama çok yavaştır**: son hasardan 6 sn sonra gövdenin saniyede %0,3'ü kadar onarılır (boştan doluya ≈ 5,5 dk; `COMBAT.hullRegenPctPerSec`). Oyuncu bunu **yükseltilebilir bir özellik** olarak güçlendirir: "health regen" stat'ı seviye başına saniyede %0,4 ekler (`hullRegenUpgradePctPerSec`, §6.2). Yani yükseltme sıfırdan bir yetenek açmaz, mevcut yavaş tamiri hızlandırır; böylece savaştan kaçıp toparlanmak ödüllendirilir ve yatırım bir tercih olur. Uçak gemisi gövdesini **hiç onarmaz** (yalnızca kalkanı yenilenir). Sunucuda `World.regenLevel[slot]` bu seviyeyi tutar (Faz 4'e kadar 0).
-- Limanda yenilenme ×4 (Faz 5).
+- (Limanda yenilenme iptal: liman yok.)
 - Can sıfırlanınca: batma animasyonu (≈ 2 sn), `SHIP_SUNK` olayı, kill feed ve skor tablosu güncellenir. Ganimet (kağıt para) saçılması ekonomiyle birlikte Faz 4'te tasarlanır.
 - **Vuruş testi:** mermi hareketi **swept segment–circle** testiyle yapılır (tünelleme yok). Gemi vuruş şekli: gövde boyunca daire zinciri.
 
@@ -283,8 +291,8 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 §6.4'teki formüller. Ayrıca batan geminin ganimeti herkes tarafından toplanabilir (intikam ve geri dönüş mekaniği).
 
 ### 7.4 Ada etkileşimleri
-- **Liman:** can/kalkan yenilenmesi, silah kapalı.
-- **Hazine adası kazısı:** sahil halkasında 4 sn hareketsiz kal, sandık çıkar.
+- **Liman** ve **hazine adası kazısı** iptal edildi (karar). Yerine petrol kuyuları (§4.6).
+- **Kale:** topları yık, çekirdeği yık, ödülleri topla (Faz 5b).
 - **Kale:** topları yık, çekirdeği yık, ödülleri topla.
 
 ---
@@ -457,6 +465,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
+| `RIGS` (S2C 0x8E, ayrı mesaj) | `u8 count`, her kuyu için `i8 ibre×127, u8 sahip (255 = yok)`; değişince (en çok 2 Hz) ve yeni girene |
 | `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
 | `BUMP` | `u16 shipId, u16 otherId (0xFFFF = ada/resif), x u16, y u16, u8 impact×8` (çarpışma efektleri ve sarsıntı) |
@@ -720,7 +729,7 @@ Faz 1 iki alt faza bölünür. Alt fazı bitirmeden diğerine geçilmez.
 **KK:** ekonomi birim testleri · `balance-sim` zaman hedeflerini (§3) ±%30 içinde verir · T1→T5 oynanabilir · liderlik tablosu doğru.
 
 ### Faz 5: Korsanlar, kaleler, limanlar, tüccar
-**Görevler:** korsan FSM + engel kaçınma, korsan tipleri (skiff/raider/corsair), spawner + `FILL_BOTS=false`, limanlar (güvenli bölge mantığı), kale topları + çekirdek, tüccar gemisi + rota, hazine adası kazısı, flagship boss + duyuru (`NOTICE`), (P2) mayınlar ve şamandıralar.
+**Karar (güncel):** limanlar ve hazine adası kazısı **iptal**; yerine **petrol kuyuları** (§4.6) geldi (Faz 5a: yapıldı). **Kalan görevler:** korsan FSM + engel kaçınma, korsan tipleri (skiff/raider/corsair), spawner + `FILL_BOTS=false`, kale topları + çekirdek (5b); tüccar gemisi + rota, flagship boss + duyuru (`NOTICE`) (5c); (P2) mayınlar ve şamandıralar.
 **KK:** korsanlar oyuncuya karşı makul davranır (kaçma/orbit/ateş) · portta silah çalışmaz, bağışıklık bütçesi doğru · AI maliyeti tick bütçesinde (ölç).
 
 ### Faz 6: Ölçeklenme (AOI, bant genişliği, GC, yük testi)

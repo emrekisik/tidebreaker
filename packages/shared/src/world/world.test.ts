@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MATCH } from '../config/match.ts';
+import { RIG, RIGS } from '../config/rigs.ts';
 import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { generateMap } from './generate.ts';
 import { mapHash } from './hash.ts';
@@ -115,7 +116,8 @@ describe('map generation', () => {
   it('keeps reefs out of islands and the spawn area', () => {
     for (let seed = 1; seed <= 100; seed++) {
       const m = generateMap(seed);
-      for (let k = 0; k < m.reefCount; k++) {
+      // (The first reefs are the oil rig platforms: they stand in the middle on purpose.)
+      for (let k = RIG.count; k < m.reefCount; k++) {
         const x = m.reefX[k]!;
         const y = m.reefY[k]!;
         expect(Math.hypot(x - WORLD_CENTER, y - WORLD_CENTER)).toBeGreaterThan(MAP.spawnClear);
@@ -175,7 +177,7 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 1074919811, 1337: 2790357553, 987654: 263690995 };
+const PINNED: Record<number, number> = { 1: 573964748, 1337: 517806352, 987654: 4001098701 };
 
 describe('team bases', () => {
   it('keeps islands and reefs away from both carriers', () => {
@@ -193,6 +195,48 @@ describe('team bases', () => {
           );
         }
       }
+    }
+  });
+});
+
+describe('oil rigs', () => {
+  it('stand the same distance from both carriers and inside the map', () => {
+    expect(RIGS).toHaveLength(RIG.count);
+    const [blue, red] = MATCH.carriers;
+    for (const rig of RIGS) {
+      expect(Math.hypot(rig.x - blue!.x, rig.y - blue!.y)).toBeCloseTo(
+        Math.hypot(rig.x - red!.x, rig.y - red!.y),
+        6,
+      );
+      expect(rig.x).toBeGreaterThan(MAP.boundary.width + RIG.captureRadius);
+      expect(rig.x).toBeLessThan(WORLD_SIZE - MAP.boundary.width - RIG.captureRadius);
+      expect(rig.y).toBeGreaterThan(MAP.boundary.width + RIG.captureRadius);
+      expect(rig.y).toBeLessThan(WORLD_SIZE - MAP.boundary.width - RIG.captureRadius);
+    }
+  });
+
+  it('have open water around the capture circle on every map, and a solid platform', () => {
+    const out = new Float32Array(3);
+    for (let seed = 1; seed <= 100; seed++) {
+      const m = generateMap(seed);
+      RIGS.forEach((rig, i) => {
+        // The platform is the i-th reef.
+        expect(m.reefX[i]).toBeCloseTo(rig.x, 1);
+        expect(m.reefY[i]).toBeCloseTo(rig.y, 1);
+        expect(m.reefR[i]).toBe(RIG.platformRadius);
+        // Nothing but the platform within the capture circle (a ship can sail all around it).
+        for (let k = 0; k < m.islandCount; k++) {
+          const d = Math.hypot(m.islandX[k]! - rig.x, m.islandY[k]! - rig.y);
+          expect(d).toBeGreaterThan(m.islandR[k]! + RIG.captureRadius);
+        }
+        for (let k = RIG.count; k < m.reefCount; k++) {
+          const d = Math.hypot(m.reefX[k]! - rig.x, m.reefY[k]! - rig.y);
+          expect(d).toBeGreaterThan(RIG.captureRadius);
+        }
+        // A ship (radius 5) can stand at the edge of the circle.
+        expect(circleVsWorld(m, rig.x + RIG.captureRadius - 4, rig.y, 5, out)).toBe(false);
+        expect(circleVsWorld(m, rig.x, rig.y + RIG.captureRadius - 4, 5, out)).toBe(false);
+      });
     }
   });
 });

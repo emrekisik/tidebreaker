@@ -33,6 +33,7 @@ export const S2C = {
   JOINED: 0x8a,
   STATS: 0x88,
   MATCH: 0x8b,
+  RIGS: 0x8e,
   KILL: 0x8c,
   SCORES: 0x8d,
 } as const;
@@ -251,6 +252,22 @@ export function encodeYouDied(
   w.u16(killerId);
   w.string(killerName, NAME_MAX_BYTES);
   w.u8(respawnSec);
+}
+
+/** State of one oil rig: gauge from -1 (red) to +1 (blue), owner team or RIG_NO_OWNER. */
+export interface RigState {
+  meter: number;
+  owner: number;
+}
+
+/** All rigs at once (a few bytes, sent when something changes). Gauge is i8 (value * 127). */
+export function encodeRigs(w: Writer, meters: ArrayLike<number>, owners: ArrayLike<number>): void {
+  w.u8(S2C.RIGS);
+  w.u8(meters.length);
+  for (let i = 0; i < meters.length; i++) {
+    w.i8(Math.max(-127, Math.min(127, Math.round(meters[i]! * 127))));
+    w.u8(owners[i]!);
+  }
 }
 
 /** Who sank whom (for the kill feed). Carriers are entities 1 and 2. */
@@ -642,6 +659,7 @@ export interface ServerHandler {
     victimName: string,
   ): void;
   stats(m: StatsMsg): void;
+  rigs(rows: RigState[]): void;
   /** The whole scoreboard (a new array each time; it is rare). */
   scores(rows: ScoreEntry[]): void;
   pong(clientTime: number, serverTime: number): void;
@@ -804,6 +822,15 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.lives = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
+      return true;
+    }
+    case S2C.RIGS: {
+      const count = r.u8();
+      if (!r.ok || r.remaining !== count * 2) return false;
+      const rows: RigState[] = [];
+      for (let i = 0; i < count; i++) rows.push({ meter: r.i8() / 127, owner: r.u8() });
+      if (!r.ok) return false;
+      h.rigs(rows);
       return true;
     }
     case S2C.PONG: {

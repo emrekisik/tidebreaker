@@ -14,6 +14,9 @@ import {
   NO_WEAPON,
   PICKUP_ID_BASE,
   ProjectileSet,
+  RIG,
+  RIGS,
+  RIG_NO_OWNER,
   SHIPS,
   SHIP_IDS,
   STAT,
@@ -21,6 +24,7 @@ import {
   STEP_SEC,
   TEAM_BLUE,
   TEAM_COUNT,
+  TEAM_RED,
   TIER_SHIPS,
   applyWorldBounds,
   canTierUp,
@@ -110,6 +114,10 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly statsDirty: Uint8Array;
   /** 1 = a ship changed class in place (tier-up): clients re-create it. */
   readonly pickups: Pickups;
+  /** Oil rigs: gauge from -1 (red) to +1 (blue) and the owning team (RIG_NO_OWNER = nobody). */
+  readonly rigMeter = new Float32Array(RIG.count);
+  readonly rigOwner = new Uint8Array(RIG.count).fill(RIG_NO_OWNER);
+  private rigIncomeLeft = RIG.incomeEverySec;
   /** Damage each player recently did to each victim, and how long ago (assist rewards). */
   private readonly assistDmg: Float32Array;
   private readonly assistAge: Float32Array;
@@ -440,6 +448,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     this.pairKills.fill(0);
     this.pickups.reset(this.combatants);
+    this.rigMeter.fill(0);
+    this.rigOwner.fill(RIG_NO_OWNER);
+    this.rigIncomeLeft = RIG.incomeEverySec;
   }
 
   // ---- one tick (GAME_DESIGN.md §11.2)
@@ -530,6 +541,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     // 5b. pickups: ships that touch something take it
     this.collectPickups();
     this.pickups.step(dt, this.combatants);
+
+    // 5c. oil rigs: the stronger side in a rig's circle moves its gauge; owners are paid
+    if (!ended) this.updateRigs(dt);
 
     // 6. projectiles and hits
     this.saveProtected();
@@ -860,6 +874,57 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
           st.hull = Math.min(c.def.hull, st.hull + c.def.hull * ECONOMY.pickups.barrel.repairPct);
         }
         p.take(i);
+      }
+    }
+  }
+
+  // ---- oil rigs (GAME_DESIGN.md §4.6)
+
+  /**
+   * Moves each rig's gauge toward the team with more power inside its circle (power = 1 + tier / 2
+   * per ship; equal power means a standoff), updates who owns it, and pays the owners.
+   */
+  private updateRigs(dt: number): void {
+    const r2 = RIG.captureRadius * RIG.captureRadius;
+    for (let i = 0; i < RIG.count; i++) {
+      const rig = RIGS[i]!;
+      let blue = 0;
+      let red = 0;
+      for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+        if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
+        const c = this.slots[s]!;
+        if (!c.state.alive) continue;
+        const dx = c.state.x - rig.x;
+        const dy = c.state.y - rig.y;
+        if (dx * dx + dy * dy > r2) continue;
+        const power = 1 + this.tier[s]! * RIG.powerPerTier;
+        if (c.team === TEAM_BLUE) blue += power;
+        else red += power;
+      }
+      const diff = blue - red;
+      let meter = this.rigMeter[i]!;
+      if (diff !== 0) {
+        const edge = Math.min(Math.abs(diff), RIG.maxPowerAdvantage);
+        meter += (Math.sign(diff) * edge * dt) / RIG.captureSecPerPower;
+        meter = meter > 1 ? 1 : meter < -1 ? -1 : meter;
+        this.rigMeter[i] = meter;
+      }
+      // A full gauge captures the rig; the owner keeps it until the gauge is back at neutral.
+      const owner = this.rigOwner[i]!;
+      if (meter >= 1) this.rigOwner[i] = TEAM_BLUE;
+      else if (meter <= -1) this.rigOwner[i] = TEAM_RED;
+      else if (owner === TEAM_BLUE && meter <= 0) this.rigOwner[i] = RIG_NO_OWNER;
+      else if (owner === TEAM_RED && meter >= 0) this.rigOwner[i] = RIG_NO_OWNER;
+    }
+    this.rigIncomeLeft -= dt;
+    if (this.rigIncomeLeft > 0) return;
+    this.rigIncomeLeft += RIG.incomeEverySec;
+    for (let i = 0; i < RIG.count; i++) {
+      const team = this.rigOwner[i]!;
+      if (team === RIG_NO_OWNER) continue;
+      for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+        if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
+        if (this.slots[s]!.team === team) this.gain(s, RIG.incomeCash);
       }
     }
   }

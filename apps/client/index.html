@@ -492,6 +492,47 @@
       #menu-card label.gone {
         display: none;
       }
+      #rigs {
+        top: 126px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+      }
+      .rig {
+        width: 110px;
+        padding: 3px 6px 5px;
+        border-radius: 8px;
+        background: rgba(5, 13, 22, 0.6);
+        border: 2px solid rgba(255, 255, 255, 0.18);
+        font-size: 11px;
+      }
+      .rig.blue {
+        border-color: #4aa8ff;
+      }
+      .rig.red {
+        border-color: #ff4d5a;
+      }
+      .rig-bar {
+        position: relative;
+        height: 6px;
+        margin-top: 3px;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #4aa8ff 0 50%, #ff4d5a 50% 100%);
+        opacity: 0.85;
+      }
+      .rig-marker {
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 4px;
+        height: 12px;
+        margin-left: -2px;
+        border-radius: 2px;
+        background: #fff;
+        box-shadow: 0 0 4px #000;
+        transition: left 0.4s;
+      }
       #killfeed {
         top: 14px;
         left: 14px;
@@ -579,6 +620,7 @@
       body.in-menu #picker,
       body.in-menu #minimap,
       body.in-menu #killfeed,
+      body.in-menu #rigs,
       body.in-menu #progress,
       body.in-menu #storm {
         display: none;
@@ -625,6 +667,7 @@
     </div>
     <div id="killfeed" class="overlay"></div>
     <div id="scoreboard" class="overlay hidden"></div>
+    <div id="rigs" class="overlay hidden"></div>
     <div id="banner" class="overlay hidden">
       <div id="banner-title"></div>
       <div id="banner-sub"></div>

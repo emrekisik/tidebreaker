@@ -35,6 +35,7 @@ import type {
   SelfState,
   ServerHandler,
   ShipDef,
+  RigState,
   StatsMsg,
   UpdateEntry,
   WelcomeMsg,
@@ -87,6 +88,8 @@ export interface OnlineEvents extends GameEvents {
   ): void;
   /** The scoreboard of the round. */
   onScores(rows: ScoreEntry[], myId: number): void;
+  /** The oil rig gauges changed. */
+  onRigs(rows: RigState[]): void;
   /** Score, money or upgrades of the player changed. */
   onStats(m: StatsMsg): void;
   /** The player picked something up. */
@@ -147,6 +150,8 @@ export class OnlineGame implements GameSession, ServerHandler {
   myId = 0;
   myTeam = 0;
   teamKills: number[] = [0, 0];
+  /** The oil rig gauges as the server last said. */
+  rigState: RigState[] = [];
   /** The player's own score, money and upgrades, as the server last said. */
   readonly progress: StatsMsg = {
     score: 0,
@@ -433,6 +438,11 @@ export class OnlineGame implements GameSession, ServerHandler {
 
   scores(rows: ScoreEntry[]): void {
     this.deps.events.onScores(rows, this.myId);
+  }
+
+  rigs(rows: RigState[]): void {
+    this.rigState = rows;
+    this.deps.events.onRigs(rows);
   }
 
   stats(m: StatsMsg): void {

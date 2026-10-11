@@ -3,6 +3,7 @@ import {
   ECONOMY,
   KIND,
   PICKUP_ID_BASE,
+  RIGS,
   SHIPS,
   SHIP_IDS,
   WEAPONS,
@@ -27,7 +28,7 @@ import {
   statCap,
   statCost,
 } from '@tidebreaker/shared';
-import type { ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
+import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
 export interface BotOptions {
   url: string;
@@ -132,6 +133,29 @@ export class BotClient {
   constructor(private readonly opt: BotOptions) {
     this.def = SHIPS[opt.ship];
     this.useShip(opt.ship);
+  }
+
+  /** Oil rig gauges as the server last said. */
+  private rigState: readonly RigState[] = [];
+  private readonly rigSpot: Seen = { x: 0, y: 0, vx: 0, vy: 0, team: -1, kind: 0, tier: 0 };
+
+  /** The oil rig to go to: one the team does not hold yet (nearest first), else the nearest. */
+  private rigTarget(x: number, y: number): Seen {
+    let best = -1;
+    let bestScore = Infinity;
+    for (let i = 0; i < RIGS.length; i++) {
+      const rig = RIGS[i]!;
+      const mine = this.rigState[i]?.owner === this.me.team;
+      const score = Math.hypot(rig.x - x, rig.y - y) + (mine ? 400 : 0);
+      if (score < bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    const rig = RIGS[Math.max(0, best)]!;
+    this.rigSpot.x = rig.x;
+    this.rigSpot.y = rig.y;
+    return this.rigSpot;
   }
 
   private readonly patrol: Seen = { x: 0, y: 0, vx: 0, vy: 0, team: -1, kind: 0, tier: 0 };
@@ -252,6 +276,9 @@ export class BotClient {
     },
     pickup: () => {},
     power: () => {},
+    rigs: (rows) => {
+      this.rigState = rows;
+    },
     pong: () => {},
     reject: (reason) => {
       this.log(`rejected (${reason})`);
@@ -417,7 +444,9 @@ export class BotClient {
     }
 
     // What to do now. Small ships farm until they are strong enough to take on the carrier.
-    const attacking = farming && !loot && myTier >= ATTACK_TIER && health > 0.7;
+    // Half of the bots (and every small one) hold the oil rigs in the middle of the sea.
+    const rigDuty = farming && !loot && (me.id % 2 === 0 || myTier < ATTACK_TIER);
+    const attacking = farming && !loot && !rigDuty && health > 0.7;
     const target: Seen | null =
       this.retreating || threatened
         ? ownCarrier
@@ -425,9 +454,11 @@ export class BotClient {
           ? nearest
           : loot
             ? loot
-            : attacking
-              ? (enemyCarrier ?? this.patrolSpot())
-              : this.patrolSpot();
+            : rigDuty
+              ? this.rigTarget(me.x, me.y)
+              : attacking
+                ? (enemyCarrier ?? this.patrolSpot())
+                : this.patrolSpot();
     if (!target) {
       this.sendInput(false, 0, 0.5, me.heading, 0);
       return;
@@ -445,13 +476,15 @@ export class BotClient {
     // Where to sail: toward the target, then circle it at a comfortable distance.
     const fightingCarrier = target.kind === KIND.CARRIER;
     const standOff =
-      loot || !(hunting || attacking || this.retreating || threatened)
+      loot || !(hunting || attacking || rigDuty || this.retreating || threatened)
         ? 0
-        : this.retreating || threatened
-          ? 40
-          : fightingCarrier
-            ? 52
-            : this.weaponRange * 0.55;
+        : rigDuty && !hunting && !this.retreating && !threatened
+          ? 17
+          : this.retreating || threatened
+            ? 40
+            : fightingCarrier
+              ? 52
+              : this.weaponRange * 0.55;
     let wanted = bearing;
     let throttle = 1;
     if (dist < standOff * 1.2) {
