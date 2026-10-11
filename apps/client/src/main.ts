@@ -29,6 +29,8 @@ import { Input } from './input/input.ts';
 import { AssetProvider } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
 import { IslandView } from './render/islands.ts';
+import type { IslandModel } from './render/islands.ts';
+import { ISLAND_FOOTPRINTS } from './render/islandFootprints.ts';
 import { createParticleKit } from './render/particleKit.ts';
 import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
@@ -37,7 +39,7 @@ import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
 import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
-import { MODEL_SPECS } from './render/modelSpecs.ts';
+import { MODEL_SPECS, PROP_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
@@ -86,6 +88,7 @@ const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as 
 const assets = new AssetProvider();
 // Fleets are built from every ship class and the carrier, so all models load before anything starts.
 await assets.preload(Object.keys(MODEL_SPECS));
+await assets.preloadProps(Object.keys(PROP_SPECS));
 const bars = new BarKit();
 
 const input = new Input(canvas);
@@ -99,7 +102,7 @@ const progressHud = new ProgressHud(
   (stat) => online?.net.upgrade(stat),
   () => online?.net.tierUp(),
 );
-const rigView = new RigView(stage.scene);
+const rigView = new RigView(stage.scene, assets.prop('oil_rig'));
 const rigHud = new RigHud();
 const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement);
 const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement);
@@ -111,6 +114,17 @@ const pickerEl = document.getElementById('picker') as HTMLElement;
 
 let session: GameSession | null = null;
 let online: OnlineGame | null = null;
+/** The island models that loaded (none: the islands are generated procedurally). */
+function islandModels(): IslandModel[] {
+  const out: IslandModel[] = [];
+  for (const key of ['island_tropical', 'island_rocky']) {
+    const prop = assets.prop(key);
+    const footprint = ISLAND_FOOTPRINTS[key];
+    if (prop && footprint) out.push({ ...prop, footprint });
+  }
+  return out;
+}
+
 let islands: IslandView | null = null;
 let minimap: Minimap | null = null;
 let mapSeed = 0;
@@ -119,7 +133,7 @@ let worldMap: WorldMap | null = null;
 function setWorld(map: WorldMap): void {
   if (islands) for (const o of islands.objects) stage.scene.remove(o);
   worldMap = map;
-  islands = new IslandView(map);
+  islands = new IslandView(map, islandModels());
   stage.scene.add(...islands.objects);
   minimapEl.replaceChildren();
   minimap = new Minimap(minimapEl, map);

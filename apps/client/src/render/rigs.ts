@@ -10,7 +10,7 @@ import {
   PlaneGeometry,
   SRGBColorSpace,
 } from 'three';
-import type { Scene } from 'three';
+import type { BufferGeometry, Material, Scene } from 'three';
 import { RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE } from '@tidebreaker/shared';
 import type { RigState } from '@tidebreaker/shared';
 import { WAVE_MAX } from './waves.ts';
@@ -19,23 +19,42 @@ const TEX = 256;
 const BLUE = '#4aa8ff';
 const RED = '#ff4d5a';
 const NEUTRAL = '#dfeaf2';
+/** The modelled platform is this much wider than the solid collision circle. */
+const PLATFORM_FIT = 1.35;
 
 /** One oil rig: the platform and a flat gauge ring on the water showing who is winning it. */
 class RigModel {
   readonly group = new Group();
   private readonly canvas = document.createElement('canvas');
-  private readonly ctx: CanvasRenderingContext2D;
-  private readonly texture: CanvasTexture;
+  private ctx!: CanvasRenderingContext2D;
+  private texture!: CanvasTexture;
   private lastKey = '';
 
-  constructor(x: number, y: number) {
+  constructor(
+    x: number,
+    y: number,
+    model: { geometry: BufferGeometry; material: Material } | null,
+  ) {
     this.group.position.set(x, 0, y);
+    if (model) {
+      // The modelled platform (the model is fitted to a unit footprint, sea level at y = 0).
+      const platform = new Mesh(model.geometry, model.material);
+      platform.scale.setScalar(RIG.platformRadius * 2 * PLATFORM_FIT);
+      this.group.add(platform);
+    } else {
+      this.addProceduralPlatform();
+    }
+
+    // The capture circle: a flat plane just above the highest wave, textured with the gauge.
+    this.addGauge();
+  }
+
+  /** The fallback look: four legs in the sea, a deck on top, a derrick tower and a flare. */
+  private addProceduralPlatform(): void {
     const steel = new MeshLambertMaterial({ color: 0x6d7782, flatShading: true });
     const dark = new MeshLambertMaterial({ color: 0x2e353d, flatShading: true });
     const rust = new MeshLambertMaterial({ color: 0xb9633a, flatShading: true });
     const r = RIG.platformRadius;
-
-    // Four legs standing in the sea, a deck on top, a derrick tower and a flare.
     const leg = new CylinderGeometry(0.7, 0.9, 6, 8);
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
@@ -66,8 +85,9 @@ class RigModel {
     );
     flame.position.set(r * 0.85, 10.3, -r * 0.8);
     this.group.add(flame);
+  }
 
-    // The capture circle: a flat plane just above the highest wave, textured with the gauge.
+  private addGauge(): void {
     this.canvas.width = TEX;
     this.canvas.height = TEX;
     this.ctx = this.canvas.getContext('2d')!;
@@ -125,9 +145,9 @@ class RigModel {
 export class RigView {
   private readonly models: RigModel[] = [];
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, platform: { geometry: BufferGeometry; material: Material } | null) {
     for (const rig of RIGS) {
-      const m = new RigModel(rig.x, rig.y);
+      const m = new RigModel(rig.x, rig.y, platform);
       this.models.push(m);
       scene.add(m.group);
     }

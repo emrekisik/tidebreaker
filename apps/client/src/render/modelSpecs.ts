@@ -21,7 +21,24 @@ export interface ModelSpec {
    * matching ShipDef (packages/shared/src/config/ships.ts). Everything else stays fixed.
    */
   aimNodes: readonly string[];
+  /** The model has its own paint: no team tint (the pirate ship). */
+  plain?: boolean;
 }
+
+/** A static model that is not a ship (oil rig, islands). It is fitted by whoever places it. */
+export interface PropSpec {
+  file: string;
+  /** Name of the node that holds the mesh. */
+  node: string;
+  /** Fraction of the model's height that stands below the sea surface. */
+  sink: number;
+}
+
+export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
+  oil_rig: { file: 'oil_rig.glb', node: 'oil_rig', sink: 0.2 },
+  island_rocky: { file: 'island_rocky.glb', node: 'island_rocky', sink: 0.04 },
+  island_tropical: { file: 'island_tropical.glb', node: 'island_tropical', sink: 0.04 },
+};
 
 export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
   // T1: used for the player ship (ships.ts modelKey).
@@ -104,6 +121,35 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
       'TopLauncher.01',
       'TopLauncher.02',
     ],
+  },
+  // The pirates: one sailing-ship model at three sizes. It has no turrets; the guns fire from the
+  // broadsides (ships.ts is not involved: see config/pirates.ts).
+  pirate_skiff: {
+    file: 'pirate_ship.glb',
+    hullNode: 'pirate_ship',
+    bow: '+z',
+    length: 7,
+    draft: 0.12,
+    aimNodes: [],
+    plain: true,
+  },
+  pirate_raider: {
+    file: 'pirate_ship.glb',
+    hullNode: 'pirate_ship',
+    bow: '+z',
+    length: 10,
+    draft: 0.12,
+    aimNodes: [],
+    plain: true,
+  },
+  pirate_corsair: {
+    file: 'pirate_ship.glb',
+    hullNode: 'pirate_ship',
+    bow: '+z',
+    length: 14,
+    draft: 0.12,
+    aimNodes: [],
+    plain: true,
   },
   // The team base: stationary, defended by its own turrets (GAME_DESIGN.md §4.5).
   aircraft_carrier: {

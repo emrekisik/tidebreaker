@@ -1,6 +1,6 @@
 import { TEAM_COUNT } from './match.ts';
-import { SHIPS } from './ships.ts';
-import type { ShipDef } from './ships.ts';
+import type { MountDef, ShipDef } from './ships.ts';
+import type { WeaponId } from './weapons.ts';
 import { WORLD_CENTER, WORLD_SIZE } from './world.ts';
 
 /** Team value of the pirates: hostile to both teams, friendly only to each other. */
@@ -27,34 +27,66 @@ export interface PirateType {
   flees: boolean;
 }
 
-// Pirates reuse the player models and weapons, with their own hull, speed and fire discipline.
-const skiff: ShipDef = {
-  ...SHIPS.coast_guard_boat,
-  id: 'pirate_skiff',
-  tier: 1,
+/**
+ * A pirate ship: one hull model (a sailing ship) at three sizes, armed with broadside cannons only
+ * (`perSide` on each side, firing about 55 degrees either side of the beam). Hit circles follow the
+ * hull along its length.
+ */
+function pirateShip(
+  id: string,
+  length: number,
+  tier: number,
+  perSide: number,
+  weapon: WeaponId,
+  stats: { hull: number; shield: number; vMax: number; turnRateDeg: number },
+): ShipDef {
+  const mounts: MountDef[] = [];
+  for (const side of [1, -1]) {
+    for (let k = 0; k < perSide; k++) {
+      const along = perSide === 1 ? 0 : (k / (perSide - 1) - 0.5) * 0.4 * length;
+      mounts.push({
+        id: `${side > 0 ? 'starboard' : 'port'}_${k + 1}`,
+        offset: [along, side * 0.09 * length],
+        muzzle: 0.06 * length,
+        facingDeg: side * 90,
+        arcDeg: 55,
+        weapon,
+      });
+    }
+  }
+  const circles = [-0.3, -0.15, 0, 0.15, 0.3].map((f) => ({
+    offset: Math.round(f * length * 100) / 100,
+    radius: Math.round(0.11 * length * 100) / 100,
+  }));
+  return {
+    id,
+    tier,
+    modelKey: id,
+    ...stats,
+    length,
+    hitCircles: circles,
+    mounts,
+  };
+}
+
+const skiff = pirateShip('pirate_skiff', 7, 1, 1, 'pirate_cannon_s', {
   hull: 45,
   shield: 10,
   vMax: 14,
   turnRateDeg: 110,
-};
-const raider: ShipDef = {
-  ...SHIPS.gunboat,
-  id: 'pirate_raider',
-  tier: 2,
+});
+const raider = pirateShip('pirate_raider', 10, 2, 2, 'pirate_cannon_m', {
   hull: 140,
   shield: 30,
   vMax: 12.5,
   turnRateDeg: 90,
-};
-const corsair: ShipDef = {
-  ...SHIPS.corvette,
-  id: 'pirate_corsair',
-  tier: 3,
+});
+const corsair = pirateShip('pirate_corsair', 14, 3, 3, 'pirate_cannon_l', {
   hull: 380,
   shield: 90,
   vMax: 11.5,
   turnRateDeg: 75,
-};
+});
 
 /** Index = the pirate's `shipId` on the wire (ENTER of a `KIND.PIRATE` entity). */
 export const PIRATE_TYPES: readonly PirateType[] = [
@@ -65,7 +97,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     reward: 18,
     respawnSec: 40,
     detectRadius: 65,
-    reload: 1.3,
+    reload: 1,
     fightRange: 0.65,
     flees: true,
   },
@@ -76,7 +108,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     reward: 45,
     respawnSec: 70,
     detectRadius: 75,
-    reload: 1.25,
+    reload: 1,
     fightRange: 0.7,
     flees: true,
   },
@@ -87,7 +119,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     reward: 140,
     respawnSec: 120,
     detectRadius: 85,
-    reload: 1.4,
+    reload: 1,
     fightRange: 0.8,
     flees: false,
   },

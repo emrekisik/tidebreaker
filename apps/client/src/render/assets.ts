@@ -1,18 +1,23 @@
 import {
   BackSide,
+  BufferAttribute,
   Box3,
   BoxGeometry,
   BufferGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
+  DoubleSide,
+  FrontSide,
   Float32BufferAttribute,
   Group,
+  InterleavedBufferAttribute,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   MeshStandardMaterial,
+  Material,
   Object3D,
   PropertyBinding,
   ShaderMaterial,
@@ -21,11 +26,12 @@ import {
   Vector3,
 } from 'three';
 import type { Texture } from 'three';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FX, convergedAngle } from '@tidebreaker/shared';
-import { MODEL_SPECS } from './modelSpecs.ts';
+import { MODEL_SPECS, PROP_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
 export type Team = 'blue' | 'red' | 'pirate';
@@ -250,6 +256,48 @@ function teamMaterial(
   return mat;
 }
 
+/** Copies an attribute into plain floats (the loader may hand out normalized integers). */
+function floats(src: BufferAttribute | InterleavedBufferAttribute, items: number): Float32Array {
+  const out = new Float32Array(src.count * items);
+  for (let i = 0; i < src.count; i++) {
+    out[i * items] = src.getX(i);
+    out[i * items + 1] = src.getY(i);
+    if (items > 2) out[i * items + 2] = src.getZ(i);
+  }
+  return out;
+}
+
+/** One mesh as standalone geometry in a unit footprint with the sea surface at y = 0 (see AssetProvider.prop). */
+function fitProp(mesh: Mesh, sink: number): BufferGeometry {
+  const src = mesh.geometry;
+  const geo = new BufferGeometry();
+  geo.setAttribute(
+    'position',
+    new Float32BufferAttribute(floats(src.attributes['position']!, 3), 3),
+  );
+  if (src.attributes['normal']) {
+    geo.setAttribute('normal', new Float32BufferAttribute(floats(src.attributes['normal'], 3), 3));
+  }
+  if (src.attributes['uv']) {
+    geo.setAttribute('uv', new Float32BufferAttribute(floats(src.attributes['uv'], 2), 2));
+  }
+  if (src.index) geo.setIndex(src.index.clone());
+  geo.applyMatrix4(mesh.matrixWorld);
+  geo.computeBoundingBox();
+  const box = geo.boundingBox!;
+  const k = 1 / Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+  const height = box.max.y - box.min.y;
+  geo.translate(
+    -(box.min.x + box.max.x) / 2,
+    -(box.min.y + sink * height),
+    -(box.min.z + box.max.z) / 2,
+  );
+  geo.scale(k, k, k);
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
+  return geo;
+}
+
 interface TeamMaterials {
   normal: MeshLambertMaterial;
   flash: MeshLambertMaterial;
@@ -261,6 +309,8 @@ interface LoadedModel {
   materials: Record<Team, TeamMaterials>;
   /** Untinted materials for weapons. */
   neutral: TeamMaterials;
+  /** The model's own paint, for hulls that take no team tint (`ModelSpec.plain`). */
+  plain: TeamMaterials;
 }
 
 /** Meshes that belong to the hull node itself (not to its turret/child nodes). */
@@ -311,15 +361,27 @@ export class AssetProvider {
   /** Why a model fell back to the placeholder (shown in the test panel). */
   readonly failures = new Map<string, string>();
 
+  /** Each GLB file is fetched and parsed once, however many model keys use it. */
+  private readonly files = new Map<string, Promise<GLTF>>();
+  private readonly loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+  private gltfOf(file: string): Promise<GLTF> {
+    let p = this.files.get(file);
+    if (!p) {
+      p = this.loader.loadAsync(`${import.meta.env.BASE_URL}models/${file}`);
+      this.files.set(file, p);
+    }
+    return p;
+  }
+
   /** Loads the GLBs for these model keys. Failures are logged and fall back to placeholders. */
   async preload(keys: readonly string[]): Promise<void> {
-    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     await Promise.all(
       keys.map(async (key) => {
         const spec = MODEL_SPECS[key];
         if (!spec || this.loaded.has(key)) return;
         try {
-          const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/${spec.file}`);
+          const gltf = await this.gltfOf(spec.file);
           const hull = findNode(gltf.scene, spec.hullNode);
           const hullMesh = hull ? hullMeshes(hull)[0] : undefined;
           const map = hullMesh ? ((hullMesh.material as MeshStandardMaterial).map ?? null) : null;
@@ -328,6 +390,7 @@ export class AssetProvider {
             scene: gltf.scene,
             materials: this.makeMaterials(map),
             neutral: this.makeNeutral(map),
+            plain: this.makeNeutral(map, true),
           });
           this.failures.delete(key);
         } catch (err) {
@@ -341,10 +404,44 @@ export class AssetProvider {
     );
   }
 
-  private makeNeutral(map: Texture | null): TeamMaterials {
+  private readonly props = new Map<string, { geometry: BufferGeometry; material: Material }>();
+
+  /** Loads the static models (oil rig, islands). A failure leaves the prop missing (callers fall back). */
+  async preloadProps(keys: readonly string[]): Promise<void> {
+    await Promise.all(
+      keys.map(async (key) => {
+        const spec = PROP_SPECS[key];
+        if (!spec || this.props.has(key)) return;
+        try {
+          const gltf = await this.gltfOf(spec.file);
+          const node = findNode(gltf.scene, spec.node);
+          const mesh = node ? hullMeshes(node)[0] : undefined;
+          if (!node || !mesh) throw new Error(`node "${spec.node}" has no mesh`);
+          gltf.scene.updateMatrixWorld(true);
+          const geometry = fitProp(mesh, spec.sink);
+          const map = (mesh.material as MeshStandardMaterial).map ?? null;
+          this.props.set(key, { geometry, material: new MeshLambertMaterial({ map }) });
+        } catch (err) {
+          console.warn(`Prop "${key}" failed to load, using the procedural look.`, err);
+        }
+      }),
+    );
+  }
+
+  /**
+   * A static model as one geometry: node transforms baked in, fitted to a footprint of 1 unit
+   * (its longer side), centered on the origin, with the sea surface at y = 0. Scale it as needed.
+   * Returns null when the model did not load.
+   */
+  prop(key: string): { geometry: BufferGeometry; material: Material } | null {
+    return this.props.get(key) ?? null;
+  }
+
+  private makeNeutral(map: Texture | null, twoSided = false): TeamMaterials {
+    const side = twoSided ? DoubleSide : FrontSide;
     return {
-      normal: new MeshLambertMaterial({ map }),
-      flash: new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.4 }),
+      normal: new MeshLambertMaterial({ map, side }),
+      flash: new MeshLambertMaterial({ map, side, emissive: 0xffffff, emissiveIntensity: 0.4 }),
     };
   }
 
@@ -436,8 +533,8 @@ export class AssetProvider {
   }
 
   private buildFromGltf(loaded: LoadedModel, team: Team, ring: boolean): ShipModel {
-    const mats = loaded.materials[team];
     const { spec } = loaded;
+    const mats = spec.plain ? loaded.plain : loaded.materials[team];
     const scene = loaded.scene.clone(true);
     const hull = findNode(scene, spec.hullNode);
     const hullParts = hull ? hullMeshes(hull) : [];

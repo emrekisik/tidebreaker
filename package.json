@@ -22,6 +22,7 @@
     "bot": "pnpm --filter @tidebreaker/server exec tsx src/tools/bot.ts",
     "netem": "pnpm --filter @tidebreaker/server exec tsx src/tools/netem.ts",
     "assets:build": "node tools/assets/build.mjs",
+    "assets:footprint": "node tools/assets/footprint.mjs",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

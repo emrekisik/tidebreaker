@@ -25,7 +25,15 @@ if (ifNeeded && !existsSync(srcDir)) {
 }
 
 const SKIP = new Set();
+// The ship pack shares a smooth palette atlas, so 256 px loses nothing. The generated models
+// (pirate ship, oil rig, islands) carry real painted textures and need more.
 const ATLAS_PX = 256;
+const TEXTURE_PX = {
+  'pirate_ship.glb': 1024,
+  'oil_rig.glb': 1024,
+  'island_rocky.glb': 1024,
+  'island_tropical.glb': 1024,
+};
 
 await MeshoptEncoder.ready;
 await MeshoptDecoder.ready;
@@ -60,6 +68,13 @@ for (const file of readdirSync(srcDir)
     }
   }
 
+  // Generated models come with machine names ("tripo_<uuid>"): use the file name instead, so the
+  // client can find the node by a stable name.
+  const stem = file.replace(/.glb$/, '');
+  for (const node of sceneRoot.listNodes()) {
+    if (node.getName().startsWith('tripo')) node.setName(stem);
+  }
+
   // Move every mesh into a child node. Quantization (part of meshopt) rewrites the transform of
   // the node that holds a mesh; doing this keeps the named node's origin, i.e. the turret pivot.
   for (const node of sceneRoot.listNodes()) {
@@ -76,7 +91,7 @@ for (const file of readdirSync(srcDir)
     textureCompress({
       encoder: sharp,
       targetFormat: 'jpeg',
-      resize: [ATLAS_PX, ATLAS_PX],
+      resize: [TEXTURE_PX[file] ?? ATLAS_PX, TEXTURE_PX[file] ?? ATLAS_PX],
       quality: 90,
     }),
     meshopt({ encoder: MeshoptEncoder, level: 'high' }),
@@ -94,4 +109,6 @@ for (const file of readdirSync(srcDir)
     `${file.padEnd(20)} ${kb(statSync(join(srcDir, file)).size).padStart(10)} -> ${kb(size).padStart(9)}  ${tris} tris`,
   );
 }
-console.log(`total output ${kb(total)} (budget: models <= 400 KB)`);
+console.log(
+  `total output ${kb(total)} (budget: ship pack <= 400 KB, plus ~1 MB for the generated models)`,
+);

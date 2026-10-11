@@ -9,7 +9,8 @@ describe('ship configs vs 3D model specs', () => {
       const spec = MODEL_SPECS[def.modelKey];
       expect(spec, `missing MODEL_SPECS entry for ${def.modelKey}`).toBeDefined();
       expect(spec?.length).toBe(def.length);
-      expect(spec?.aimNodes.length).toBe(def.mounts.length);
+      // (Pirate ships have fixed broadside guns and no turret nodes.)
+      if (!def.id.startsWith('pirate_')) expect(spec?.aimNodes.length).toBe(def.mounts.length);
     });
   }
 });

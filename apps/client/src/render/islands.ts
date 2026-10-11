@@ -2,6 +2,7 @@ import {
   BufferGeometry,
   Color,
   DoubleSide,
+  BufferAttribute,
   Float32BufferAttribute,
   Mesh,
   MeshBasicMaterial,
@@ -9,6 +10,8 @@ import {
 } from 'three';
 import { ISLAND_TYPES, Mulberry32, RIG } from '@tidebreaker/shared';
 import type { WorldMap } from '@tidebreaker/shared';
+import type { Material } from 'three';
+import type { Footprint } from './islandFootprints.ts';
 import { WAVE_MAX } from './waves.ts';
 
 /**
@@ -628,6 +631,92 @@ function addReef(soup: Soup, map: WorldMap, i: number): void {
   }
 }
 
+// ---------- modelled islands
+
+/** A fitted island model (render/assets.ts `prop`) and the footprint measured for it. */
+export interface IslandModel {
+  geometry: BufferGeometry;
+  material: Material;
+  footprint: Footprint;
+}
+
+/** How tall a modelled island stands, relative to how wide it is stretched. */
+const MODEL_HEIGHT = 0.5;
+
+/** Distance from the center to the coast of `fp` toward angle `phi`. */
+function footprintAt(fp: Footprint, phi: number): number {
+  const n = fp.edge.length;
+  const t = (((phi / (Math.PI * 2)) % 1) + 1) % 1;
+  const k = t * n;
+  const i = Math.floor(k);
+  const a = fp.edge[i % n]!;
+  const b = fp.edge[(i + 1) % n]!;
+  return a + (b - a) * (k - i);
+}
+
+/**
+ * Bends an island model so its coast follows the island's collision outline: every vertex is
+ * pushed along its direction by (outline radius / model coast radius) of that direction, after
+ * the model is turned by `rot` (and mirrored). Ships therefore touch the sand exactly where the
+ * physics stops them, whatever shape the generator made. The result is placed in world
+ * coordinates around the island center.
+ */
+function bendIsland(model: IslandModel, t: Terrain, rot: number, mirror: boolean): BufferGeometry {
+  const src = model.geometry;
+  const fp = model.footprint;
+  const pos = src.attributes['position']!;
+  const nor = src.attributes['normal'];
+  const count = pos.count;
+  const outPos = new Float32Array(count * 3);
+  const outNor = new Float32Array(count * 3);
+  let sumF = 0;
+  const bins = 32;
+  for (let b = 0; b < bins; b++) {
+    const th = (b / bins) * Math.PI * 2;
+    sumF += t.edgeAt(th) / footprintAt(fp, mirror ? rot - th : th - rot);
+  }
+  const height = (sumF / bins) * MODEL_HEIGHT;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  for (let i = 0; i < count; i++) {
+    const dx = pos.getX(i) - fp.cx;
+    const dz = (pos.getZ(i) - fp.cz) * (mirror ? -1 : 1);
+    const phi = Math.atan2(dz, dx);
+    const rho = Math.hypot(dx, dz);
+    const theta = phi + rot;
+    const f = t.edgeAt(theta) / footprintAt(fp, mirror ? -phi : phi);
+    outPos[i * 3] = t.cx + Math.cos(theta) * rho * f;
+    outPos[i * 3 + 1] = pos.getY(i) * height;
+    outPos[i * 3 + 2] = t.cz + Math.sin(theta) * rho * f;
+    if (nor) {
+      const nx = nor.getX(i);
+      const nz = nor.getZ(i) * (mirror ? -1 : 1);
+      outNor[i * 3] = nx * cos - nz * sin;
+      outNor[i * 3 + 1] = nor.getY(i);
+      outNor[i * 3 + 2] = nx * sin + nz * cos;
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(outPos, 3));
+  if (nor) geo.setAttribute('normal', new Float32BufferAttribute(outNor, 3));
+  const uv = src.attributes['uv'];
+  if (uv) geo.setAttribute('uv', uv.clone());
+  const index = src.index;
+  if (index) {
+    const ia = index.array;
+    const out = new Uint32Array(ia.length);
+    for (let k = 0; k < ia.length; k += 3) {
+      // A mirrored model has its triangles turned inside out: swap two corners back.
+      out[k] = ia[k]!;
+      out[k + 1] = mirror ? ia[k + 2]! : ia[k + 1]!;
+      out[k + 2] = mirror ? ia[k + 1]! : ia[k + 2]!;
+    }
+    geo.setIndex(new BufferAttribute(out, 1));
+  }
+  geo.computeBoundingSphere();
+  return geo;
+}
+
 // ---------- shore foam and shallows
 
 interface ShoreBand {
@@ -691,7 +780,8 @@ export class IslandView {
   readonly objects: Mesh[] = [];
   private readonly shoreMat: MeshBasicMaterial;
 
-  constructor(map: WorldMap) {
+  /** `models`: the island models to bend onto the outlines (islands are procedural without them). */
+  constructor(map: WorldMap, models: readonly IslandModel[] = []) {
     const landMat = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
     this.shoreMat = new MeshBasicMaterial({
       vertexColors: true,
@@ -720,6 +810,20 @@ export class IslandView {
       const col: number[] = [];
       const rng = new Mulberry32(0x15a4d + i * 7919 + map.seed * 31);
       const t = new Terrain(map, i, rng);
+      const model = models.length > 0 ? models[Math.floor(rng.next() * models.length)] : undefined;
+      if (model) {
+        const rot = rng.next() * Math.PI * 2;
+        const mirror = rng.next() < 0.5;
+        const land = new Mesh(bendIsland(model, t, rot, mirror), model.material);
+        addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
+        const sgeo = new BufferGeometry();
+        sgeo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+        sgeo.setAttribute('color', new Float32BufferAttribute(col, 4));
+        const shore = new Mesh(sgeo, this.shoreMat);
+        shore.renderOrder = 1;
+        this.objects.push(land, shore);
+        continue;
+      }
       addTerrain(soup, t, rng);
       addProps(soup, t, rng);
       addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);

@@ -44,7 +44,7 @@ export const WEAPONS = {
   // Turret cannons follow GAME_DESIGN.md §6.3 per tier (damage / interval); range grows with tier.
   cannon_t3: {
     damage: 16,
-    intervalSec: 0.75,
+    intervalSec: 1,
     range: 58,
     projectileSpeed: 60,
     radius: 0.25,
@@ -55,7 +55,7 @@ export const WEAPONS = {
   },
   cannon_t4: {
     damage: 18,
-    intervalSec: 0.8,
+    intervalSec: 1.1,
     range: 63,
     projectileSpeed: 60,
     radius: 0.28,
@@ -66,7 +66,7 @@ export const WEAPONS = {
   },
   cannon_t5: {
     damage: 22,
-    intervalSec: 0.8,
+    intervalSec: 1.1,
     range: 70,
     projectileSpeed: 60,
     radius: 0.32,
@@ -112,6 +112,40 @@ export const WEAPONS = {
     startSpeedPct: 0.25,
     accelSec: 0.8,
     visual: 'rocket',
+  },
+  // The pirates' broadside guns: cannons only, a little weaker than the player classes'.
+  pirate_cannon_s: {
+    damage: 9,
+    intervalSec: 1.1,
+    range: 48,
+    projectileSpeed: 55,
+    radius: 0.22,
+    spreadDeg: 3.5,
+    startSpeedPct: 1,
+    accelSec: 0,
+    visual: 'shell',
+  },
+  pirate_cannon_m: {
+    damage: 13,
+    intervalSec: 1.2,
+    range: 55,
+    projectileSpeed: 58,
+    radius: 0.25,
+    spreadDeg: 3,
+    startSpeedPct: 1,
+    accelSec: 0,
+    visual: 'shell',
+  },
+  pirate_cannon_l: {
+    damage: 17,
+    intervalSec: 1.3,
+    range: 62,
+    projectileSpeed: 60,
+    radius: 0.28,
+    spreadDeg: 2.5,
+    startSpeedPct: 1,
+    accelSec: 0,
+    visual: 'shell',
   },
 } as const satisfies Record<string, WeaponDef>;
 
