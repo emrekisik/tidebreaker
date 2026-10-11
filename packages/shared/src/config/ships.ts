@@ -73,7 +73,7 @@ export const SHIPS = {
     modelKey: 'assault_boat',
     hull: 100,
     shield: 40,
-    vMax: 16,
+    vMax: 19,
     turnRateDeg: 120,
     length: 5.8,
     hitCircles: [
@@ -90,7 +90,7 @@ export const SHIPS = {
     modelKey: 'hovercraft',
     hull: 180,
     shield: 70,
-    vMax: 14.5,
+    vMax: 17.5,
     turnRateDeg: 100,
     length: 7,
     hitCircles: [

@@ -32,10 +32,12 @@ export interface PropSpec {
   node: string;
   /** Fraction of the model's height that stands below the sea surface. */
   sink: number;
+  /** Self-lighting (0..1) for models that come out too dark under the game's lights. */
+  glow?: number;
 }
 
 export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
-  oil_rig: { file: 'oil_rig.glb', node: 'oil_rig', sink: 0.2 },
+  oil_rig: { file: 'oil_rig.glb', node: 'oil_rig', sink: 0.2, glow: 0.5 },
   island_rocky: { file: 'island_rocky.glb', node: 'island_rocky', sink: 0.04 },
   island_tropical: { file: 'island_tropical.glb', node: 'island_tropical', sink: 0.04 },
 };

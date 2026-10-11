@@ -227,8 +227,8 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 
 | Tier | id | Ad (TR) | Min score | Hull | Shield | Hız (u/s) | Dönüş (°/s) | Uzunluk | Mount'lar |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `coast_guard_boat` | Sahil Güvenlik Botu | 0 | 100 | 40 | 16 | 120 | 5 | 1 × güverte topu (360°, dmg 10, 0.9 sn) |
-| 2 | `gunboat` | Top Gambotu | 200 | 180 | 70 | 14.5 | 100 | 7 | 1 × taret (360°, dmg 12, 0.8 sn) + 2 × yan top (±90°, yay ±25°, dmg 8, 1.1 sn) |
+| 1 | `coast_guard_boat` | Sahil Güvenlik Botu | 0 | 100 | 40 | 19 | 120 | 5 | 1 × güverte topu (360°, dmg 10, 0.9 sn) |
+| 2 | `gunboat` | Top Gambotu | 200 | 180 | 70 | 17.5 | 100 | 7 | 1 × taret (360°, dmg 12, 0.8 sn) + 2 × yan top (±90°, yay ±25°, dmg 8, 1.1 sn) |
 | 3 | `corvette` | Korvet | 800 | 320 | 130 | 13 | 85 | 9 | 1 × taret (dmg 16, 0.75 sn) + yan başına 2 top (dmg 10, 1.0 sn) |
 | 4 | `frigate` | Fırkateyn | 2400 | 560 | 220 | 12 | 70 | 12 | 2 × taret (dmg 18, 0.8 sn) + yan başına 3 top (dmg 12, 1.0 sn) |
 | 5 | `heavy_frigate` | Ağır Fırkateyn | 6000 | 900 | 380 | 11 | 60 | 15 | 3 × taret (dmg 22, 0.8 sn) + yan başına 4 top (dmg 15, 1.0 sn) |
@@ -283,7 +283,7 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 | ~~Kale topu~~, ~~Kale çekirdeği~~ | | | Kaleler iptal edildi (karar) | |
 
 - **Silahlar ve görünüm:** korsanlar **yalnızca top** kullanır (makineli ve roket yok): gemi başına yan başına 1 / 2 / 3 top (`pirate_cannon_s/m/l`: hasar 9 / 13 / 17, reload 1,1 / 1,2 / 1,3 sn, menzil 48 / 55 / 62). Toplar sabit yan borda toplarıdır (kıç–pruva ekseninin ±90°'si çevresinde ±55° yay), bu yüzden korsan hedefini yanına alacak şekilde dolanır. Üç tür de aynı yelkenli gemi modelini kullanır (`pirate_ship.glb`; boyutlar 7 / 10 / 14), takım boyası yoktur (model kendi renginde), kehribar halka ve isim plakası ile ayrılır.
-- **Koylar ve kadro (uygulandı, Faz 5b):** haritada sol–sağ simetrik **6 koy** vardır (`config/pirates.ts`): kuzey ve güney kenarın ortasında 2 koy (her birinde 1 brig + 2 sandal), diğer 4 koy ortada (her birinde 1 akıncı + 1 sandal), yani toplam **14 korsan** (2 brig, 4 akıncı, 8 sandal). Simetri sayesinde hiçbir koy bir takıma daha yakın değildir. Harita üretimi her koyun çevresini (40 birim) ada ve resiften boş bırakır. Batan korsan türüne göre **40 / 70 / 120 sn** sonra kendi koyunda yeniden doğar; yeni turda hepsi koyunda başlar.
+- **Koylar ve kadro (uygulandı, Faz 5b):** haritada sol–sağ simetrik **6 koy** vardır (`config/pirates.ts`): kuzey ve güney kenarın ortasında 2 koy (her birinde 1 brig + 1 akıncı + 2 sandal), diğer 4 koy ortada (her birinde 1 akıncı + 2 sandal), yani toplam **20 korsan** (2 brig, 6 akıncı, 12 sandal). Simetri sayesinde hiçbir koy bir takıma daha yakın değildir. Harita üretimi her koyun çevresini (40 birim) ada ve resiften boş bırakır. Batan korsan türüne göre **40 / 70 / 120 sn** sonra kendi koyunda yeniden doğar; yeni turda hepsi koyunda başlar.
 - **Takımlar:** korsanlar kendi takımındadır (`TEAM_PIRATE = 2`): iki takıma da düşmandır, birbirlerine ateş etmez, **uçak gemilerinin taretleri onlara da ateş eder**. Skor tablosunda yer almazlar, takım kill sayacına yazılmazlar; bir oyuncuyu batırırlarsa o oyuncu normal ölüm kuralına göre (para düşer, can gider) kaybeder.
 - **Ödül:** batıran(lar) hasar oranında paylaşır; oyuncunun sınıfı korsandan yüksekse ödül azalır: `reward × clamp(1 − 0.25 × (oyuncuTier − korsanTier), 0.1, 1)` (`pirateReward`, T1 = 1). Örnek: sandalı (18) T1 tam, T3 yarı alır.
 - Tüccar gemisi kasıtlı bir **PvP mıknatısı**: büyük ödül, oyuncuları aynı noktada çatıştırır.

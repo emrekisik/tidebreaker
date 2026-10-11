@@ -420,7 +420,17 @@ export class AssetProvider {
           gltf.scene.updateMatrixWorld(true);
           const geometry = fitProp(mesh, spec.sink);
           const map = (mesh.material as MeshStandardMaterial).map ?? null;
-          this.props.set(key, { geometry, material: new MeshLambertMaterial({ map }) });
+          const glow = spec.glow ?? 0;
+          const material =
+            glow > 0
+              ? new MeshLambertMaterial({
+                  map,
+                  emissive: 0xffffff,
+                  emissiveMap: map,
+                  emissiveIntensity: glow,
+                })
+              : new MeshLambertMaterial({ map });
+          this.props.set(key, { geometry, material });
         } catch (err) {
           console.warn(`Prop "${key}" failed to load, using the procedural look.`, err);
         }

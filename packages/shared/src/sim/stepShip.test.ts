@@ -48,7 +48,7 @@ describe('stepShip', () => {
     run(braking, 100, 0, 1);
     run(coasting, 31, 0, 0); // 1.55 s
     run(braking, 31, 0, -1); // brakeSeconds = 1.5 s
-    expect(Math.abs(braking.speed)).toBeLessThan(0.6); // stopped (and just starting to back up)
+    expect(Math.abs(braking.speed)).toBeLessThan(def.vMax * 0.04); // stopped (and just starting to back up)
     expect(coasting.speed).toBeGreaterThan(def.vMax * 0.5);
     run(coasting, 140, 0, 0);
     expect(coasting.speed).toBe(0);
