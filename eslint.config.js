@@ -48,7 +48,16 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     files: ['tools/**/*.mjs'],
-    languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
   },
   {
     files: ['apps/server/src/sim/hot/**/*.ts', 'apps/client/src/**/frame/**/*.ts'],

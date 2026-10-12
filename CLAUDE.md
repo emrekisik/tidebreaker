@@ -59,6 +59,8 @@ pnpm netem        # WS proxy adding latency / jitter / stalls (then open the gam
 pnpm bot          # one bot that joins a running server (pnpm bot --name X --ship corvette [--passive])
 pnpm balance-sim  # combat balance tables (time to sink each class pair and the carrier); --economy: pacing of pickups-only progress
 pnpm assets:build # optimize GLB models (gltf-transform)
+pnpm assets:footprint # measure the coast outline of the island models (after changing one)
+pnpm icons        # ship icons: run it, then open /ship-icons.html on the client dev server; writes apps/client/public/icons/ships/
 pnpm e2e          # Playwright smoke test
 ```
 

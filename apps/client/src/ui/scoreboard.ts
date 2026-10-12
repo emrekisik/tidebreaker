@@ -1,4 +1,4 @@
-import { TEAM_BLUE, TEAM_RED } from '@tidebreaker/shared';
+import { TEAM_BLUE, TEAM_RED, TIER_SHIPS } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 
@@ -58,7 +58,7 @@ export class Scoreboard {
       const row = document.createElement('div');
       row.className = r.id === this.myId ? 'sb-row me' : 'sb-row';
       row.append(
-        this.cell(`T${r.tier + 1} ${r.name}`, 'sb-name'),
+        this.nameCell(r),
         this.cell(String(r.score), 'sb-num'),
         this.cell(String(r.kills), 'sb-num'),
         this.cell(String(r.deaths), 'sb-num'),
@@ -66,6 +66,20 @@ export class Scoreboard {
       col.append(row);
     }
     return col;
+  }
+
+  /** The player's name with the icon of their ship class (a top-down view, bow to the right). */
+  private nameCell(r: ScoreEntry): HTMLElement {
+    const el = document.createElement('span');
+    el.className = 'sb-name';
+    const ship = TIER_SHIPS[Math.min(r.tier, TIER_SHIPS.length - 1)]!;
+    const icon = document.createElement('img');
+    icon.className = 'sb-ship';
+    icon.alt = `T${r.tier + 1}`;
+    icon.title = `T${r.tier + 1}`;
+    icon.src = `${import.meta.env.BASE_URL}icons/ships/side/${r.team === TEAM_BLUE ? 'blue' : 'red'}/${ship}.png`;
+    el.append(icon, document.createTextNode(r.name));
+    return el;
   }
 
   private cell(text: string, cls: string): HTMLElement {

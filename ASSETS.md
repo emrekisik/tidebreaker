@@ -15,4 +15,5 @@ Only CC0 or commercially usable licenses. Never use Starblast assets, names or U
 - Source GLBs live in `models/` (local only). `pnpm assets:build` writes optimized copies to `apps/client/public/models/`.
 - `apps/client/src/render/modelSpecs.ts` describes each model (hull node, bow direction, length, waterline, aimable turret nodes).
 - Generated models (pirate ship, oil rig, islands) keep real textures (1024 px) and are renamed to their file name by the build; ships take team paint, these do not. Islands are bent to the map outline at load time (`render/islands.ts`); run `pnpm assets:footprint` after changing an island model.
+- Ship icons (`apps/client/public/icons/ships/{up,side}/{blue,red,white}/<ship>.png`, generated, committed): top-down renders of the ship models. `up` = 128x128 with the bow up, `side` = 128x64 with the bow to the right, `white` = flat silhouette for tinting. Regenerate with `pnpm icons` and open `/ship-icons.html` on the dev server (`apps/client/src/dev/shipIcons.ts`). The scoreboard uses them.
 - If a GLB is missing or fails to load, the client falls back to the procedural placeholder.
