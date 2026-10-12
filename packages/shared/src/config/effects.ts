@@ -101,6 +101,20 @@ export const FX = {
    */
   power: { thicken: { bullet: 0.2, shell: 0.04, rocket: 0.04 }, effect: 0.14, turret: 0.08 },
 
+  /**
+   * A ship changing class (tier up): the new hull pops in from `minScale` with an overshoot over
+   * `sec` seconds, flashes white for `flashSec`, and a cyan ring, sparks and rising motes go off.
+   */
+  upgrade: {
+    sec: 0.9,
+    flashSec: 0.35,
+    minScale: 0.3,
+    overshoot: 2.2,
+    ring: 36,
+    sparks: 34,
+    motes: 14,
+  },
+
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },
   sinkingSmokeRate: 16,

@@ -49,15 +49,35 @@ export class BarKit {
     canvas.height = Math.round((256 * TAG_HEIGHT) / TAG_WIDTH);
     const g = canvas.getContext('2d');
     if (g) {
-      g.font = '700 34px system-ui, sans-serif';
+      g.font = "700 30px Bahnschrift, 'Segoe UI Semibold', system-ui, sans-serif";
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.lineJoin = 'round';
-      g.lineWidth = 7;
-      g.strokeStyle = 'rgba(3, 10, 18, 0.9)';
-      g.strokeText(name, canvas.width / 2, canvas.height / 2, canvas.width - 10);
-      g.fillStyle = TAG_COLOR[team];
-      g.fillText(name, canvas.width / 2, canvas.height / 2, canvas.width - 10);
+      const text = name.toLocaleUpperCase();
+      const w = Math.min(canvas.width - 8, g.measureText(text).width + 30);
+      const h = canvas.height - 6;
+      const x = (canvas.width - w) / 2;
+      const y = 3;
+      // A dark plate with a thin edge in the team color and cut corners (like the HUD panels).
+      const cut = 7;
+      g.beginPath();
+      g.moveTo(x + cut, y);
+      g.lineTo(x + w - cut, y);
+      g.lineTo(x + w, y + cut);
+      g.lineTo(x + w, y + h - cut);
+      g.lineTo(x + w - cut, y + h);
+      g.lineTo(x + cut, y + h);
+      g.lineTo(x, y + h - cut);
+      g.lineTo(x, y + cut);
+      g.closePath();
+      g.fillStyle = 'rgba(6, 20, 38, 0.86)';
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = TAG_COLOR[team];
+      g.globalAlpha = 0.7;
+      g.stroke();
+      g.globalAlpha = 1;
+      g.fillStyle = '#eaf4ff';
+      g.fillText(text, canvas.width / 2, canvas.height / 2 + 1, canvas.width - 40);
     }
     const map = new CanvasTexture(canvas);
     map.colorSpace = SRGBColorSpace;

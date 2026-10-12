@@ -18,7 +18,7 @@ export class KillFeed {
     mine: boolean,
   ): void {
     const row = document.createElement('div');
-    row.className = mine ? 'feed-row mine' : 'feed-row';
+    row.className = mine ? 'feed-row panel mine' : 'feed-row panel';
     row.append(
       this.name(killerName, killerTeam),
       this.text(weapon === NO_WEAPON ? ` ${t('feed.ram')} ` : ' ▸ ', 'feed-arrow'),

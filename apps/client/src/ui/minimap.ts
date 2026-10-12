@@ -21,7 +21,7 @@ const BIG = 600;
 /** Marker color of each island type (also used by the legend). */
 const MARK: Record<string, { color: string; label: MessageKey }> = {
   port: { color: '', label: 'map.port' },
-  fort: { color: '#ff5a5f', label: 'map.fort' },
+  fort: { color: '', label: 'map.fort' },
   treasure: { color: '', label: 'map.treasure' },
   flat: { color: '', label: 'map.flat' },
 };
@@ -55,6 +55,10 @@ export class Minimap {
     this.map = map;
     this.canvas = document.createElement('canvas');
     container.appendChild(this.canvas);
+    // Radar rings and a slow sweep over the map (pure CSS, see theme.css).
+    const radar = document.createElement('div');
+    radar.className = 'radar';
+    container.appendChild(radar);
     this.ctx = this.canvas.getContext('2d')!;
     this.resize();
   }

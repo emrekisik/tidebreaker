@@ -69,6 +69,8 @@ type TeamName = 'blue' | 'red' | 'pirate';
 
 /** What the game tells the UI beyond the effects shared with the sandbox. */
 export interface OnlineEvents extends GameEvents {
+  /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
+  onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
   onSunk(entity: ShipEntity, x: number, y: number): void;
   /** The player was sunk. */
@@ -477,6 +479,13 @@ export class OnlineGame implements GameSession, ServerHandler {
     this.deps.events.onStats(p);
   }
 
+  /** The ship just became a new class: pop it in and tell the effects. */
+  private morph(entity: ShipEntity, x: number, y: number, length: number): void {
+    entity.morphSeconds = FX.upgrade.sec;
+    entity.flashSeconds = FX.upgrade.flashSec;
+    this.deps.events.onUpgrade(x, y, length);
+  }
+
   private swapShip(shipId: number): void {
     const def = SHIPS[SHIP_IDS[shipId]!] as ShipDef;
     const c = this.player.combatant;
@@ -486,6 +495,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     const model = d.assets.createShip(def.modelKey, teamName(this.myTeam), true);
     d.scene.add(model.root);
     this.player.setModel(model);
+    this.morph(this.player, c.state.x, c.state.y, def.length);
     c.def = def;
     this.predictor.def = def;
     this.shipIdx = shipId;
@@ -557,6 +567,15 @@ export class OnlineGame implements GameSession, ServerHandler {
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
     model.setPower(e.power);
+    // The same ship coming back as another class (not a respawn: that one was sunk first).
+    if (
+      old &&
+      e.kind === KIND.SHIP &&
+      old.entity.combatant.state.alive &&
+      old.entity.combatant.def !== def
+    ) {
+      this.morph(entity, e.x, e.y, def.length);
+    }
     if (e.kind === KIND.CARRIER) entity.mountAims = new Float32Array(def.mounts.length);
     d.scene.add(model.root);
     this.entities.push(entity);

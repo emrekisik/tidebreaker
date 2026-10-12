@@ -17,15 +17,16 @@ export class RigHud {
     for (let i = 0; i < RIG.count; i++) {
       const box = document.createElement('div');
       box.className = 'rig';
-      const label = document.createElement('div');
-      label.className = 'rig-label';
-      label.textContent = `${t('rig.name')} ${i + 1}`;
+      const hex = document.createElement('div');
+      hex.className = 'rig-hex panel';
+      hex.textContent = String.fromCharCode(65 + i);
+      box.title = `${t('rig.name')} ${i + 1}`;
       const bar = document.createElement('div');
       bar.className = 'rig-bar';
       const marker = document.createElement('div');
       marker.className = 'rig-marker';
       bar.append(marker);
-      box.append(label, bar);
+      box.append(hex, bar);
       this.root.append(box);
       this.boxes.push(box);
       this.markers.push(marker);

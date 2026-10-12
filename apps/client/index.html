@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tidebreaker.io</title>
+    <link rel="stylesheet" href="/src/ui/theme.css" />
     <style>
       html,
       body {
@@ -28,67 +29,6 @@
         position: fixed;
         pointer-events: none;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-      }
-      #hint {
-        top: 18px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 8px 14px;
-        border-radius: 8px;
-        background: rgba(7, 18, 28, 0.55);
-        font-size: 15px;
-        transition: opacity 1s;
-      }
-      #hud {
-        left: 50%;
-        bottom: 22px;
-        transform: translateX(-50%);
-        width: min(360px, 80vw);
-        font-size: 13px;
-      }
-      .row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 5px;
-      }
-      .row span:first-child {
-        width: 54px;
-        opacity: 0.85;
-      }
-      .track {
-        position: relative;
-        flex: 1;
-        height: 10px;
-        border-radius: 5px;
-        background: rgba(7, 18, 28, 0.6);
-        overflow: hidden;
-      }
-      .fill {
-        position: absolute;
-        left: 0;
-        top: 0;
-        height: 100%;
-        width: 100%;
-      }
-      /* Recently lost health is shown in white (width driven by GhostTracker). */
-      .ghost {
-        background: #fff;
-        opacity: 0.9;
-      }
-      #bar-hull {
-        background: #2aa5ff;
-      }
-      #bar-shield {
-        background: #8ff6ff;
-      }
-      .row.thin .track {
-        height: 6px;
-      }
-      #sunk {
-        top: 18px;
-        right: 22px;
-        font-size: 15px;
       }
       #debug {
         top: 10px;
@@ -207,26 +147,6 @@
         border-radius: 6px;
         resize: none;
       }
-      #minimap {
-        left: 12px;
-        bottom: 12px;
-        padding: 4px;
-        border-radius: 8px;
-        background: rgba(5, 13, 22, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.25);
-      }
-      #minimap canvas {
-        display: block;
-        border-radius: 5px;
-      }
-      #minimap.big {
-        left: 50%;
-        top: 50%;
-        bottom: auto;
-        transform: translate(-50%, -50%);
-        background: rgba(5, 13, 22, 0.8);
-        padding: 8px;
-      }
       #storm {
         inset: 0;
         opacity: 0;
@@ -280,348 +200,8 @@
         background: rgba(3, 14, 24, 0.55);
         transition: opacity 0.4s;
       }
-      #menu-card {
-        width: 340px;
-        padding: 24px 26px;
-        border-radius: 14px;
-        background: rgba(7, 22, 36, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      #menu-card h1 {
-        margin: 0;
-        font-size: 30px;
-        letter-spacing: 0.04em;
-      }
-      #menu-card .sub {
-        margin: 0;
-        font-size: 13px;
-        opacity: 0.8;
-      }
-      #menu-card label {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 12px;
-        opacity: 0.9;
-      }
-      #menu-card input,
-      #menu-card select {
-        font: inherit;
-        font-size: 16px;
-        padding: 8px 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        background: rgba(0, 0, 0, 0.35);
-        color: #fff;
-      }
-      #menu-play {
-        font: inherit;
-        font-size: 18px;
-        font-weight: 700;
-        padding: 10px;
-        border-radius: 10px;
-        border: none;
-        cursor: pointer;
-        color: #fff;
-        background: linear-gradient(#2e9bff, #1b6fd0);
-      }
-      #menu-play:disabled {
-        opacity: 0.6;
-        cursor: default;
-      }
-      #menu-note {
-        min-height: 18px;
-        font-size: 13px;
-      }
-      #menu-note.error {
-        color: #ff8f8f;
-      }
-      #menu-offline {
-        font-size: 12px;
-        color: #9fd0ff;
-      }
-      #match {
-        top: 64px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 6px 12px;
-        border-radius: 10px;
-        background: rgba(5, 13, 22, 0.6);
-      }
-      #match .side {
-        width: 230px;
-        font-size: 11px;
-      }
-      #match .side .track {
-        height: 12px;
-        margin-top: 3px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.15);
-        overflow: hidden;
-      }
-      #match .side .track.thin {
-        height: 5px;
-      }
-      #match .side.blue .fill {
-        background: #4aa8ff;
-      }
-      #match .side.red .fill {
-        background: #ff5a68;
-      }
-      #match .side .fill.shield {
-        background: #8ff6ff;
-      }
-      #match .fill {
-        height: 100%;
-        width: 100%;
-      }
-      #m-kills {
-        font-size: 22px;
-        font-weight: 700;
-        min-width: 70px;
-        text-align: center;
-      }
-      #banner {
-        top: 30%;
-        left: 50%;
-        transform: translateX(-50%);
-        text-align: center;
-        transition: opacity 0.25s;
-      }
-      #banner-title {
-        font-size: 44px;
-        font-weight: 800;
-        letter-spacing: 0.03em;
-        text-shadow: 0 3px 12px #000;
-      }
-      #banner-sub {
-        margin-top: 6px;
-        font-size: 20px;
-      }
-      #progress {
-        left: 50%;
-        bottom: 78px;
-        transform: translateX(-50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-      }
-      #p-info {
-        padding: 4px 12px;
-        border-radius: 8px;
-        background: rgba(5, 13, 22, 0.6);
-        font-size: 13px;
-        font-weight: 600;
-      }
-      #p-stats {
-        display: flex;
-        gap: 6px;
-      }
-      .p-btn {
-        pointer-events: auto;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        grid-template-areas: 'key name cost' 'pips pips pips';
-        align-items: center;
-        column-gap: 6px;
-        min-width: 100px;
-        padding: 4px 8px;
-        font: inherit;
-        font-size: 12px;
-        color: #fff;
-        text-align: left;
-        background: rgba(5, 13, 22, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 8px;
-        cursor: pointer;
-      }
-      .p-btn:hover:not(:disabled) {
-        background: rgba(40, 110, 170, 0.85);
-        border-color: #fff;
-      }
-      .p-btn:disabled {
-        opacity: 0.45;
-        cursor: default;
-      }
-      .p-key {
-        grid-area: key;
-        font-weight: 700;
-        color: #ffd84d;
-      }
-      .p-name {
-        grid-area: name;
-      }
-      .p-cost {
-        grid-area: cost;
-        font-weight: 700;
-        color: #8dff9c;
-      }
-      .p-pips {
-        grid-area: pips;
-        font-size: 11px;
-        letter-spacing: 1px;
-        color: #8ff6ff;
-      }
-      #p-tier {
-        pointer-events: auto;
-        font: inherit;
-        font-weight: 700;
-        padding: 6px 18px;
-        color: #fff;
-        background: linear-gradient(#2e9bff, #1b6fd0);
-        border: 1px solid #fff;
-        border-radius: 10px;
-        cursor: pointer;
-        animation: tierpulse 1s ease-in-out infinite;
-      }
-      @keyframes tierpulse {
-        50% {
-          transform: scale(1.06);
-        }
-      }
       .dmg.gain {
         color: #8dff9c;
-      }
-      #menu-card label.gone {
-        display: none;
-      }
-      #rigs {
-        top: 126px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 8px;
-      }
-      .rig {
-        width: 110px;
-        padding: 3px 6px 5px;
-        border-radius: 8px;
-        background: rgba(5, 13, 22, 0.6);
-        border: 2px solid rgba(255, 255, 255, 0.18);
-        font-size: 11px;
-      }
-      .rig.blue {
-        border-color: #4aa8ff;
-      }
-      .rig.red {
-        border-color: #ff4d5a;
-      }
-      .rig-bar {
-        position: relative;
-        height: 6px;
-        margin-top: 3px;
-        border-radius: 3px;
-        background: linear-gradient(90deg, #4aa8ff 0 50%, #ff4d5a 50% 100%);
-        opacity: 0.85;
-      }
-      .rig-marker {
-        position: absolute;
-        top: -3px;
-        left: 50%;
-        width: 4px;
-        height: 12px;
-        margin-left: -2px;
-        border-radius: 2px;
-        background: #fff;
-        box-shadow: 0 0 4px #000;
-        transition: left 0.4s;
-      }
-      #killfeed {
-        top: 14px;
-        left: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 14px;
-        font-weight: 600;
-      }
-      .feed-row {
-        align-self: flex-start;
-        padding: 3px 10px;
-        border-radius: 6px;
-        background: rgba(5, 13, 22, 0.55);
-        transition: opacity 0.6s;
-      }
-      .feed-row.mine {
-        border-left: 3px solid #ffd84d;
-        background: rgba(5, 13, 22, 0.75);
-      }
-      .feed-row.fading {
-        opacity: 0;
-      }
-      .feed-blue {
-        color: #8cc8ff;
-      }
-      .feed-red {
-        color: #ff97a2;
-      }
-      .feed-pirate {
-        color: #ffc778;
-      }
-      .feed-arrow {
-        opacity: 0.75;
-      }
-      #scoreboard {
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        display: flex;
-        gap: 18px;
-        width: min(720px, 92vw);
-        padding: 14px 16px;
-        border-radius: 12px;
-        background: rgba(5, 13, 22, 0.82);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        font-size: 14px;
-      }
-      .sb-col {
-        flex: 1;
-        min-width: 0;
-      }
-      .sb-row {
-        display: flex;
-        gap: 8px;
-        padding: 3px 8px;
-        border-radius: 5px;
-      }
-      .sb-row.me {
-        background: rgba(255, 255, 255, 0.16);
-        font-weight: 700;
-      }
-      .sb-head {
-        font-weight: 700;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-        margin-bottom: 3px;
-      }
-      .sb-col.blue .sb-head .sb-name {
-        color: #8cc8ff;
-      }
-      .sb-col.red .sb-head .sb-name {
-        color: #ff97a2;
-      }
-      .sb-name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .sb-ship {
-        width: 40px;
-        height: 20px;
-        object-fit: contain;
-        vertical-align: middle;
-        margin-right: 7px;
-      }
-      .sb-num {
-        width: 62px;
-        text-align: right;
       }
       /* Start screen: only the sea and the menu. */
       body.in-menu #hud,
@@ -630,6 +210,7 @@
       body.in-menu #picker,
       body.in-menu #minimap,
       body.in-menu #killfeed,
+      body.in-menu #upgrades,
       body.in-menu #rigs,
       body.in-menu #progress,
       body.in-menu #storm {
@@ -644,8 +225,8 @@
   <body class="in-menu">
     <canvas id="game"></canvas>
     <div id="menu" class="overlay hidden">
-      <form id="menu-card" autocomplete="off">
-        <h1>Tidebreaker</h1>
+      <form id="menu-card" class="panel" autocomplete="off">
+        <h1 lang="en">Tidebreaker</h1>
         <p class="sub" data-i18n="menu.goal"></p>
         <label><span data-i18n="menu.name"></span><input id="menu-name" maxlength="16" /></label>
         <label
@@ -658,48 +239,52 @@
       </form>
     </div>
     <div id="match" class="overlay hidden">
-      <div class="side blue">
-        <span data-i18n="match.blue"></span> <span data-i18n="match.carrier"></span>
-        <div class="track"><div id="m-blue-hull" class="fill"></div></div>
-        <div class="track thin"><div id="m-blue-shield" class="fill shield"></div></div>
+      <div class="m-side blue panel">
+        <div class="m-name">
+          <span data-i18n="match.blue"></span> <span data-i18n="match.carrier"></span>
+        </div>
+        <div class="m-bar"><div id="m-blue-hull" class="fill"></div></div>
+        <div class="m-bar thin"><div id="m-blue-shield" class="fill"></div></div>
       </div>
-      <div id="m-kills">0 : 0</div>
-      <div class="side red">
-        <span data-i18n="match.red"></span> <span data-i18n="match.carrier"></span>
-        <div class="track"><div id="m-red-hull" class="fill"></div></div>
-        <div class="track thin"><div id="m-red-shield" class="fill shield"></div></div>
+      <div id="m-center" class="panel"><div id="m-kills">0 : 0</div></div>
+      <div class="m-side red panel">
+        <div class="m-name">
+          <span data-i18n="match.red"></span> <span data-i18n="match.carrier"></span>
+        </div>
+        <div class="m-bar"><div id="m-red-hull" class="fill"></div></div>
+        <div class="m-bar thin"><div id="m-red-shield" class="fill"></div></div>
       </div>
     </div>
-    <div id="progress" class="overlay hidden">
-      <button id="p-tier" type="button" class="hidden"></button>
-      <div id="p-info"></div>
-      <div id="p-stats"></div>
-    </div>
-    <div id="killfeed" class="overlay"></div>
-    <div id="scoreboard" class="overlay hidden"></div>
     <div id="rigs" class="overlay hidden"></div>
+    <div id="progress" class="overlay hidden">
+      <button id="p-tier" type="button" class="panel hidden"></button>
+      <div id="p-info" class="panel"></div>
+    </div>
+    <div id="upgrades" class="overlay hidden"><div id="p-stats"></div></div>
+    <div id="killfeed" class="overlay"></div>
+    <div id="scoreboard" class="overlay panel hidden"></div>
     <div id="banner" class="overlay hidden">
       <div id="banner-title"></div>
       <div id="banner-sub"></div>
     </div>
-    <div id="minimap" class="overlay"></div>
+    <div id="minimap" class="overlay panel"></div>
     <div id="storm" class="overlay"><span data-i18n="hud.storm"></span></div>
     <div id="dmg-layer" class="overlay"></div>
-    <div id="hint" class="overlay" data-i18n="hint.controls"></div>
-    <div id="sunk" class="overlay">
+    <div id="hint" class="overlay panel" data-i18n="hint.controls"></div>
+    <div id="sunk" class="overlay panel">
       <span data-i18n="hud.sunk"></span>: <b id="sunk-count">0</b>
     </div>
-    <div id="hud" class="overlay">
-      <div class="row thin">
-        <span data-i18n="hud.shield"></span>
-        <div class="track">
+    <div id="hud" class="overlay panel">
+      <div class="bar-line shield">
+        <span class="bar-label" data-i18n="hud.shield"></span>
+        <div class="track seg">
           <div id="ghost-shield" class="fill ghost"></div>
           <div id="bar-shield" class="fill"></div>
         </div>
       </div>
-      <div class="row">
-        <span data-i18n="hud.hull"></span>
-        <div class="track">
+      <div class="bar-line hull">
+        <span class="bar-label" data-i18n="hud.hull"></span>
+        <div class="track seg">
           <div id="ghost-hull" class="fill ghost"></div>
           <div id="bar-hull" class="fill"></div>
         </div>

@@ -9,6 +9,8 @@ let current: Record<MessageKey, string> = en;
 
 export function setLanguage(lang: string): void {
   current = tables[lang] ?? en;
+  // Uppercase labels in CSS need the right language (Turkish has a dotted capital I).
+  document.documentElement.lang = tables[lang] ? lang : 'en';
 }
 
 export function t(key: MessageKey): string {

@@ -1,5 +1,5 @@
 import type { PerspectiveCamera } from 'three';
-import { TRAINING } from '@tidebreaker/shared';
+import { FX, TRAINING } from '@tidebreaker/shared';
 import type { Combatant } from '@tidebreaker/shared';
 import type { ShipModel } from '../render/assets.ts';
 import type { HealthBar } from './healthBar.ts';
@@ -29,6 +29,8 @@ export class ShipEntity {
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
+  /** Seconds left of the pop-in after a class change (0 = none). */
+  morphSeconds = 0;
   /** Collision rattle: starts at the impact strength and dies out (cosmetic). */
   shake = 0;
   /** Where this ship (re)appears. */
@@ -111,6 +113,16 @@ export class ShipEntity {
     if (this.mountAims) this.model.aimTurretsEach(this.pose.heading, this.mountAims);
     else this.model.aimTurrets(this.pose.x, this.pose.y, this.pose.heading, this.aim, this.aimDist);
 
+    // A new class pops in: small, growing past full size, settling back.
+    if (this.morphSeconds > 0) {
+      this.morphSeconds = this.morphSeconds > dtSec ? this.morphSeconds - dtSec : 0;
+      const u = 1 - this.morphSeconds / FX.upgrade.sec;
+      const k = FX.upgrade.overshoot;
+      const back = 1 + (k + 1) * Math.pow(u - 1, 3) + k * Math.pow(u - 1, 2);
+      root.scale.setScalar(FX.upgrade.minScale + (1 - FX.upgrade.minScale) * back);
+    } else if (root.scale.x !== 1) {
+      root.scale.setScalar(1);
+    }
     this.flashSeconds = this.flashSeconds > dtSec ? this.flashSeconds - dtSec : 0;
     this.model.setFlash(this.flashSeconds > 0);
 

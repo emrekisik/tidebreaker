@@ -23,6 +23,7 @@ import { LocalGame } from './game/localGame.ts';
 import { OnlineGame } from './game/onlineGame.ts';
 import type { ConnectError, OnlineEvents } from './game/onlineGame.ts';
 import type { GameSession } from './game/session.ts';
+import './ui/theme.css';
 import { applyI18n, detectLanguage, setLanguage, t } from './i18n/index.ts';
 import type { MessageKey } from './i18n/index.ts';
 import { Input } from './input/input.ts';
@@ -54,6 +55,14 @@ import { Minimap } from './ui/minimap.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
 
 setLanguage(detectLanguage());
+
+/** The HUD is drawn for a 1600 x 900 window and scaled from there (see theme.css). */
+function fitUi(): void {
+  const k = Math.min(innerWidth / 1600, innerHeight / 900);
+  document.documentElement.style.setProperty('--ui-scale', String(Math.min(1.3, Math.max(0.6, k))));
+}
+addEventListener('resize', fitUi);
+fitUi();
 applyI18n(document);
 
 const params = new URLSearchParams(location.search);
@@ -198,6 +207,9 @@ const events: OnlineEvents = {
     // The camera rattles when the player is involved.
     const me = session?.player;
     if (a === me || b === me) rig.shake(Math.min(0.9, impact * 0.045));
+  },
+  onUpgrade(x, y, length) {
+    effects.upgrade(x, y, length);
   },
   onSunk(entity, x, y) {
     effects.explode(x, y, entity.combatant.def.length);

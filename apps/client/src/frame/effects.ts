@@ -523,6 +523,85 @@ export class Effects {
   }
 
   /** A ship blew up: fireball, shock ring, smoke column, embers and tumbling hull chunks. */
+  /** A ship became a bigger class: a flash, two rings on the water, sparks and rising motes. */
+  upgrade(x: number, y: number, length: number): void {
+    const U = FX.upgrade;
+    const s = clamp(length / 7, 1, 3);
+    this.flash(x, 1.6, y, 8 * s, 0.4, C.shieldFlash, C.shieldDeep);
+    // Two rings spreading over the water, the second one faster and fainter.
+    for (let ring = 0; ring < 2; ring++) {
+      const speed = (ring === 0 ? 7 : 11) * s;
+      for (let i = 0; i < U.ring; i++) {
+        const a = (i / U.ring) * Math.PI * 2 + this.r(-0.05, 0.05);
+        this.foam.spawn(
+          x,
+          this.foamY,
+          y,
+          Math.cos(a) * speed,
+          0,
+          Math.sin(a) * speed,
+          ring === 0 ? 0.9 : 1.1,
+          (ring === 0 ? 1.2 : 1) * s,
+          (ring === 0 ? 2.2 : 1.8) * s,
+          0,
+          1.3,
+          C.shieldFlash,
+          C.shieldDeep,
+          ring === 0 ? 0.95 : 0.55,
+          0,
+          0,
+        );
+      }
+    }
+    // Sparks thrown out and up, white-cyan turning gold.
+    for (let i = 0; i < U.sparks; i++) {
+      const a = this.r(0, Math.PI * 2);
+      const sp = this.r(3, 9) * s;
+      this.spark.spawn(
+        x + Math.cos(a) * 0.3 * length,
+        1.2,
+        y + Math.sin(a) * 0.3 * length,
+        Math.cos(a) * sp,
+        this.r(4, 11),
+        Math.sin(a) * sp,
+        this.r(0.6, 1.1),
+        0.2,
+        0.03,
+        FX.gravity,
+        0.3,
+        C.shieldFlash,
+        0xffd84a,
+        1,
+        0,
+        0,
+        C.shieldSpark,
+      );
+    }
+    // Soft cyan motes rising from the hull.
+    for (let i = 0; i < U.motes; i++) {
+      const a = this.r(0, Math.PI * 2);
+      const d = this.r(0, 0.35) * length;
+      this.glow.spawn(
+        x + Math.cos(a) * d,
+        this.r(0.6, 1.6),
+        y + Math.sin(a) * d,
+        this.r(-0.4, 0.4),
+        this.r(3, 6),
+        this.r(-0.4, 0.4),
+        this.r(0.7, 1.2),
+        this.r(0.9, 1.6) * s,
+        0.2,
+        0,
+        0.6,
+        C.shieldSpark,
+        C.shieldDeep,
+        0.8,
+        0,
+        0,
+      );
+    }
+  }
+
   explode(x: number, y: number, length: number): void {
     const s = clamp(length / 4.5, 1.1, 3);
     const E = FX.explosion;
