@@ -52,6 +52,8 @@ export class ProgressHud {
   private readonly lives = document.getElementById('hud-lives') as HTMLElement;
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
   private readonly xp = document.getElementById('hud-xp') as HTMLElement;
+  private readonly xpFill = document.getElementById('hud-xpfill') as HTMLElement;
+  private readonly levels: HTMLElement[] = [];
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly pips: HTMLElement[][] = [];
   private readonly costNums: HTMLElement[] = [];
@@ -86,13 +88,16 @@ export class ProgressHud {
         pips.append(dot);
         dots.push(dot);
       }
+      const level = el('span', 'p-lv');
       b.append(
         el('span', 'p-key', String(i + 1)),
         icon,
         el('span', 'p-title', t(tile.name)),
         cost,
+        level,
         pips,
       );
+      this.levels.push(level);
       // Mouse clicks must not reach the game (they would fire the guns).
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
       b.addEventListener('click', () => this.onUpgrade(tile.stat));
@@ -148,7 +153,12 @@ export class ProgressHud {
     this.lives.textContent = String(Math.max(0, m.lives));
     this.cash.textContent = String(m.cash);
     const next = ECONOMY.tierScore[m.tier + 1];
-    this.xp.textContent = `${t('hud.xp')} ${m.score}`;
+    // XP shows the score and what the next class needs; the bar fills between the two.
+    const base = ECONOMY.tierScore[m.tier] ?? 0;
+    this.xp.textContent =
+      next === undefined ? `${t('hud.xp')} ${m.score}` : `${t('hud.xp')} ${m.score} / ${next}`;
+    const frac = next === undefined ? 1 : (m.score - base) / Math.max(1, next - base);
+    this.xpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
     this.xp.title = next === undefined ? t('progress.max') : `${t('progress.tierNeed')} ${next}`;
 
     const cap = statCap(m.tier);
@@ -166,7 +176,12 @@ export class ProgressHud {
       b.disabled = maxed || m.cash < cost;
       b.classList.toggle('maxed', maxed);
       b.classList.toggle('poor', !maxed && m.cash < cost);
+      this.levels[i]!.textContent = String(level);
     }
+    // Nothing to buy (too poor, or everything maxed): the upgrade row tucks itself away.
+    const compact = this.buttons.every((b) => b.disabled);
+    this.upgrades.classList.toggle('compact', compact);
+    this.root.classList.toggle('compact', compact);
 
     const nextShip = TIER_SHIPS[m.tier + 1];
     this.offered = m.canTierUp && nextShip !== undefined;

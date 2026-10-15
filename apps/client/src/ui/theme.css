@@ -5,12 +5,13 @@
  */
 :root {
   --font-ui: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
-  --panel: rgba(12, 31, 49, 0.9);
-  --panel-dark: rgba(8, 21, 35, 0.92);
+  --panel: rgba(12, 31, 49, 0.62);
+  --panel-dark: rgba(8, 21, 35, 0.64);
   --line: rgba(130, 180, 225, 0.16);
   --text: #f1f6fb;
   --dim: #8fa9c2;
-  --blue: #3d8fe6;
+  --blue: #4aa3ff;
+  --blue-hi: #a9d6ff;
   --red: #e5475b;
   --hull: #2cf27a;
   --shield: #15fffb;
@@ -72,7 +73,7 @@ svg.ico,
   column-gap: 10px;
   row-gap: 7px;
   align-items: center;
-  --panel: rgba(13, 32, 50, 0.9);
+  --panel: rgba(13, 32, 50, 0.62);
 }
 .hud-lives {
   position: relative;
@@ -175,6 +176,19 @@ svg.ico,
 .hud-xp {
   color: var(--xp);
   letter-spacing: 0.03em;
+}
+/* How far the score is toward the next class. */
+.hud-xpbar {
+  grid-column: 1 / 3;
+  height: 4px;
+  background: rgba(3, 12, 22, 0.6);
+  margin-top: -1px;
+}
+#hud-xpfill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #f0b400, var(--xp));
+  transition: width 0.4s;
 }
 
 /* ---- top centre: both carriers, the score between them, the oil rigs below ---- */
@@ -284,10 +298,10 @@ svg.ico,
   z-index: 1;
 }
 .rig.blue .rig-hex {
-  background: var(--blue);
+  background: var(--blue-hi);
 }
 .rig.blue .rig-hex::before {
-  background: #174272;
+  background: #2f86e8;
 }
 .rig.red .rig-hex {
   background: #ff8c9a;
@@ -299,7 +313,7 @@ svg.ico,
   filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.45));
 }
 .rig.blue {
-  filter: drop-shadow(0 0 7px rgba(61, 143, 230, 0.85));
+  filter: drop-shadow(0 0 8px rgba(74, 163, 255, 0.95));
 }
 .rig.red {
   filter: drop-shadow(0 0 7px rgba(229, 71, 91, 0.85));
@@ -309,6 +323,7 @@ svg.ico,
 #progress {
   left: 50%;
   bottom: 76px;
+  transition: bottom 0.35s ease;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -316,6 +331,9 @@ svg.ico,
   gap: 8px;
   width: 343px;
   text-shadow: none;
+}
+#progress.compact {
+  bottom: 52px;
 }
 #p-cards {
   display: flex;
@@ -338,7 +356,7 @@ svg.ico,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 26, 42, 0.92);
+  background: rgba(10, 26, 42, 0.5);
 }
 .uc-img img {
   width: 76px;
@@ -351,7 +369,7 @@ svg.ico,
   gap: 9px;
   height: 26px;
   padding: 0 8px;
-  background: rgba(28, 52, 76, 0.95);
+  background: rgba(28, 52, 76, 0.6);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -409,6 +427,38 @@ svg.ico,
   bottom: 18px;
   transform: translateX(-50%);
   text-shadow: none;
+  transition: bottom 0.35s ease;
+}
+/* Nothing can be bought: the row slides down and shrinks to an icon and a level each. */
+#upgrades.compact {
+  bottom: 8px;
+}
+#upgrades.compact #p-stats {
+  gap: 8px;
+}
+#upgrades.compact .p-btn {
+  width: 66px;
+  height: 30px;
+  padding: 5px 9px;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto;
+  column-gap: 6px;
+}
+#upgrades.compact .p-key,
+#upgrades.compact .p-title,
+#upgrades.compact .p-cost,
+#upgrades.compact .p-pips {
+  display: none;
+}
+.p-lv {
+  display: none;
+  justify-self: end;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c);
+}
+#upgrades.compact .p-lv {
+  display: block;
 }
 #p-stats {
   display: flex;
@@ -416,6 +466,9 @@ svg.ico,
 }
 .p-btn {
   pointer-events: auto;
+  transition:
+    width 0.3s ease,
+    height 0.3s ease;
   width: 174px;
   height: 48px;
   box-sizing: border-box;
