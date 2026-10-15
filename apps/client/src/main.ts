@@ -23,6 +23,10 @@ import { LocalGame } from './game/localGame.ts';
 import { OnlineGame } from './game/onlineGame.ts';
 import type { ConnectError, OnlineEvents } from './game/onlineGame.ts';
 import type { GameSession } from './game/session.ts';
+import '@fontsource/ibm-plex-sans-condensed/latin-500.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-700.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-ext-500.css';
+import '@fontsource/ibm-plex-sans-condensed/latin-ext-700.css';
 import './ui/theme.css';
 import { applyI18n, detectLanguage, setLanguage, t } from './i18n/index.ts';
 import type { MessageKey } from './i18n/index.ts';
@@ -96,6 +100,11 @@ const effects = new Effects(particleKit, MAX_PROJECTILES, wakeMap);
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
 const assets = new AssetProvider();
 // Fleets are built from every ship class and the carrier, so all models load before anything starts.
+// (Name plates are drawn into canvases, so the font must be there first.)
+await Promise.all([
+  document.fonts.load("700 30px 'IBM Plex Sans Condensed'"),
+  document.fonts.load("500 14px 'IBM Plex Sans Condensed'"),
+]);
 await assets.preload(Object.keys(MODEL_SPECS));
 await assets.preloadProps(Object.keys(PROP_SPECS));
 const bars = new BarKit();

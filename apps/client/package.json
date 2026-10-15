@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
     "@tidebreaker/shared": "workspace:*",
     "three": "0.186.1"
   },

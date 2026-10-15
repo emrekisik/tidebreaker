@@ -239,26 +239,22 @@
       </form>
     </div>
     <div id="match" class="overlay hidden">
-      <div class="m-side blue panel">
-        <div class="m-name">
-          <span data-i18n="match.blue"></span> <span data-i18n="match.carrier"></span>
-        </div>
-        <div class="m-bar"><div id="m-blue-hull" class="fill"></div></div>
-        <div class="m-bar thin"><div id="m-blue-shield" class="fill"></div></div>
+      <img class="m-ship blue" alt="" src="/icons/ships/side/blue/aircraft_carrier.png" />
+      <div class="m-bars blue">
+        <div class="m-bar hull"><div id="m-blue-hull" class="fill"></div></div>
+        <div class="m-bar shield"><div id="m-blue-shield" class="fill"></div></div>
       </div>
-      <div id="m-center" class="panel"><div id="m-kills">0 : 0</div></div>
-      <div class="m-side red panel">
-        <div class="m-name">
-          <span data-i18n="match.red"></span> <span data-i18n="match.carrier"></span>
-        </div>
-        <div class="m-bar"><div id="m-red-hull" class="fill"></div></div>
-        <div class="m-bar thin"><div id="m-red-shield" class="fill"></div></div>
+      <div id="m-kills">0 : 0</div>
+      <div class="m-bars red">
+        <div class="m-bar hull"><div id="m-red-hull" class="fill"></div></div>
+        <div class="m-bar shield"><div id="m-red-shield" class="fill"></div></div>
       </div>
+      <img class="m-ship red" alt="" src="/icons/ships/side/red/aircraft_carrier.png" />
     </div>
     <div id="rigs" class="overlay hidden"></div>
     <div id="progress" class="overlay hidden">
-      <button id="p-tier" type="button" class="panel hidden"></button>
-      <div id="p-info" class="panel"></div>
+      <div id="p-cards"></div>
+      <button id="p-tier" type="button"></button>
     </div>
     <div id="upgrades" class="overlay hidden"><div id="p-stats"></div></div>
     <div id="killfeed" class="overlay"></div>
@@ -275,19 +271,36 @@
       <span data-i18n="hud.sunk"></span>: <b id="sunk-count">0</b>
     </div>
     <div id="hud" class="overlay panel">
-      <div class="bar-line shield">
-        <span class="bar-label" data-i18n="hud.shield"></span>
-        <div class="track seg">
-          <div id="ghost-shield" class="fill ghost"></div>
-          <div id="bar-shield" class="fill"></div>
+      <div class="hud-lives">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 21.5S2.5 15.4 2.5 8.9C2.5 5.6 5 3.5 7.6 3.5c1.9 0 3.5 1 4.4 2.6.9-1.6 2.5-2.6 4.4-2.6 2.6 0 5.1 2.1 5.1 5.4 0 6.5-9.5 12.6-9.5 12.6z"
+            fill="currentColor"
+          />
+        </svg>
+        <b id="hud-lives">3</b>
+      </div>
+      <div class="hud-bars">
+        <div class="bar-line hull">
+          <span class="bar-label" data-i18n="hud.hull"></span>
+          <div class="track">
+            <div id="ghost-hull" class="fill ghost"></div>
+            <div id="bar-hull" class="fill"></div>
+          </div>
+        </div>
+        <div class="bar-line shield">
+          <span class="bar-label" data-i18n="hud.shield"></span>
+          <div class="track">
+            <div id="ghost-shield" class="fill ghost"></div>
+            <div id="bar-shield" class="fill"></div>
+          </div>
         </div>
       </div>
-      <div class="bar-line hull">
-        <span class="bar-label" data-i18n="hud.hull"></span>
-        <div class="track seg">
-          <div id="ghost-hull" class="fill ghost"></div>
-          <div id="bar-hull" class="fill"></div>
-        </div>
+      <div class="hud-money">
+        <span class="hud-cash"
+          ><span id="hud-cash-ico" class="ico"></span><span id="hud-cash">0</span></span
+        >
+        <span class="hud-xp" id="hud-xp">XP 0</span>
       </div>
     </div>
     <div id="picker" class="overlay"><div class="title" data-i18n="picker.title"></div></div>

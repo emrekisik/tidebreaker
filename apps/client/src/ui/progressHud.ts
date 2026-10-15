@@ -1,44 +1,35 @@
-import { ECONOMY, SHIP_IDS, STAT_COUNT, TIER_SHIPS, statCap, statCost } from '@tidebreaker/shared';
+import { ECONOMY, STAT, STAT_COUNT, TIER_SHIPS, statCap, statCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
+import agilityIcon from './icons/agility.svg?raw';
+import ammunitionIcon from './icons/ammunition.svg?raw';
+import cashIcon from './icons/cash.svg?raw';
+import damageIcon from './icons/damage.svg?raw';
+import repairIcon from './icons/repair.svg?raw';
+import shieldIcon from './icons/shield.svg?raw';
+import speedIcon from './icons/speed.svg?raw';
 
-const STAT_KEYS: MessageKey[] = [
-  'stat.speed',
-  'stat.reload',
-  'stat.turn',
-  'stat.shield',
-  'stat.regen',
-  'stat.damage',
-];
-
-/** Largest upgrade cap of any tier: the number of dots every button shows. */
+/** Largest upgrade cap of any tier: the number of pips every button shows. */
 const PIP_COUNT = 8;
 
-const SVG = (body: string): string =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-
-/** One icon per upgrade (same order as `STAT`): speed, reload, turn, shield, repair, damage. */
-const STAT_ICONS: readonly string[] = [
-  SVG('<path d="M9 5l11 7-11 7z" fill="currentColor"/><path d="M2 8h4M1 12h5M2 16h4"/>'),
-  SVG('<path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4"/><path d="M20 4v6h-6M4 20v-6h6"/>'),
-  SVG('<path d="M5 12a7 7 0 1 0 3-5.7"/><path d="M4 3v5h5"/>'),
-  SVG('<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor"/>'),
-  SVG(
-    '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3 17.7 6.3 21l6.3-6.3a4 4 0 0 0 5.1-5.4l-2.6 2.6-2.4-.6-.6-2.4z" fill="currentColor"/>',
-  ),
-  SVG(
-    '<path d="M12 1l2.5 7L22 6l-5 6 5 6-7.5-2L12 23l-2.5-7L2 18l5-6-5-6 7.5 2z" fill="currentColor"/>',
-  ),
+/** The bar of upgrades, left to right (keys 1-6): which stat, its name, color and icon. */
+const TILES: readonly { stat: number; name: MessageKey; color: string; icon: string }[] = [
+  { stat: STAT.SHIELD, name: 'stat.shield', color: 'var(--c-shield)', icon: shieldIcon },
+  { stat: STAT.RELOAD, name: 'stat.reload', color: 'var(--c-reload)', icon: ammunitionIcon },
+  { stat: STAT.DAMAGE, name: 'stat.damage', color: 'var(--c-damage)', icon: damageIcon },
+  { stat: STAT.SPEED, name: 'stat.speed', color: 'var(--c-speed)', icon: speedIcon },
+  { stat: STAT.TURN, name: 'stat.turn', color: 'var(--c-turn)', icon: agilityIcon },
+  { stat: STAT.REGEN, name: 'stat.regen', color: 'var(--c-repair)', icon: repairIcon },
 ];
 
-const STAR = SVG(
-  '<path d="M12 2l3 6.5 7 .9-5.1 4.8 1.3 7L12 17.8 5.8 21.2l1.3-7L2 9.4l7-.9z" fill="currentColor"/>',
-);
-/** A banknote: the game's money is paper money, never coins. */
-const NOTE = SVG(
-  '<rect x="2" y="6" width="20" height="12" rx="1.5" fill="currentColor" fill-opacity=".25"/><circle cx="12" cy="12" r="3"/><path d="M5.5 9.5v.01M18.5 14.5v.01"/>',
-);
+const ARROW_UP =
+  '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.8 2.6 10.2c-.6.7-.1 1.5.7 1.5h3.4v2.4c0 .5.4.9.8.9h5c.5 0 .8-.4.8-.9v-2.4h3.4c.9 0 1.3-.8.7-1.5z"/></svg>';
+
+/** An imported icon without its fixed pixel size, so CSS can size it. */
+function ico(svg: string): string {
+  return svg.replace(/ width="\d+" height="\d+"/, '');
+}
 
 function el(tag: string, cls: string, text?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -48,61 +39,46 @@ function el(tag: string, cls: string, text?: string): HTMLElement {
 }
 
 /**
- * The progress UI: the ship info panel (class, lives, score, money), the "class up" button (key
- * T) and the six upgrade buttons (keys 1-6 as well). The server decides everything; this only
- * shows what it last said and sends requests.
+ * The player's progress UI: lives, money and XP (in the top-left panel), the row of six upgrade
+ * tiles (keys 1-6) and the class offer (key T) with the card of the next ship. The server decides
+ * everything; this only shows what it last said and sends requests.
  */
 export class ProgressHud {
   private readonly root = document.getElementById('progress') as HTMLElement;
   private readonly upgrades = document.getElementById('upgrades') as HTMLElement;
-  private readonly info = document.getElementById('p-info') as HTMLElement;
   private readonly stats = document.getElementById('p-stats') as HTMLElement;
+  private readonly cards = document.getElementById('p-cards') as HTMLElement;
   private readonly tierBtn = document.getElementById('p-tier') as HTMLButtonElement;
+  private readonly lives = document.getElementById('hud-lives') as HTMLElement;
+  private readonly cash = document.getElementById('hud-cash') as HTMLElement;
+  private readonly xp = document.getElementById('hud-xp') as HTMLElement;
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly pips: HTMLElement[][] = [];
   private readonly costNums: HTMLElement[] = [];
-  private readonly nameText = document.createTextNode('');
-  private readonly livesEl = el('span', 'pi-lives');
-  private readonly needEl = el('span', 'label pi-need');
-  private readonly scoreEl = document.createElement('b');
-  private readonly cashEl = document.createElement('b');
-  private readonly tierShip = el('span', 'ti-ship');
-  private readonly tierText = el('span', 'ti-text');
+  private cardFor = '';
+  private visible = false;
+  private offered = false;
   private last: StatsMsg | null = null;
 
   constructor(
     private readonly onUpgrade: (stat: number) => void,
     private readonly onTierUp: () => void,
   ) {
-    // Ship info: label and class name on the left, score and money on the right.
-    const ship = el('div', 'pi-ship');
-    const label = el('div', 'label pi-label');
-    label.append(el('span', '', t('progress.shipInfo')), this.needEl);
-    const name = el('div', 'pi-name');
-    name.append(this.nameText, this.livesEl);
-    ship.append(label, name);
-    const stats = el('div', 'pi-stats');
-    stats.append(
-      this.stat('score', STAR, t('progress.score'), this.scoreEl),
-      this.stat('cash', NOTE, t('progress.cash'), this.cashEl),
-    );
-    this.info.append(ship, stats);
+    (document.getElementById('hud-cash-ico') as HTMLElement).innerHTML = ico(cashIcon);
 
     for (let i = 0; i < STAT_COUNT; i++) {
+      const tile = TILES[i]!;
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'p-btn panel';
-      const title = el('span', 'p-title');
-      title.append(
-        el('span', 'p-key', String(i + 1)),
-        document.createTextNode(`-${t(STAT_KEYS[i]!)}`),
-      );
+      b.className = 'p-btn';
+      b.style.setProperty('--c', tile.color);
+      const icon = el('span', 'p-ico ico');
+      icon.innerHTML = ico(tile.icon);
       const cost = el('span', 'p-cost');
-      cost.insertAdjacentHTML('beforeend', NOTE);
       const costNum = el('span', '');
-      cost.append(costNum);
-      const icon = el('span', 'p-icon');
-      icon.innerHTML = STAT_ICONS[i]!;
+      const costIcon = el('span', 'ico');
+      costIcon.innerHTML = ico(cashIcon);
+      cost.append(costNum, costIcon);
       const pips = el('span', 'p-pips');
       const dots: HTMLElement[] = [];
       for (let k = 0; k < PIP_COUNT; k++) {
@@ -110,47 +86,75 @@ export class ProgressHud {
         pips.append(dot);
         dots.push(dot);
       }
-      b.append(title, cost, icon, pips);
+      b.append(
+        el('span', 'p-key', String(i + 1)),
+        icon,
+        el('span', 'p-title', t(tile.name)),
+        cost,
+        pips,
+      );
       // Mouse clicks must not reach the game (they would fire the guns).
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
-      b.addEventListener('click', () => this.onUpgrade(i));
+      b.addEventListener('click', () => this.onUpgrade(tile.stat));
       this.stats.append(b);
       this.buttons.push(b);
       this.pips.push(dots);
       this.costNums.push(costNum);
     }
 
-    this.tierBtn.append(this.tierShip, this.tierText, el('span', 'ti-arrow', '▲'));
-    this.tierBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    this.tierBtn.addEventListener('click', () => this.onTierUp());
-  }
-
-  private stat(cls: string, icon: string, label: string, value: HTMLElement): HTMLElement {
-    const row = el('div', `pi-stat ${cls}`);
-    row.insertAdjacentHTML('beforeend', icon);
-    row.append(document.createTextNode(`${label}:`), value);
-    return row;
+    for (const target of [this.tierBtn, this.cards]) {
+      target.addEventListener('pointerdown', (e) => e.stopPropagation());
+      target.addEventListener('click', () => this.onTierUp());
+    }
+    const arrowLeft = el('span', 'ico');
+    arrowLeft.innerHTML = ARROW_UP;
+    const arrowRight = el('span', 'ico');
+    arrowRight.innerHTML = ARROW_UP;
+    this.tierBtn.append(arrowLeft, el('span', 'ti-text'), arrowRight);
   }
 
   show(on: boolean): void {
-    this.root.classList.toggle('hidden', !on);
+    this.visible = on;
     this.upgrades.classList.toggle('hidden', !on);
+    this.refreshOffer();
+  }
+
+  private refreshOffer(): void {
+    this.root.classList.toggle('hidden', !(this.visible && this.offered));
+  }
+
+  /** The card of the next class (its top-down picture and name). */
+  private showCard(shipId: string): void {
+    if (shipId === this.cardFor) return;
+    this.cardFor = shipId;
+    const card = el('div', 'up-card panel');
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = `${import.meta.env.BASE_URL}icons/ships/card/${shipId}.png`;
+    const pic = el('div', 'uc-img');
+    pic.append(img);
+    const name = el('div', 'uc-name');
+    // ("T3 Corvette" -> "Corvette": the class number is not needed on the card.)
+    name.append(
+      el('span', 'uc-key', 'T'),
+      el('span', '', t(`ship.${shipId}` as MessageKey).replace(/^T\d\s*/, '')),
+    );
+    card.append(pic, name);
+    this.cards.replaceChildren(card);
   }
 
   /** The player's own progress changed. */
   update(m: StatsMsg): void {
-    const shipId = SHIP_IDS[m.shipId];
-    this.nameText.data = shipId ? t(`ship.${shipId}` as MessageKey) : '';
-    this.livesEl.textContent = '♥'.repeat(Math.max(0, m.lives));
+    this.lives.textContent = String(Math.max(0, m.lives));
+    this.cash.textContent = String(m.cash);
     const next = ECONOMY.tierScore[m.tier + 1];
-    this.needEl.textContent =
-      next === undefined ? `· ${t('progress.max')}` : `· ${t('progress.tierNeed')} ${next}`;
-    this.scoreEl.textContent = String(m.score);
-    this.cashEl.textContent = String(m.cash);
+    this.xp.textContent = `${t('hud.xp')} ${m.score}`;
+    this.xp.title = next === undefined ? t('progress.max') : `${t('progress.tierNeed')} ${next}`;
 
     const cap = statCap(m.tier);
     for (let i = 0; i < STAT_COUNT; i++) {
-      const level = m.levels[i]!;
+      const stat = TILES[i]!.stat;
+      const level = m.levels[stat]!;
       const maxed = level >= cap;
       const cost = statCost(level);
       const dots = this.pips[i]!;
@@ -158,23 +162,23 @@ export class ProgressHud {
         dots[k]!.className = k < level ? 'pip on' : k < cap ? 'pip open' : 'pip';
       }
       this.costNums[i]!.textContent = maxed ? 'MAX' : String(cost);
-      this.buttons[i]!.disabled = maxed || m.cash < cost;
-      this.buttons[i]!.classList.toggle('maxed', maxed);
+      const b = this.buttons[i]!;
+      b.disabled = maxed || m.cash < cost;
+      b.classList.toggle('maxed', maxed);
+      b.classList.toggle('poor', !maxed && m.cash < cost);
     }
 
-    this.tierBtn.classList.toggle('hidden', !m.canTierUp);
     const nextShip = TIER_SHIPS[m.tier + 1];
-    if (nextShip) {
-      const url = `${import.meta.env.BASE_URL}icons/ships/side/white/${nextShip}.png`;
-      this.tierShip.style.setProperty('--icon', `url(${url})`);
-    }
-    this.tierText.textContent = `${t('progress.tierUp')} (T)`;
+    this.offered = m.canTierUp && nextShip !== undefined;
+    if (nextShip) this.showCard(nextShip);
+    (this.tierBtn.querySelector('.ti-text') as HTMLElement).textContent = t('progress.tierUp');
+    this.refreshOffer();
     this.last = m;
   }
 
-  /** Keyboard shortcut for stat `i` (0-5); respects what the buttons allow. */
+  /** Keyboard shortcut for the tile in slot `i` (0-5, left to right); respects what it allows. */
   pressStat(i: number): void {
-    if (this.buttons[i] && !this.buttons[i]!.disabled) this.onUpgrade(i);
+    if (this.buttons[i] && !this.buttons[i]!.disabled) this.onUpgrade(TILES[i]!.stat);
   }
 
   pressTierUp(): void {
