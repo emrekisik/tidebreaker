@@ -65,13 +65,13 @@ svg.ico,
 #hud {
   top: 22px;
   left: 30px;
-  width: 230px;
+  width: 252px;
   box-sizing: border-box;
-  padding: 11px 14px 10px 12px;
+  padding: 13px 15px 13px 15px;
   display: grid;
   grid-template-columns: 34px 1fr;
-  column-gap: 10px;
-  row-gap: 7px;
+  column-gap: 12px;
+  row-gap: 9px;
   align-items: center;
   --panel: rgba(13, 32, 50, 0.62);
 }
@@ -106,10 +106,12 @@ svg.ico,
 .bar-line {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
 }
 .bar-label {
+  width: 52px;
+  text-align: right;
+  flex: none;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -118,7 +120,8 @@ svg.ico,
 }
 .track {
   position: relative;
-  width: 110px;
+  flex: 1;
+  min-width: 0;
   height: 11px;
   background: rgba(3, 12, 22, 0.75);
   overflow: hidden;
@@ -164,12 +167,14 @@ svg.ico,
   font-weight: 700;
 }
 .hud-cash {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 5px;
   color: var(--cash);
 }
 .hud-cash .ico {
+  flex: none;
   width: 19px;
   height: 19px;
 }
@@ -366,9 +371,9 @@ svg.ico,
 .uc-name {
   display: flex;
   align-items: center;
-  gap: 9px;
-  height: 26px;
-  padding: 0 8px;
+  gap: 12px;
+  height: 28px;
+  padding: 0 10px;
   background: rgba(28, 52, 76, 0.6);
   font-size: 13px;
   font-weight: 700;
@@ -462,23 +467,23 @@ svg.ico,
 }
 #p-stats {
   display: flex;
-  gap: 15px;
+  gap: 8px;
 }
 .p-btn {
   pointer-events: auto;
   transition:
     width 0.3s ease,
     height 0.3s ease;
-  width: 174px;
+  width: 168px;
   height: 48px;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: auto auto 1fr auto;
   grid-template-rows: 1fr auto;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 3px;
-  padding: 7px 10px 8px 9px;
+  column-gap: 6px;
+  row-gap: 4px;
+  padding: 8px 10px 9px 10px;
   font: inherit;
   color: var(--text);
   text-align: left;
