@@ -49,7 +49,7 @@ export class BarKit {
     canvas.height = Math.round((256 * TAG_HEIGHT) / TAG_WIDTH);
     const g = canvas.getContext('2d');
     if (g) {
-      g.font = "700 30px 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif";
+      g.font = "700 30px 'Oxanium', system-ui, sans-serif";
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       const text = name.toLocaleUpperCase();

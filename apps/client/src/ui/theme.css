@@ -1,10 +1,10 @@
 /*
  * HUD theme: flat dark navy panels with a hairline edge, bold condensed uppercase labels
- * (IBM Plex Sans Condensed), one colour per upgrade, hexagon capture badges. Sizes are for a
+ * (Oxanium), one colour per upgrade, hexagon capture badges. Sizes are for a
  * 1600 x 900 window; the whole HUD is scaled from there (--ui-scale, set in main.ts).
  */
 :root {
-  --font-ui: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-ui: 'Oxanium', system-ui, sans-serif;
   --panel: rgba(12, 31, 49, 0.62);
   --panel-dark: rgba(8, 21, 35, 0.64);
   --line: rgba(130, 180, 225, 0.16);

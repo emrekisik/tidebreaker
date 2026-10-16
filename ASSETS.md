@@ -9,7 +9,7 @@ Only CC0 or commercially usable licenses. Never use Starblast assets, names or U
 | Pirate ship: `pirate_ship` | AI-generated model supplied by the project owner (Tripo-style export); generator, terms and URL **TODO** | **TODO** | **TODO** (check the generator's terms for commercial use) | the three pirate classes (one model at three sizes) | 4096 px texture, shrunk to 1024 px by `pnpm assets:build`. Raw GLB is local only (`models/`). |
 | Oil rig: `oil_rig` | same as above, **TODO** | **TODO** | **TODO** | the three capture rigs | same processing. |
 | Islands: `island_tropical`, `island_rocky` | same as above, **TODO** | **TODO** | **TODO** | every island of the map (bent onto the collision outline at load time, `render/islands.ts`) | same processing; `pnpm assets:footprint` measures the coast outline of each (`render/islandFootprints.ts`, generated). |
-| Font: IBM Plex Sans Condensed (500, 700; latin, latin-ext) | npm `@fontsource/ibm-plex-sans-condensed` (IBM Plex by IBM) | IBM | SIL Open Font License 1.1 | all UI text (bundled with the client) | |
+| Font: Oxanium (500, 700; latin, latin-ext) | npm `@fontsource/oxanium` (Oxanium by Severin Meyer) | Severin Meyer | SIL Open Font License 1.1 | all UI text (bundled with the client) | |
 | UI icons: `apps/client/src/ui/icons/*.svg` (shield, ammunition, damage, speed, agility, repair, cash) | supplied by the project owner; source and license **TODO** | **TODO** | **TODO** | upgrade tiles, money | |
 | Class cards: `apps/client/public/icons/ships/card/*.png` (top-down ship pictures) | supplied by the project owner; source and license **TODO** | **TODO** | **TODO** | the "class upgrade" card | Originals in the repo root folder `ship-topdown/` (not committed). |
 
