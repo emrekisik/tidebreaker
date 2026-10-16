@@ -38,7 +38,11 @@ import {
   createShipState,
   dqAngle16,
   dqAxis,
+  BASE,
+  BASE_ITEM,
+  encodeBaseBuy,
   encodeBuyDrone,
+  gunsCost,
   encodeTierUp,
   encodeUpgrade,
   pirateReward,
@@ -1664,6 +1668,35 @@ describe('drones', () => {
     expect(w.drones.count).toBe(0);
   });
 
+  it('point their nose the way they fly (also while circling their owner)', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 1); // the combat drone
+    await tick(2);
+    const ds = w.slots[w.drones.slotOf(0)]!.state;
+    let checked = 0;
+    for (let i = 0; i < 400; i++) {
+      place(room, a, spot.x, spot.y, 0);
+      const x0 = ds.x;
+      const y0 = ds.y;
+      await tick(1);
+      const moved = Math.hypot(ds.x - x0, ds.y - y0);
+      // After the take-off, whenever it moves noticeably the nose is along the movement.
+      if (i > 120 && moved > 0.15) {
+        const dir = Math.atan2(ds.y - y0, ds.x - x0);
+        expect(Math.abs(Math.atan2(Math.sin(dir - ds.heading), Math.cos(dir - ds.heading)))).toBeLessThan(0.6);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
+
   it('are gone when a new round starts', async () => {
     const { room, join, tick } = setup({ anyClass: false });
     const a = await join('Owner');
@@ -1679,5 +1712,76 @@ describe('drones', () => {
     w.startRound();
     expect(w.drones.count).toBe(0);
     expect(w.drones.countOf[slot]).toBe(0);
+  });
+});
+
+describe('base shop', () => {
+  const buyBase = (c: TestClient, item: number): void => {
+    const w = new Writer(4);
+    encodeBaseBuy(w, item);
+    c.conn.send(w.toBytes());
+  };
+  const byCarrier = (team: number): { x: number; y: number } => {
+    const b = MATCH.carriers[team]!;
+    return { x: b.x, y: b.y + 40 };
+  };
+
+  it('mends the own carrier for money, only while it is damaged and the buyer is at it', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner'); // blue
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const carrier = w.slots[0]!;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 1000;
+    // Undamaged: nothing to mend, no money taken.
+    buyBase(a, BASE_ITEM.REPAIR);
+    await tick(2);
+    expect(w.cash[slot]).toBe(1000);
+    carrier.state.hull = carrier.def.hull * 0.5;
+    buyBase(a, BASE_ITEM.REPAIR);
+    await tick(2);
+    expect(w.cash[slot]).toBe(1000 - BASE.repair.price);
+    expect(carrier.state.hull).toBeCloseTo(carrier.def.hull * (0.5 + BASE.repair.pct), 0);
+    // Away from the carrier it is refused.
+    place(room, a, 600, 300, 0);
+    buyBase(a, BASE_ITEM.REPAIR);
+    await tick(2);
+    expect(w.cash[slot]).toBe(1000 - BASE.repair.price);
+    // The enemy carrier is not the buyer's to mend.
+    expect(w.slots[1]!.state.hull).toBe(w.slots[1]!.def.hull);
+  });
+
+  it('raises the level of the team guns; the whole team hears it, the next level costs more', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner'); // blue
+    const b = await join('Red'); // red
+    const c = await join('Mate'); // blue
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 100000;
+    buyBase(a, BASE_ITEM.GUNS);
+    await tick(2);
+    expect(w.baseGuns[TEAM_BLUE]).toBe(1);
+    expect(w.baseGuns[TEAM_RED]).toBe(0);
+    expect(w.cash[slot]).toBe(100000 - gunsCost(0));
+    expect(a.heard.stats[a.heard.stats.length - 1]!.baseGuns).toBe(1);
+    expect(c.heard.stats[c.heard.stats.length - 1]!.baseGuns).toBe(1);
+    expect(b.heard.stats[b.heard.stats.length - 1]!.baseGuns).toBe(0);
+    expect(gunsCost(1)).toBeGreaterThan(gunsCost(0));
+    // Up to the top level, then no more.
+    for (let i = 0; i < BASE.guns.maxLevel + 2; i++) {
+      buyBase(a, BASE_ITEM.GUNS);
+      await tick(1);
+    }
+    expect(w.baseGuns[TEAM_BLUE]).toBe(BASE.guns.maxLevel);
+    // A new round starts the level over.
+    w.startRound();
+    expect(w.baseGuns[TEAM_BLUE]).toBe(0);
   });
 });

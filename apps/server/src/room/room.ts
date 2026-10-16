@@ -148,6 +148,7 @@ export class Room {
     canTierUp: false,
     lives: 0,
     drones: 0,
+    baseGuns: 0,
   };
   private readonly anyClass: boolean;
   private readonly self = newSelfState();
@@ -391,6 +392,7 @@ export class Room {
       m.canTierUp = canTierUp(m.tier, m.cash);
       m.lives = w.lives[s]!;
       m.drones = w.drones.countOf[s]!;
+      m.baseGuns = w.baseGuns[w.slots[s]!.team] ?? 0;
       this.small.reset();
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
@@ -633,6 +635,9 @@ export class Room {
         break;
       case C2S.BUY_DRONE:
         if (c.stage === Stage.Playing) this.world.buyDrone(c.slot, c.msg.stat);
+        break;
+      case C2S.BASE_BUY:
+        if (c.stage === Stage.Playing) this.world.buyBase(c.slot, c.msg.stat);
         break;
       case C2S.PING:
         this.small.reset();

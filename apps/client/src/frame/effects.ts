@@ -1077,14 +1077,18 @@ export class Effects {
     else e.wakeReady = false;
     if (s.alive) this.hullContact(e, length, width);
 
-    // Healing (regeneration, a barrel): a wrench turns above the hull.
+    // Healing: a wrench turns above the hull. Other ships' hull comes in coarse steps (one byte per
+    // snapshot, bigger than what a second of mending adds), so the hull is compared with the last
+    // level that was shown, not with a moment ago: the wrench comes once the hull has really grown.
     e.repairClock += dt;
-    if (e.repairClock >= FX.repair.everySec) {
-      e.repairClock = 0;
-      if (s.alive && e.repairLast > 0 && s.hull > e.repairLast + def.hull * FX.repair.minGain) {
-        this.onRepair?.(p.x, p.y);
-      }
+    if (!s.alive) {
+      e.repairLast = 0;
+    } else if (e.repairLast === 0 || s.hull < e.repairLast) {
       e.repairLast = s.hull;
+    } else if (e.repairClock >= FX.repair.everySec && s.hull > e.repairLast + def.hull * FX.repair.minGain) {
+      e.repairClock = 0;
+      e.repairLast = s.hull;
+      this.onRepair?.(p.x, p.y);
     }
 
     const frac = s.hull / def.hull;

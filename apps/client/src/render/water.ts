@@ -101,9 +101,9 @@ void main() {
   float pb = vnoise(p * 0.0125 + vec2(9.7, -uTime * 0.003));
   float pc = vnoise(p * 0.02 + vec2(-4.3, 1.9 + uTime * 0.002));
   vec3 deepL = mix(uDeep, uDark, smoothstep(0.38, 0.72, pa));
-  deepL = mix(deepL, uMid, 0.7 * smoothstep(0.5, 0.82, pb));
-  vec3 shallowL = mix(uShallow, uMid, smoothstep(0.45, 0.8, pc) * 0.75);
-  shallowL = mix(shallowL, uDark * 1.6, 0.35 * smoothstep(0.55, 0.85, pa));
+  deepL = mix(deepL, uMid, 0.3 * smoothstep(0.5, 0.82, pb));
+  vec3 shallowL = mix(uShallow, uMid, smoothstep(0.45, 0.8, pc) * 0.3);
+  shallowL = mix(shallowL, uDark * 1.3, 0.12 * smoothstep(0.55, 0.85, pa));
   vec3 col = mix(deepL, shallowL, t);
 
   // Light shining through thin crests: a brighter, greener tint on the sun-facing side.
@@ -181,10 +181,10 @@ export class Water {
     this.material = new ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uDeep: { value: new Color(0x0b6989) },
-        uShallow: { value: new Color(0x13a0dd) },
-        uMid: { value: new Color(0x0c78a7) },
-        uDark: { value: new Color(0x1e566f) },
+        uDeep: { value: new Color(0x1e566f) },
+        uShallow: { value: new Color(0x347392) },
+        uMid: { value: new Color(0x2a6482) },
+        uDark: { value: new Color(0x1a4c63) },
         uFoam: { value: new Color(0xe6f6fb) },
         uSky: { value: new Color(0x2c76a8) },
         uSun: { value: SUN },

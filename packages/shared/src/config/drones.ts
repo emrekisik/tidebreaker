@@ -43,13 +43,13 @@ function droneShip(
   };
 }
 
-const fpv = droneShip('fpv_drone', 4.4, 'drone_gun', {
+const fpv = droneShip('fpv_drone', 3.4, 'drone_gun', {
   hull: 35,
   shield: 10,
   vMax: 32,
   turnRateDeg: 260,
 });
-const combat = droneShip('combat_drone', 5.2, 'drone_rocket', {
+const combat = droneShip('combat_drone', 4.4, 'drone_rocket', {
   hull: 70,
   shield: 25,
   vMax: 22,
@@ -74,9 +74,9 @@ export const DRONE = {
   /** Seconds one full turn of the resting position around the owner takes (they drift slowly). */
   orbitSec: 14,
   /** It attacks an enemy this close to itself... */
-  detectRadius: 75,
+  detectRadius: 58,
   /** ...as long as the enemy is no further than this from the owner (otherwise it goes home). */
-  leash: 100,
+  leash: 85,
   /** It likes to fight at this fraction of its weapon range, and keeps shooting inside this one. */
   fightDistFactor: 0.7,
   /** Linear acceleration (units/s^2) and how much speed it loses per second when not accelerating. */

@@ -52,7 +52,7 @@ import { MODEL_SPECS, PROP_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
-import { DroneShop } from './ui/droneShop.ts';
+import { BaseShop } from './ui/baseShop.ts';
 import { RigView } from './render/rigs.ts';
 import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
@@ -122,7 +122,10 @@ const hud = new Hud();
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 const matchHud = new MatchHud();
 const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
-const droneShop = new DroneShop((type) => online?.net.buyDrone(type));
+const baseShop = new BaseShop((item, arg) => {
+  if (item === 0) online?.net.buyDrone(arg);
+  else online?.net.baseBuy(arg);
+});
 const progressHud = new ProgressHud(
   (stat) => online?.net.upgrade(stat),
   () => online?.net.tierUp(),
@@ -173,7 +176,8 @@ window.addEventListener('keydown', (e) => {
     if (e.code >= 'Digit1' && e.code <= 'Digit6')
       progressHud.pressStat(Number(e.code.slice(5)) - 1);
     else if (e.code === 'KeyT') progressHud.pressTierUp();
-    else if (e.code === 'Digit7' || e.code === 'Digit8') droneShop.press(Number(e.code.slice(5)) - 7);
+    else if (e.code >= 'Digit7' && e.code <= 'Digit9') baseShop.press(Number(e.code.slice(5)) - 7);
+    else if (e.code === 'Digit0') baseShop.press(3);
   }
   if (e.code === 'Tab') {
     // The scoreboard replaces the browser's focus change.
@@ -258,7 +262,7 @@ const events: OnlineEvents = {
   },
   onStats(m) {
     progressHud.update(m);
-    droneShop.setStats(m.cash, m.drones);
+    baseShop.setStats(m.cash, m.drones, m.baseGuns);
   },
   onRigs(rows) {
     rigView.set(rows);
@@ -391,7 +395,7 @@ function update(nowMs: number): void {
 
   if (!session) {
     // Menu screen: the open sea, a slowly turning view.
-    droneShop.show(false);
+    baseShop.show(false);
     wakeMap.begin(rig.focusX, rig.focusZ, dtSec);
     effects.update(dtSec);
     rig.update(stage.camera, WORLD_CENTER + Math.cos(timeSec * 0.05) * 60, WORLD_CENTER, dtSec, 3);
@@ -449,9 +453,10 @@ function update(nowMs: number): void {
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
   minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
-  // The drone shop is open while the player's ship is at its own carrier.
+  // The base shop is open while the player's ship is at its own carrier.
   const ownCarrier = online ? carriers[online.myTeam] : undefined;
-  droneShop.show(
+  if (ownCarrier) baseShop.setCarrierHull(ownCarrier.state.hull / ownCarrier.def.hull);
+  baseShop.show(
     ownCarrier !== undefined &&
       ps.alive &&
       hullDistance(ownCarrier.state, ownCarrier.def, ps.x, ps.y) <= DRONE.buyRadius,

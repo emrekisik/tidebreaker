@@ -5,6 +5,7 @@ import {
   encodeInput,
   encodePing,
   encodePlay,
+  encodeBaseBuy,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -81,6 +82,11 @@ export class NetClient {
 
   upgrade(stat: number): void {
     encodeUpgrade(this.out, stat);
+    this.flush();
+  }
+
+  baseBuy(item: number): void {
+    encodeBaseBuy(this.out, item);
     this.flush();
   }
 

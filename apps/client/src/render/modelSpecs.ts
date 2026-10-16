@@ -43,12 +43,12 @@ export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
   island_rocky: { file: 'island_rocky.glb', node: 'island_rocky', sink: 0.04 },
   island_tropical: { file: 'island_tropical.glb', node: 'island_tropical', sink: 0.04 },
   // Things floating in the sea (pickups) and the drones that fly over it.
-  red_oil_barrel: { file: 'red_oil_barrel.glb', node: 'red_oil_barrel', sink: 0.12, glow: 0.3 },
-  wooden_create_loot: { file: 'wooden_create_loot.glb', node: 'wooden_create_loot', sink: 0.1, glow: 0.25 },
+  red_oil_barrel: { file: 'red_oil_barrel.glb', node: 'red_oil_barrel', sink: 0.3, glow: 0.3 },
+  wooden_create_loot: { file: 'wooden_create_loot.glb', node: 'wooden_create_loot', sink: 0.3, glow: 0.25 },
   pirate_golden_treasure_chest: {
     file: 'pirate_golden_treasure_chest.glb',
     node: 'pirate_golden_treasure_chest',
-    sink: 0.1,
+    sink: 0.3,
     glow: 0.3,
   },
   money_model: { file: 'money_model.glb', node: 'money_model', sink: 0.1, glow: 0.35 },

@@ -182,6 +182,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     canTierUp: false,
     lives: 3,
     drones: 0,
+    baseGuns: 0,
   };
   readonly clock = new ServerClock();
   predictor!: Predictor;
@@ -504,6 +505,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     p.canTierUp = m.canTierUp;
     p.lives = m.lives;
     p.drones = m.drones;
+    p.baseGuns = m.baseGuns;
     if (this.predictor) {
       this.predictor.speedLevel = m.levels[STAT.SPEED]!;
       this.predictor.turnLevel = m.levels[STAT.TURN]!;

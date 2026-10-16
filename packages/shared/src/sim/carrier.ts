@@ -78,7 +78,8 @@ const aim = new Float32Array(1);
 
 /**
  * Ticks a carrier's turrets and fires the ones that are ready at their own targets. Shots spawn
- * at the barrel tip like everyone else's. Returns the number of shots fired.
+ * at the barrel tip like everyone else's. Returns the number of shots fired. The team's gun upgrade
+ * scales the damage and the time between shots (`damageMul`, `reloadMul`).
  */
 export function updateCarrier(
   carrier: Combatant,
@@ -86,6 +87,8 @@ export function updateCarrier(
   dt: number,
   rng: Rng,
   sink: ProjectileSink,
+  damageMul = 1,
+  reloadMul = 1,
 ): number {
   const s = carrier.state;
   const def = carrier.def;
@@ -110,11 +113,11 @@ export function updateCarrier(
       weapon.projectileSpeed * weapon.startSpeedPct,
       weapon.range,
       weapon.radius,
-      weapon.damage,
+      weapon.damage * damageMul,
       carrier.id,
       weaponIndex(mount.weapon),
     );
-    s.mountCooldown[i] = weapon.intervalSec;
+    s.mountCooldown[i] = weapon.intervalSec * reloadMul;
     s.salvoCooldown = SALVO_GAP_SEC;
     shots++;
   }

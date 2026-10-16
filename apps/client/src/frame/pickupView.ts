@@ -1,7 +1,11 @@
 import { Object3D } from 'three';
 import type { InstancedMesh } from 'three';
 import { KIND, PICKUP_CAPACITY, PICKUP_ID_BASE } from '@tidebreaker/shared';
-import { waveHeight } from '../render/waves.ts';
+import { waveHeight, waveSlope } from '../render/waves.ts';
+
+const slope = new Float32Array(2);
+/** How strongly floating things lean with the swell (1 = exactly with the surface). */
+const LEAN = 1.3;
 
 /**
  * Everything floating in the sea that can be picked up. One `InstancedMesh` per kind (so four draw
@@ -80,8 +84,9 @@ export class PickupView {
       const x = this.xs[i]!;
       const z = this.zs[i]!;
       const phase = this.ids[i]! * 1.7;
-      const bob = Math.sin(timeSec * 1.6 + phase) * 0.12;
-      let y = waveHeight(x, z, timeSec) * 0.5 + 0.55 + bob;
+      const bob = Math.sin(timeSec * 1.5 + phase) * 0.17;
+      // Floating things ride the swell (they sit low, partly under water); banknotes lie on top of it.
+      let y = waveHeight(x, z, timeSec) * (kindIdx === 3 ? 0.5 : 0.9) + (kindIdx === 3 ? 0.35 : 0.12) + bob;
       let size = (this.meshes[kindIdx]!.userData['scale'] as number | undefined) ?? 1;
       if (kindIdx === 3) {
         // Banknote piles: bigger piles are bigger, and lie flat on the water.
@@ -93,11 +98,21 @@ export class PickupView {
         if (this.looks[i]! === 3) size *= 1.4;
       }
       d.position.set(x, y, z);
-      d.rotation.set(
-        Math.sin(timeSec * 1.1 + phase) * 0.12,
-        timeSec * (kindIdx === 3 ? 0.5 : 0.25) + phase,
-        Math.cos(timeSec * 0.9 + phase) * 0.12,
-      );
+      if (kindIdx === 3) {
+        d.rotation.set(
+          Math.sin(timeSec * 1.1 + phase) * 0.12,
+          timeSec * 0.5 + phase,
+          Math.cos(timeSec * 0.9 + phase) * 0.12,
+        );
+      } else {
+        // Lean with the water under it, plus a slow roll of its own, and drift a little around.
+        waveSlope(x, z, timeSec, slope);
+        d.rotation.set(
+          -Math.atan(slope[1]!) * LEAN + Math.sin(timeSec * 1.3 + phase) * 0.1,
+          phase + Math.sin(timeSec * 0.35 + phase) * 0.35,
+          Math.atan(slope[0]!) * LEAN + Math.cos(timeSec * 1.05 + phase) * 0.1,
+        );
+      }
       d.scale.setScalar(size);
       d.updateMatrix();
       this.meshes[kindIdx]!.setMatrixAt(this.perKind[kindIdx]!++, d.matrix);

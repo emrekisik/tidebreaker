@@ -101,6 +101,21 @@ describe('carrier turrets', () => {
     expect(shots.every((s) => s.owner === c.id)).toBe(true);
   });
 
+  it('hit harder and fire faster with the gun upgrade', () => {
+    const run = (damageMul: number, reloadMul: number): { n: number; damage: number } => {
+      const c = carrier();
+      const enemy = boat(2, TEAM_RED, c.state.x + 30, c.state.y + 20);
+      const dmg: number[] = [];
+      const sink = { spawn: (...a: number[]) => void dmg.push(a[6]!) };
+      for (let i = 0; i < 100; i++) updateCarrier(c, [enemy], 0.05, rng, sink, damageMul, reloadMul);
+      return { n: dmg.length, damage: dmg[0]! };
+    };
+    const plain = run(1, 1);
+    const upgraded = run(1.5, 0.6);
+    expect(upgraded.damage).toBeCloseTo(plain.damage * 1.5, 5);
+    expect(upgraded.n).toBeGreaterThan(plain.n);
+  });
+
   it('stay silent when nobody is in range or the carrier is sunk', () => {
     const c = carrier();
     const { shots, sink } = sinkOf();

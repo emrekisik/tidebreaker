@@ -23,6 +23,7 @@ export const C2S = {
   TIER_UP: 0x05,
   PING: 0x06,
   BUY_DRONE: 0x07,
+  BASE_BUY: 0x08,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -144,6 +145,12 @@ export function encodeBuyDrone(w: Writer, drone: number): void {
   w.u8(drone);
 }
 
+/** Buy something for the carrier (`BASE_ITEM`): the server checks money, place and the carrier's state. */
+export function encodeBaseBuy(w: Writer, item: number): void {
+  w.u8(C2S.BASE_BUY);
+  w.u8(item);
+}
+
 /** Move up one class (the server checks the money). */
 export function encodeTierUp(w: Writer, choice = 0): void {
   w.u8(C2S.TIER_UP);
@@ -203,6 +210,7 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       out.shipId = r.u8();
       break;
     case C2S.BUY_DRONE:
+    case C2S.BASE_BUY:
       out.stat = r.u8();
       break;
     case C2S.PING:
@@ -371,6 +379,8 @@ export interface StatsMsg {
   lives: number;
   /** Drones this player has in the air. */
   drones: number;
+  /** Level of the team's carrier guns. */
+  baseGuns: number;
 }
 
 export function encodeStats(w: Writer, m: StatsMsg): void {
@@ -385,6 +395,7 @@ export function encodeStats(w: Writer, m: StatsMsg): void {
   w.u8(m.canTierUp ? 1 : 0);
   w.u8(m.lives);
   w.u8(m.drones);
+  w.u8(m.baseGuns);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -765,6 +776,7 @@ const statsMsg: StatsMsg = {
   canTierUp: false,
   lives: 0,
   drones: 0,
+  baseGuns: 0,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -858,6 +870,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.canTierUp = (r.u8() & 1) !== 0;
       statsMsg.lives = r.u8();
       statsMsg.drones = r.u8();
+      statsMsg.baseGuns = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
       return true;

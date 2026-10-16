@@ -151,7 +151,7 @@ export const WEAPONS = {
   drone_gun: {
     damage: 1.8,
     intervalSec: 0.12,
-    range: 36,
+    range: 28,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 5,
@@ -162,7 +162,7 @@ export const WEAPONS = {
   drone_rocket: {
     damage: 20,
     intervalSec: 2.4,
-    range: 62,
+    range: 48,
     projectileSpeed: 66,
     radius: 0.3,
     spreadDeg: 2.5,

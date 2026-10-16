@@ -32,7 +32,7 @@
 #progress,
 #upgrades,
 #hud,
-#drone-shop,
+#base-shop,
 #minimap,
 #killfeed,
 #hint,
@@ -1009,16 +1009,16 @@ svg.ico,
   display: inline-block;
 }
 
-/* ---- the drone shop: opens when the player is at their own carrier ---- */
-#drone-shop {
-  left: 30px;
-  top: 180px;
-  width: 300px;
+/* ---- the base shop: opens when the player is at their own carrier (bottom left, above the radar) ---- */
+#base-shop {
+  left: 12px;
+  bottom: 252px;
+  width: 310px;
   box-sizing: border-box;
   padding: 11px 13px 12px;
   --panel: rgba(13, 32, 50, 0.62);
 }
-#drone-shop .ds-head {
+#base-shop .ds-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1029,7 +1029,7 @@ svg.ico,
   text-transform: uppercase;
   color: #cfdae6;
 }
-#drone-shop .ds-count {
+#base-shop .ds-count {
   color: var(--gold);
   font-variant-numeric: tabular-nums;
 }

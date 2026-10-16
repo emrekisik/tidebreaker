@@ -23,6 +23,8 @@ const THINK_SEC = DRONE.thinkEveryTicks * STEP_SEC;
 /** A drone shoots once its nose is this close (radians) to the aim direction. */
 const AIM_OK = 8 * DEG2RAD;
 const EDGE = 12;
+/** Above this speed (units/s) a drone faces the way it moves. */
+const MOVE_FACE_SPEED = 1.8;
 
 /**
  * The drones of a room (GAME_DESIGN.md §7.3). A drone belongs to a player, hovers around them and
@@ -43,9 +45,8 @@ export class Drones {
   readonly countOf: Uint8Array;
   private readonly vx = new Float32Array(DRONE_SLOTS);
   private readonly vy = new Float32Array(DRONE_SLOTS);
-  /** Where in its circle around the owner the drone rests (radians), and which way it circles an enemy. */
+  /** Where in its circle around the owner the drone rests (radians). */
   private readonly phase = new Float32Array(DRONE_SLOTS);
-  private readonly side = new Int8Array(DRONE_SLOTS);
   /** Slot of the enemy being attacked, or -1. */
   private readonly target = new Int16Array(DRONE_SLOTS).fill(-1);
   /** Where it flies to (updated when thinking) and the direction it wants to face. */
@@ -108,7 +109,6 @@ export class Drones {
     this.countOf[owner] = this.countOf[owner]! + 1;
     // The drones of one owner rest on opposite sides of the circle.
     this.phase[d] = this.countOf[owner]! % 2 === 0 ? Math.PI : 0;
-    this.side[d] = this.countOf[owner]! % 2 === 0 ? -1 : 1;
     this.target[d] = -1;
     this.vx[d] = 0;
     this.vy[d] = 0;
@@ -205,14 +205,14 @@ export class Drones {
     this.target[d] = cur;
 
     if (cur >= 0) {
-      // Fighting: to the preferred distance from the enemy, a little off to one side so it keeps moving.
+      // Fighting: straight at the enemy up to the preferred distance (an attack run: the nose points
+      // where it flies, so the gun is on the target when it arrives).
       const ts = w.slots[cur]!.state;
       const dx = s.x - ts.x;
       const dy = s.y - ts.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const a = Math.atan2(dy, dx) + this.side[d]! * 0.5;
-      this.goalX[d] = ts.x + Math.cos(a) * this.fightDist[t]!;
-      this.goalY[d] = ts.y + Math.sin(a) * this.fightDist[t]!;
+      this.goalX[d] = ts.x + (dx / dist) * this.fightDist[t]!;
+      this.goalY[d] = ts.y + (dy / dist) * this.fightDist[t]!;
       // Lead the target by the time a shot needs to reach it.
       const flight = dist / this.shotSpeed[t]!;
       const tvx = Math.cos(ts.heading) * ts.speed + ts.kx;
@@ -223,7 +223,7 @@ export class Drones {
       const a = this.phase[d]! + (w.tick * STEP_SEC * TAU) / DRONE.orbitSec;
       this.goalX[d] = o.x + Math.cos(a) * DRONE.orbitRadius + Math.cos(o.heading) * o.speed * THINK_SEC;
       this.goalY[d] = o.y + Math.sin(a) * DRONE.orbitRadius + Math.sin(o.heading) * o.speed * THINK_SEC;
-      this.face[d] = Math.abs(o.speed) > 1 ? o.heading : s.heading;
+      this.face[d] = s.heading;
     }
   }
 
@@ -281,9 +281,12 @@ export class Drones {
     s.y = clamp(s.y + this.vy[d]! * dt, EDGE, WORLD_SIZE - EDGE);
     s.speed = Math.sqrt(this.vx[d]! * this.vx[d]! + this.vy[d]! * this.vy[d]!);
 
-    // Heading: toward the face direction at the drone's turn rate.
+    // Heading: the nose points where the drone flies; only when it hovers (nearly) still does it
+    // turn toward what it wants to face (the enemy it is shooting at). Turn rate is limited.
+    const flying = s.speed > MOVE_FACE_SPEED;
+    const wantHeading = flying ? Math.atan2(this.vy[d]!, this.vx[d]!) : this.face[d]!;
     const turn = def.turnRateDeg * DEG2RAD * dt;
-    s.heading += clamp(angleDiff(this.face[d]!, s.heading), -turn, turn);
+    s.heading += clamp(angleDiff(wantHeading, s.heading), -turn, turn);
 
     // Shooting.
     w.inFire[slot] = 0;

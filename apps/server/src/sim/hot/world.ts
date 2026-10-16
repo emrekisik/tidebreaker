@@ -2,6 +2,8 @@ import {
   CARRIER,
   COMBAT,
   DEG2RAD,
+  BASE,
+  BASE_ITEM,
   DRONE,
   DRONE_TYPES,
   ECONOMY,
@@ -36,6 +38,9 @@ import {
   collideIslands,
   createCombatant,
   generateMap,
+  gunsCost,
+  gunsDamageMul,
+  gunsReloadMul,
   HIT_KILLED,
   hullDistance,
   HIT_SHIELD,
@@ -136,6 +141,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly pickups: Pickups;
   readonly pirates: Pirates;
   readonly drones: Drones;
+  /** Level of each team's carrier guns (the base shop). */
+  readonly baseGuns = new Uint8Array(TEAM_COUNT);
   /** Oil rigs: gauge from -1 (red) to +1 (blue) and the owning team (RIG_NO_OWNER = nobody). */
   readonly rigMeter = new Float32Array(RIG.count);
   readonly rigOwner = new Uint8Array(RIG.count).fill(RIG_NO_OWNER);
@@ -342,6 +349,41 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return true;
   }
 
+  /**
+   * Buys something for the buyer's carrier at the base shop: `BASE_ITEM.REPAIR` gives back part of
+   * the carrier's hull (only while it is damaged); `BASE_ITEM.GUNS` raises the level of the team's
+   * carrier guns. Same conditions as the drones: alive, near the own carrier, enough money.
+   */
+  buyBase(slot: number, item: number): boolean {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
+    if (!this.slots[slot]!.state.alive || this.ghostLeft[slot]! > 0) return false;
+    if (this.matchState !== MATCH_STATE.PLAYING || !this.nearOwnCarrier(slot)) return false;
+    const team = this.slots[slot]!.team;
+    const carrier = this.slots[team]!;
+    if (!carrier.state.alive) return false;
+    if (item === BASE_ITEM.REPAIR) {
+      const price = BASE.repair.price;
+      if (this.cash[slot]! < price || carrier.state.hull >= carrier.def.hull) return false;
+      this.cash[slot] = this.cash[slot]! - price;
+      carrier.state.hull = Math.min(carrier.def.hull, carrier.state.hull + carrier.def.hull * BASE.repair.pct);
+      this.statsDirty[slot] = 1;
+      return true;
+    }
+    if (item === BASE_ITEM.GUNS) {
+      const level = this.baseGuns[team]!;
+      const price = gunsCost(level);
+      if (price === Infinity || this.cash[slot]! < price) return false;
+      this.cash[slot] = this.cash[slot]! - price;
+      this.baseGuns[team] = level + 1;
+      // The whole team sees the new level.
+      for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
+        if (this.used[i] === 1 && this.slots[i]!.team === team) this.statsDirty[i] = 1;
+      }
+      return true;
+    }
+    return false;
+  }
+
   // ---- joining and leaving (called by the room, between ticks)
 
   /** Puts a new player into the world on `team`. Returns the slot, or -1 when the room is full. */
@@ -500,6 +542,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.scoresDirty = true;
     this.projectiles.clear();
     this.drones.clear();
+    this.baseGuns.fill(0);
+    for (let i = 0; i < this.slotCount; i++) this.statsDirty[i] = 1;
     for (let t = 0; t < TEAM_COUNT; t++) {
       const b = MATCH.carriers[t]!;
       const c = this.slots[t]!;
@@ -616,7 +660,15 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         // Tick the cooldowns only, no shots.
         updateCarrier(c, this.noTargets, dt, this.rng, this);
       } else {
-        updateCarrier(c, this.combatants, dt, this.rng, this);
+        updateCarrier(
+          c,
+          this.combatants,
+          dt,
+          this.rng,
+          this,
+          gunsDamageMul(this.baseGuns[t]!),
+          gunsReloadMul(this.baseGuns[t]!),
+        );
       }
     }
 

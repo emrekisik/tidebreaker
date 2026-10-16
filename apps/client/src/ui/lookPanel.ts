@@ -15,8 +15,8 @@ export interface Look {
 }
 
 export const DEFAULT_LOOK: Look = {
-  oceanDeep: 0x0b6989,
-  oceanShallow: 0x13a0dd,
+  oceanDeep: 0x1e566f,
+  oceanShallow: 0x347392,
   blue: 0x72a9e4,
   red: 0xff6b78,
   ringBlue: 0x23b4ff,
