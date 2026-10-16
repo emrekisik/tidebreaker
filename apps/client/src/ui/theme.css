@@ -65,7 +65,7 @@ svg.ico,
 #hud {
   top: 22px;
   left: 30px;
-  width: 252px;
+  width: 316px;
   box-sizing: border-box;
   padding: 13px 15px 13px 15px;
   display: grid;
@@ -119,6 +119,21 @@ svg.ico,
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #cfdae6;
+}
+/* "current / max" next to a bar; a fixed width so the bars do not jump while the numbers change. */
+.bar-num {
+  flex: none;
+  width: 62px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #e8eef4;
+}
+.bar-num i {
+  font-style: normal;
+  font-weight: 500;
+  color: #8fa3b5;
 }
 .track {
   position: relative;

@@ -580,7 +580,7 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 ### 12.2c Sahne sanat yönü
 - **Okyanus:** parlak turkuaz-mavi (koyu `#0b6989`, açık `#13a0dd`); dalga yüzleri ışık/gölge bantları oluşturur, tepelerde ince köpük.
 - **Takımlar:** mavi (boya `#72a9e4`, halka `#23b4ff`), kırmızı (boya `#ff6b78`, halka `#ff2a45`); parlaklık 4,0, ışıma 0,2 (kullanıcının "Görünüm" panelinden seçtiği kombinasyon). Takım rengi gemilerin gövde boyasına uygulanır ve hafif kendi ışığı vardır (parlar); silahlar boyanmaz. Yalnızca **oyuncunun kendi gemisinin** altında parlayan bir halka vardır; diğer gemilerde halka yoktur.
-- **Can/kalkan:** can çubuğu takım renginde, kalkan çubuğu daha ince ve **açık camgöbeği** (takım mavisinden ayrışır), kayıp kısım beyaz. Kalkan efektleri de camgöbeği.
+- **Can/kalkan:** can çubuğu takım renginde, kalkan çubuğu daha ince ve **açık camgöbeği** (takım mavisinden ayrışır), kayıp kısım beyaz. Kalkan efektleri de camgöbeği. Oyuncu panelinde iki çubuğun yanında **sayısal değer** de yazar (`320/320`, `130/130`; kalkan üst sınırı yükseltmeyle büyür).
 - **Gemi izi:** kıçtan kesintisiz, dantelli beyaz köpük şeridi; baş tarafında gövdeye yapışık köpük ve geriye açılan soluk Kelvin kolları (bkz. §12.2).
 - **Kontur:** gemi gövdesinde ince koyu kenar çizgisi (ters gövde / inverted hull), sadece gövdede (silahlarda yok). Varsayılan **kapalı**, "Görünüm" test panelinden açılır.
 - **"Görünüm" test paneli:** okyanus (koyu/açık), takım boyaları, takım halkaları için renk seçiciler; takım parlaklığı ve ışıma kaydırıcıları; kontur anahtarı. Değerler canlı uygulanır, tarayıcıda hatırlanır ve "Kodları kopyala" ile hex kodları olarak alınır (seçilen kombinasyon config'e işlenir).
