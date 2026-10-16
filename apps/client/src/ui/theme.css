@@ -80,7 +80,7 @@ svg.ico,
   grid-row: 1;
   width: 32px;
   height: 30px;
-  color: #e8eef4;
+  color: #b9dfe8;
 }
 .hud-lives svg {
   width: 100%;
@@ -92,10 +92,12 @@ svg.ico,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 2px;
+  line-height: 1;
   font-size: 15px;
   font-weight: 700;
   color: #0d2236;
+  /* (The digit sits 1px above the middle of its line box: nudge it into the exact centre.) */
+  transform: translateY(1px);
 }
 .hud-bars {
   grid-row: 1;
@@ -183,11 +185,24 @@ svg.ico,
   letter-spacing: 0.03em;
 }
 /* How far the score is toward the next class. */
-.hud-xpbar {
+.hud-xprow {
   grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.hud-lv {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--xp);
+}
+.hud-xpbar {
+  flex: 1;
   height: 4px;
   background: rgba(3, 12, 22, 0.6);
-  margin-top: -1px;
 }
 #hud-xpfill {
   height: 100%;
@@ -571,15 +586,14 @@ svg.ico,
   left: 12px;
   bottom: 12px;
   padding: 4px;
-  border: 3px solid #0d2a47;
-  border-radius: 12px;
-  background: #0a2038;
-  box-shadow: 0 0 0 1px rgba(120, 175, 230, 0.25);
+  border: 2px solid #5fdbe8;
+  border-radius: 6px;
+  background: #071a22;
+  box-shadow: 0 0 10px rgba(95, 219, 232, 0.25);
 }
 #minimap canvas {
   display: block;
   position: relative;
-  border-radius: 8px;
 }
 #minimap.big {
   left: 50%;
@@ -592,15 +606,14 @@ svg.ico,
 .radar {
   position: absolute;
   inset: 4px;
-  border-radius: 8px;
   pointer-events: none;
   overflow: hidden;
   background: repeating-radial-gradient(
     circle at center,
     transparent 0,
     transparent 16.5%,
-    rgba(80, 255, 170, 0.16) 16.5%,
-    rgba(80, 255, 170, 0.16) 17.2%
+    rgba(120, 240, 255, 0.16) 16.5%,
+    rgba(120, 240, 255, 0.16) 17.2%
   );
 }
 .radar::before {
@@ -612,9 +625,10 @@ svg.ico,
   height: 150%;
   background: conic-gradient(
     from 0deg,
-    rgba(80, 255, 170, 0) 0deg,
-    rgba(80, 255, 170, 0.22) 36deg,
-    rgba(80, 255, 170, 0) 37deg
+    rgba(120, 240, 255, 0) 0deg,
+    rgba(120, 240, 255, 0.2) 30deg,
+    rgba(255, 255, 255, 0.55) 31deg,
+    rgba(120, 240, 255, 0) 32deg
   );
   animation: sweep 5s linear infinite;
 }
@@ -624,6 +638,9 @@ svg.ico,
   }
 }
 #minimap.big .radar {
+  display: none;
+}
+#minimap.big .radar-unused {
   inset: 6px;
 }
 

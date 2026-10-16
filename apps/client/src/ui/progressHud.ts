@@ -52,6 +52,7 @@ export class ProgressHud {
   private readonly lives = document.getElementById('hud-lives') as HTMLElement;
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
   private readonly xp = document.getElementById('hud-xp') as HTMLElement;
+  private readonly lv = document.getElementById('hud-lv') as HTMLElement;
   private readonly xpFill = document.getElementById('hud-xpfill') as HTMLElement;
   private readonly levels: HTMLElement[] = [];
   private readonly buttons: HTMLButtonElement[] = [];
@@ -158,6 +159,7 @@ export class ProgressHud {
     this.xp.textContent =
       next === undefined ? `${t('hud.xp')} ${m.score}` : `${t('hud.xp')} ${m.score} / ${next}`;
     const frac = next === undefined ? 1 : (m.score - base) / Math.max(1, next - base);
+    this.lv.textContent = `${t('hud.level')} ${m.tier + 1}`;
     this.xpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
     this.xp.title = next === undefined ? t('progress.max') : `${t('progress.tierNeed')} ${next}`;
 
