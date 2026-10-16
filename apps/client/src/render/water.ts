@@ -1,6 +1,7 @@
-import { Color, Mesh, PlaneGeometry, ShaderMaterial, Vector2, Vector3 } from 'three';
+import { Color, Matrix4, Mesh, PlaneGeometry, ShaderMaterial, Vector2 } from 'three';
 import type { Texture } from 'three';
 import { FX } from '@tidebreaker/shared';
+import { SUN_DIR } from './stage.ts';
 import { WAKE_EXTENT } from './wakeMap.ts';
 import { WAVE_MAX, glslWaveFunction, glslWaveSlope } from './waves.ts';
 
@@ -8,8 +9,8 @@ const SIZE = 600;
 const SEGMENTS = 200;
 const CELL = SIZE / SEGMENTS;
 
-/** Where the sun is (matches the DirectionalLight in Stage). */
-const SUN = new Vector3(-40, 80, 30).normalize();
+/** Where the sun is (the DirectionalLight in Stage uses the same direction). */
+const SUN = SUN_DIR;
 
 const VERTEX = /* glsl */ `
 uniform float uTime;
@@ -45,6 +46,10 @@ uniform float uWaveMax;
 uniform sampler2D uWake;
 uniform vec2 uWakeOrigin;
 uniform float uWakeExtent;
+// The sun's shadow map (see Stage): ships, islands and rigs shade the sea too.
+uniform sampler2DShadow uShadowMap;
+uniform mat4 uShadowMatrix;
+uniform float uShadowK;
 varying vec3 vWorld;
 varying float vH;
 
@@ -142,6 +147,22 @@ void main() {
     col = mix(col, uFoam, clamp(trail * 0.85 + bow * 0.8 + hullFoam * 0.85, 0.0, 0.9));
   }
 
+  // Shadows of hulls, rigs and islands from the sun's shadow map (a few soft taps).
+  if (uShadowK > 0.0) {
+    vec4 sc = uShadowMatrix * vec4(vWorld, 1.0);
+    sc.z += ${FX.light.bias.toFixed(4)};
+    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) {
+      float r = ${(1.5 / FX.light.shadowMapSize).toFixed(6)};
+      float lit = 0.2 * (texture(uShadowMap, vec3(sc.xy, sc.z))
+        + texture(uShadowMap, vec3(sc.xy + vec2(r, r), sc.z))
+        + texture(uShadowMap, vec3(sc.xy + vec2(-r, r), sc.z))
+        + texture(uShadowMap, vec3(sc.xy + vec2(r, -r), sc.z))
+        + texture(uShadowMap, vec3(sc.xy + vec2(-r, -r), sc.z)));
+      // Shaded water is darker and a little deeper in hue, not just dimmer.
+      col = mix(col, uDeep * 0.55, (1.0 - lit) * uShadowK);
+    }
+  }
+
   // Fade into the haze before the edge of the plane.
   float d = length(vWorld.xz - uCenter);
   col = mix(col, uDeep, smoothstep(${(SIZE * 0.36).toFixed(1)}, ${(SIZE * 0.48).toFixed(1)}, d));
@@ -173,6 +194,9 @@ export class Water {
         uWake: { value: null },
         uWakeOrigin: { value: new Vector2() },
         uWakeExtent: { value: WAKE_EXTENT },
+        uShadowMap: { value: null },
+        uShadowMatrix: { value: new Matrix4() },
+        uShadowK: { value: 0 },
       },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -192,6 +216,14 @@ export class Water {
   setWake(texture: Texture, originX: number, originZ: number): void {
     this.material.uniforms['uWake']!.value = texture;
     (this.material.uniforms['uWakeOrigin']!.value as Vector2).set(originX, originZ);
+  }
+
+  /** Points the shader at the sun's shadow map (call every frame; the matrix is updated by the renderer). */
+  setShadow(map: Texture | null, matrix: Matrix4): void {
+    const u = this.material.uniforms;
+    u['uShadowMap']!.value = map;
+    u['uShadowMatrix']!.value = matrix;
+    u['uShadowK']!.value = map ? FX.light.waterShadow : 0;
   }
 
   update(timeSec: number, centerX: number, centerZ: number): void {

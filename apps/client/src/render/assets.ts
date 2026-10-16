@@ -581,6 +581,10 @@ export class AssetProvider {
     scene.traverse((o) => {
       if ((o as Mesh).isMesh) meshes.push(o as Mesh);
     });
+    for (const m of meshes) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
 
     const turrets: TurretRig[] = [];
     const pivot = new Vector3();
@@ -650,6 +654,10 @@ export class AssetProvider {
     }
     const hull = new Mesh(geos.hull, this.normal);
     const turretMesh = new Mesh(geos.turret, this.normal);
+    for (const m of [hull, turretMesh]) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
     const turret = new Group();
     turret.position.set(0.3, 0.8, 0);
     turret.add(turretMesh);

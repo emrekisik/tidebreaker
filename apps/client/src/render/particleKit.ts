@@ -11,9 +11,9 @@ import {
   NormalBlending,
   OctahedronGeometry,
   ShaderMaterial,
-  Vector3,
 } from 'three';
 import { FX } from '@tidebreaker/shared';
+import { SUN_DIR } from './stage.ts';
 
 /** How a pool orients its particles. */
 export const MODE_UNIFORM = 0; // uniformly scaled, no rotation
@@ -44,7 +44,7 @@ export interface ParticleKit {
   foam: ParticleBuffers;
 }
 
-const SUN = new Vector3(-40, 80, 30).normalize();
+const SUN = SUN_DIR;
 
 const VERTEX = /* glsl */ `
 attribute vec3 aColor;

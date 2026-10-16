@@ -149,6 +149,29 @@ export const FX = {
    * Where the hull meets the water, stamped into the foam map every frame (so it follows the waves
    * and the hull outline instead of a flat disc). Widths are fractions of the hull half-width.
    */
+  /**
+   * Scene lighting: one warm sun (direction points from the sea toward the sun) casting real
+   * shadows, plus a sky/sea hemisphere light so the shaded sides are bluish instead of black.
+   * The shadow map follows the camera: it covers `rangePerHeight` x the camera height around the
+   * player (at least `minRange`, at most `maxRange` world units to each side).
+   */
+  light: {
+    sunDir: [-0.62, 0.5, 0.45],
+    sunColor: 0xfff0d2,
+    sunIntensity: 3.6,
+    skyColor: 0xa9d4f5,
+    groundColor: 0x2c7898,
+    hemiIntensity: 1.35,
+    shadowMapSize: 2048,
+    minRange: 70,
+    maxRange: 320,
+    rangePerHeight: 1.6,
+    bias: -0.0004,
+    normalBias: 0.35,
+    /** Shadow strength on the water (0..1). */
+    waterShadow: 0.55,
+  },
+
   hull: {
     /** Foam fringe hugging the hull: reach beyond the hull and strength (0..1, foam shows from ~0.3). */
     foamWidth: 1.35,

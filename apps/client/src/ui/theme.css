@@ -65,7 +65,7 @@ svg.ico,
 #hud {
   top: 22px;
   left: 30px;
-  width: 316px;
+  width: 252px;
   box-sizing: border-box;
   padding: 13px 15px 13px 15px;
   display: grid;
@@ -110,30 +110,27 @@ svg.ico,
   align-items: center;
   gap: 8px;
 }
-.bar-label {
-  width: 52px;
-  text-align: right;
+.bar-ico {
   flex: none;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #cfdae6;
+  width: 22px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-/* "current / max" next to a bar; a fixed width so the bars do not jump while the numbers change. */
+.bar-ico svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+/* The number beside a bar; a fixed width so the bars do not jump while it changes. */
 .bar-num {
   flex: none;
-  width: 62px;
-  font-size: 13px;
+  width: 34px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
   color: #e8eef4;
-}
-.bar-num i {
-  font-style: normal;
-  font-weight: 500;
-  color: #8fa3b5;
 }
 .track {
   position: relative;
@@ -149,6 +146,19 @@ svg.ico,
   top: 0;
   height: 100%;
   width: 100%;
+}
+/* One thin dark line every 20 points of the bar (the spacing, --tick, is set from the maximum). */
+.ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(var(--tick, 10%) - 1.5px),
+    rgba(4, 14, 24, 0.9) calc(var(--tick, 10%) - 1.5px),
+    rgba(4, 14, 24, 0.9) var(--tick, 10%)
+  );
 }
 /* Recently lost health is shown in white (width driven by GhostTracker). */
 .ghost {

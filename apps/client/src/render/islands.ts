@@ -795,6 +795,8 @@ export class IslandView {
       geo.setAttribute('color', new Float32BufferAttribute(soup.col, 3));
       geo.computeVertexNormals();
       const land = new Mesh(geo, landMat);
+      land.castShadow = true;
+      land.receiveShadow = true;
       land.frustumCulled = cull;
       const sgeo = new BufferGeometry();
       sgeo.setAttribute('position', new Float32BufferAttribute(pos, 3));
@@ -815,6 +817,8 @@ export class IslandView {
         const rot = rng.next() * Math.PI * 2;
         const mirror = rng.next() < 0.5;
         const land = new Mesh(bendIsland(model, t, rot, mirror), model.material);
+        land.castShadow = true;
+        land.receiveShadow = true;
         addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
         const sgeo = new BufferGeometry();
         sgeo.setAttribute('position', new Float32BufferAttribute(pos, 3));

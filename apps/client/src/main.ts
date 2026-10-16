@@ -374,9 +374,11 @@ function update(nowMs: number): void {
     wakeMap.begin(rig.focusX, rig.focusZ, dtSec);
     effects.update(dtSec);
     rig.update(stage.camera, WORLD_CENTER + Math.cos(timeSec * 0.05) * 60, WORLD_CENTER, dtSec, 3);
+    stage.followSun(rig.focusX, rig.focusZ);
     wakeMap.render(stage.renderer);
     water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
     water.update(timeSec, rig.focusX, rig.focusZ);
+    water.setShadow(stage.sunShadowMap, stage.sunShadowMatrix);
     stage.render();
     debugHud?.frame(frameMs, nowMs, stage.renderer, 0, 0);
     return;
@@ -409,9 +411,11 @@ function update(nowMs: number): void {
 
   const p = game.player.pose;
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
+  stage.followSun(rig.focusX, rig.focusZ);
   wakeMap.render(stage.renderer);
   water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
+  water.setShadow(stage.sunShadowMap, stage.sunShadowMatrix);
   islands?.update(timeSec);
   pickups.update(timeSec);
 
@@ -423,7 +427,7 @@ function update(nowMs: number): void {
     others.push(e.combatant);
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
-  minimap?.update(ps, others, online?.rigState ?? null);
+  minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;

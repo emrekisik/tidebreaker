@@ -40,6 +40,8 @@ class RigModel {
       // The modelled platform (the model is fitted to a unit footprint, sea level at y = 0).
       const platform = new Mesh(model.geometry, model.material);
       platform.scale.setScalar(RIG.platformRadius * 2 * PLATFORM_FIT);
+      platform.castShadow = true;
+      platform.receiveShadow = true;
       this.group.add(platform);
     } else {
       this.addProceduralPlatform();

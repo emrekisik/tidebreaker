@@ -1,3 +1,5 @@
+import { Vector3 } from 'three';
+import type { PerspectiveCamera } from 'three';
 import { RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
 import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
@@ -34,7 +36,7 @@ interface View {
 
 /**
  * The radar map. The small one (corner) shows only the area around the player; `M` opens a large
- * one with the whole world in the same style, marking the square the small radar covers.
+ * one with the whole world in the same style, marking the patch of sea the player's screen shows.
  * Islands are dim teal shapes on a grid, ships are crosses (blue and red teams), pirates yellow
  * skulls, carriers small icons painted in their team's color (stuck to the edge when they are out
  * of the radar's range), oil rigs circles with their capture gauge.
@@ -47,6 +49,10 @@ export class Minimap {
   private big = false;
   /** The carrier icon, flat-painted once per team (blue, red) when its picture has loaded. */
   private readonly carrierIcons: (HTMLCanvasElement | null)[] = [null, null];
+  /** Scratch for `coverage`: the four screen corners as points on the sea (x, y pairs). */
+  private readonly view = new Float32Array(8);
+  private readonly ray = new Vector3();
+  private viewOk = false;
 
   constructor(container: HTMLElement, map: WorldMap) {
     this.map = map;
@@ -87,7 +93,9 @@ export class Minimap {
     player: MapShip,
     others: readonly Combatant[],
     rigs: readonly RigState[] | null = null,
+    camera: PerspectiveCamera | null = null,
   ): void {
+    if (this.big && camera) this.viewOk = this.screenOnSea(camera);
     const view: View = this.big
       ? { cx: WORLD_SIZE / 2, cy: WORLD_SIZE / 2, range: WORLD_SIZE / 2 }
       : { cx: player.x, cy: player.y, range: RADAR_RANGE };
@@ -256,7 +264,7 @@ export class Minimap {
     g.fill();
     g.restore();
 
-    if (this.big) this.coverage(g, view, player, k, mid, u);
+    if (this.big && this.viewOk) this.coverage(g, view, k, mid, u);
   }
 
   /** A carrier: its icon where it is, or (small radar) at the edge toward it when out of range. */
@@ -292,25 +300,46 @@ export class Minimap {
   }
 
   /**
-   * On the large map: the square the small radar covers right now (the player's position plus or
-   * minus `RADAR_RANGE` in both directions, mapped the same way as everything else).
+   * Finds where the four corners of the screen land on the sea (y = 0) by shooting a ray from the
+   * camera through each corner, so the area follows the camera exactly: zoom, tilt, window shape.
+   * Returns false if a corner looks above the horizon.
    */
-  private coverage(
-    g: CanvasRenderingContext2D,
-    view: View,
-    player: MapShip,
-    k: number,
-    mid: number,
-    u: number,
-  ): void {
-    const x0 = (player.x - RADAR_RANGE - view.cx) * k + mid;
-    const y0 = (player.y - RADAR_RANGE - view.cy) * k + mid;
-    const side = 2 * RADAR_RANGE * k;
+  private screenOnSea(camera: PerspectiveCamera): boolean {
+    camera.updateMatrixWorld();
+    const o = camera.position;
+    for (let i = 0; i < 4; i++) {
+      this.ray
+        .set(i === 0 || i === 3 ? -1 : 1, i < 2 ? 1 : -1, 0.5)
+        .unproject(camera)
+        .sub(o);
+      if (this.ray.y > -1e-4) return false;
+      const f = -o.y / this.ray.y;
+      this.view[i * 2] = o.x + this.ray.x * f;
+      // The sim's y axis is three.js z.
+      this.view[i * 2 + 1] = o.z + this.ray.z * f;
+    }
+    return true;
+  }
+
+  /**
+   * On the large map: the patch of sea the player's screen shows right now (a trapezoid, because
+   * the camera looks down at a slant), drawn from `screenOnSea`.
+   */
+  private coverage(g: CanvasRenderingContext2D, view: View, k: number, mid: number, u: number): void {
+    const v = this.view;
+    g.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const x = (v[i * 2]! - view.cx) * k + mid;
+      const y = (v[i * 2 + 1]! - view.cy) * k + mid;
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.closePath();
     g.fillStyle = 'rgba(255, 255, 255, 0.06)';
-    g.fillRect(x0, y0, side, side);
+    g.fill();
     g.strokeStyle = 'rgba(255, 255, 255, 0.85)';
     g.lineWidth = 1.5 * u;
-    g.strokeRect(x0, y0, side, side);
+    g.stroke();
 
     // Legend.
     const px = this.canvas.width;
