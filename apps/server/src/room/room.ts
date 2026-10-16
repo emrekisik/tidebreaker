@@ -387,7 +387,7 @@ export class Room {
       for (let k = 0; k < STAT_COUNT; k++) m.levels[k] = w.level(s, k);
       m.maxHull = w.slots[s]!.def.hull;
       m.maxShield = Math.round(w.maxShieldOf(s));
-      m.canTierUp = canTierUp(m.tier, m.score);
+      m.canTierUp = canTierUp(m.tier, m.cash);
       m.lives = w.lives[s]!;
       this.small.reset();
       encodeStats(this.small, m);

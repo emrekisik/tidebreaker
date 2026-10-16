@@ -792,6 +792,10 @@ describe('money and progress', () => {
     await tick(1);
     expect(w.tier[slot]).toBe(0); // not enough money
     w.cash[slot] = ECONOMY.tierCost[1]!;
+    w.statsDirty[slot] = 1;
+    await tick(2);
+    // The offer is made from the money in hand (the score is still 0).
+    expect(a.heard.stats[a.heard.stats.length - 1]!.canTierUp).toBe(true);
     request(a, 'tier');
     await tick(2);
     expect(w.tier[slot]).toBe(1);
