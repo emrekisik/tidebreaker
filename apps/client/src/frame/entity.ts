@@ -29,6 +29,11 @@ export class ShipEntity {
   sinkSeconds = 0;
   flashSeconds = 0;
   respawnSeconds = 0;
+  /** Full shield of this ship when upgrades raised it above the class value (0 = class value). */
+  maxShield = 0;
+  /** Hull a moment ago and the clock for the repair effect (see Effects.ship). */
+  repairLast = 0;
+  repairClock = 0;
   /** Seconds left of the pop-in after a class change (0 = none). */
   morphSeconds = 0;
   /** Collision rattle: starts at the impact strength and dies out (cosmetic). */
@@ -133,7 +138,7 @@ export class ShipEntity {
         this.pose.x,
         this.pose.y,
         s.hull / def.hull,
-        s.shield / def.shield,
+        s.shield / (this.maxShield > 0 ? this.maxShield : def.shield),
         s.alive,
         dtSec,
       );

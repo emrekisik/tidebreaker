@@ -523,6 +523,30 @@ export class Effects {
   }
 
   /** A ship blew up: fireball, shock ring, smoke column, embers and tumbling hull chunks. */
+  /** Repair: soft green motes drifting up from the middle of the hull. */
+  private repair(x: number, y: number, length: number, width: number): void {
+    for (let i = 0; i < FX.repair.motes; i++) {
+      this.glow.spawn(
+        x + this.r(-0.3, 0.3) * length,
+        this.r(0.6, 1.4),
+        y + this.r(-0.5, 0.5) * width,
+        0,
+        this.r(1.4, 2.4),
+        0,
+        FX.repair.life,
+        this.r(0.8, 1.2),
+        0.15,
+        0,
+        0.4,
+        0xb8ffc9,
+        0x0dff5e,
+        0.75,
+        0,
+        0,
+      );
+    }
+  }
+
   /** A ship became a bigger class: a flash, two rings on the water, sparks and rising motes. */
   upgrade(x: number, y: number, length: number): void {
     const U = FX.upgrade;
@@ -1045,6 +1069,16 @@ export class Effects {
     if (s.alive && Math.abs(s.speed) > 0.8) this.wake(e, dt, length, width);
     else e.wakeReady = false;
     if (s.alive) this.hullContact(e, length, width);
+
+    // Healing (regeneration, a barrel): a few green motes rise from the hull.
+    e.repairClock += dt;
+    if (e.repairClock >= FX.repair.everySec) {
+      e.repairClock = 0;
+      if (s.alive && e.repairLast > 0 && s.hull > e.repairLast + def.hull * FX.repair.minGain) {
+        this.repair(p.x, p.y, length, width);
+      }
+      e.repairLast = s.hull;
+    }
 
     const frac = s.hull / def.hull;
     const D = FX.damage;

@@ -62,6 +62,8 @@ import type { GameSession, ProjectileLayer } from './session.ts';
 /** Other players are shown this far in the past, so jitter never makes them stutter (§10.5). */
 export const INTERP_DELAY_MS = 150;
 const PING_EVERY_MS = 2000;
+/** Score that arrives within this long after a ship went down counts as its reward. */
+const KILL_REWARD_MS = 400;
 /** A shot fired by you is caught up by at most this many ticks when it is shown. */
 const CATCH_UP_MAX = 10;
 
@@ -69,6 +71,8 @@ type TeamName = 'blue' | 'red' | 'pirate';
 
 /** What the game tells the UI beyond the effects shared with the sandbox. */
 export interface OnlineEvents extends GameEvents {
+  /** The player earned `xp` for a kill or assist; shown where the ship went down. */
+  onXp(x: number, y: number, xp: number): void;
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
   onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
@@ -201,6 +205,12 @@ export class OnlineGame implements GameSession, ServerHandler {
   private rejectJoin: ((e: ConnectError) => void) | null = null;
   private joined_ = false;
   private shipIdx = 0;
+  /** Where and when a ship last went down, and the last money pickup (see `stats`). */
+  private killX = 0;
+  private killY = 0;
+  private lastKillMs = -1e9;
+  private pickupScore = 0;
+  private lastPickupMs = -1e9;
 
   constructor(deps: OnlineDeps) {
     this.deps = deps;
@@ -377,7 +387,12 @@ export class OnlineGame implements GameSession, ServerHandler {
       const combatant = createCombatant(entityId, def, team);
       combatant.state = this.predictor.state;
       const model = d.assets.createShip(def.modelKey, teamName(team), true);
-      this.player = new ShipEntity(combatant, model, null);
+      // The player has a bar over their own ship too (no name plate).
+      this.player = new ShipEntity(
+        combatant,
+        model,
+        new HealthBar(d.scene, d.bars, teamName(team)),
+      );
       d.scene.add(model.root);
       this.entities.unshift(this.player);
     } else {
@@ -436,6 +451,12 @@ export class OnlineGame implements GameSession, ServerHandler {
     killerName: string,
     victimName: string,
   ): void {
+    const victim = this.remotes.get(victimId)?.entity.combatant.state;
+    if (victim && victimId !== this.myId) {
+      this.killX = victim.x;
+      this.killY = victim.y;
+      this.lastKillMs = performance.now();
+    }
     this.deps.events.onKill(
       killerId,
       victimId,
@@ -458,6 +479,15 @@ export class OnlineGame implements GameSession, ServerHandler {
 
   stats(m: StatsMsg): void {
     const p = this.progress;
+    // Score that arrives right after a ship went down is the reward for it (pickups are shown
+    // by their own numbers, so they do not count).
+    const now = performance.now();
+    const gained = m.score - p.score;
+    if (gained > 0 && now - this.lastKillMs < KILL_REWARD_MS) {
+      const xp = gained - (now - this.lastPickupMs < KILL_REWARD_MS ? this.pickupScore : 0);
+      if (xp > 0) this.deps.events.onXp(this.killX, this.killY, xp);
+      this.lastKillMs = -1e9;
+    }
     p.score = m.score;
     p.cash = m.cash;
     p.tier = m.tier;
@@ -476,6 +506,7 @@ export class OnlineGame implements GameSession, ServerHandler {
       this.swapShip(m.shipId);
     }
     this.player?.model.setPower(m.levels[STAT.DAMAGE]!);
+    if (this.player) this.player.maxShield = m.maxShield;
     this.deps.events.onStats(p);
   }
 
@@ -516,7 +547,11 @@ export class OnlineGame implements GameSession, ServerHandler {
     x: number,
     y: number,
   ): void {
-    if (collector === this.myId) this.deps.events.onPickup(kind, value, x, y);
+    if (collector === this.myId) {
+      this.pickupScore = value;
+      this.lastPickupMs = performance.now();
+      this.deps.events.onPickup(kind, value, x, y);
+    }
   }
 
   // ---- messages: snapshots

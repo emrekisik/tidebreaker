@@ -1,38 +1,20 @@
-import { Vector3 } from 'three';
-import type { PerspectiveCamera } from 'three';
-import {
-  ISLAND_TYPES,
-  MAP,
-  RIG,
-  RIGS,
-  RIG_NO_OWNER,
-  TEAM_BLUE,
-  TEAM_PIRATE,
-  WORLD_SIZE,
-} from '@tidebreaker/shared';
+import { RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
 import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
-import type { MessageKey } from '../i18n/index.ts';
 
 const SMALL = 220;
-/** The small radar shows this many world units in every direction around the player. */
-const RADAR_RANGE = 280;
-/** Grid line spacing on the radar (world units). */
-const RADAR_GRID = 100;
-/** Colors of the radar: ships are crosses, carriers a small carrier icon. */
-const RADAR_BLUE = '#4fe3ff';
-const RADAR_RED = '#ff5fa8';
-const RADAR_PIRATE = '#ffb347';
-const CORNERS = [-1, -1, 1, -1, 1, 1, -1, 1];
 const BIG = 600;
+/** The small radar shows this many world units in every direction around the player. */
+export const RADAR_RANGE = 280;
+/** Grid line spacing (world units). */
+const GRID = 100;
 
-/** Marker color of each island type (also used by the legend). */
-const MARK: Record<string, { color: string; label: MessageKey }> = {
-  port: { color: '', label: 'map.port' },
-  fort: { color: '', label: 'map.fort' },
-  treasure: { color: '', label: 'map.treasure' },
-  flat: { color: '', label: 'map.flat' },
-};
+/** Radar colors: ships are crosses, pirates yellow skulls, carriers painted solid blue or red. */
+const BLUE = '#4fe3ff';
+const RED = '#ff5fa8';
+const SKULL = '#ffd84d';
+const CARRIER_BLUE = '#3f95ff';
+const CARRIER_RED = '#ff4560';
 
 /** What the minimap needs to know about a ship. */
 export interface MapShip {
@@ -42,39 +24,45 @@ export interface MapShip {
   alive: boolean;
 }
 
+/** Where the radar looks: the world point in the middle of the canvas and how far it sees. */
+interface View {
+  cx: number;
+  cy: number;
+  /** Half the width of the visible square, in world units. */
+  range: number;
+}
+
 /**
- * 2D minimap (`M` switches between a small corner map and a large one). The sea, islands, reefs
- * and the storm band are drawn once into an off-screen canvas; every frame only the ships and
- * the camera's view area are drawn on top. Shows the whole 2400 x 2400 world, so it also answers
- * "how far is that island?" with a scale bar.
+ * The radar map. The small one (corner) shows only the area around the player; `M` opens a large
+ * one with the whole world in the same style, marking the square the small radar covers.
+ * Islands are dim teal shapes on a grid, ships are crosses (blue and red teams), pirates yellow
+ * skulls, carriers small icons painted in their team's color (stuck to the edge when they are out
+ * of the radar's range), oil rigs circles with their capture gauge.
  */
 export class Minimap {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly map: WorldMap;
-  private base: HTMLCanvasElement | null = null;
   private size = SMALL;
   private big = false;
-  private readonly ray = new Vector3();
-  private readonly cam = new Vector3();
-  private readonly view = new Float32Array(8);
-  /** The carriers' icons (a top-down view, bow to the right), per team. */
-  private readonly carrierIcons: HTMLImageElement[] = [];
+  /** The carrier icon, flat-painted once per team (blue, red) when its picture has loaded. */
+  private readonly carrierIcons: (HTMLCanvasElement | null)[] = [null, null];
 
   constructor(container: HTMLElement, map: WorldMap) {
     this.map = map;
     this.canvas = document.createElement('canvas');
     container.appendChild(this.canvas);
-    // Radar rings and a slow sweep over the map (pure CSS, see theme.css).
+    // Radar rings and a slow sweep over the small map (pure CSS, see theme.css).
     const radar = document.createElement('div');
     radar.className = 'radar';
     container.appendChild(radar);
     this.ctx = this.canvas.getContext('2d')!;
-    for (const team of ['blue', 'red']) {
-      const img = new Image();
-      img.src = `${import.meta.env.BASE_URL}icons/ships/side/${team}/aircraft_carrier.png`;
-      this.carrierIcons.push(img);
-    }
+    const img = new Image();
+    img.onload = (): void => {
+      this.carrierIcons[0] = paint(img, CARRIER_BLUE);
+      this.carrierIcons[1] = paint(img, CARRIER_RED);
+    };
+    img.src = `${import.meta.env.BASE_URL}icons/ships/side/white/aircraft_carrier.png`;
     this.resize();
   }
 
@@ -84,7 +72,7 @@ export class Minimap {
     this.resize();
   }
 
-  /** Re-creates the canvases for the current size and pixel ratio. */
+  /** Re-creates the canvas for the current size and pixel ratio. */
   private resize(): void {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const px = Math.round(this.size * dpr);
@@ -92,167 +80,35 @@ export class Minimap {
     this.canvas.height = px;
     this.canvas.style.width = `${this.size}px`;
     this.canvas.style.height = `${this.size}px`;
-    // (Only the full map has a pre-drawn layer; the radar is drawn around the player each frame.)
-    this.base = this.big ? this.drawBase(px) : null;
   }
 
-  /** The unchanging part: sea, storm band, islands, reefs, markers, grid, legend. */
-  private drawBase(px: number): HTMLCanvasElement {
-    const c = document.createElement('canvas');
-    c.width = px;
-    c.height = px;
-    const g = c.getContext('2d')!;
-    const s = px / WORLD_SIZE;
-    const m = this.map;
-
-    g.fillStyle = '#0d5f84';
-    g.fillRect(0, 0, px, px);
-    // The soft wall at the edge of the world.
-    const edge = MAP.boundary.width * s;
-    g.fillStyle = 'rgba(8, 22, 34, 0.55)';
-    g.fillRect(0, 0, px, edge);
-    g.fillRect(0, px - edge, px, edge);
-    g.fillRect(0, edge, edge, px - 2 * edge);
-    g.fillRect(px - edge, edge, edge, px - 2 * edge);
-
-    // Distance rings from the center help to judge how far things are.
-    g.strokeStyle = 'rgba(255,255,255,0.12)';
-    g.lineWidth = 1;
-    for (const r of [MAP.regions.inner, MAP.regions.outer]) {
-      g.beginPath();
-      g.arc(px / 2, px / 2, r * s, 0, Math.PI * 2);
-      g.stroke();
-    }
-
-    // Islands: pale shallows, then the land.
-    for (let i = 0; i < m.islandCount; i++) {
-      const a = m.vertStart[i]!;
-      const b = m.vertStart[i + 1]!;
-      const trace = (grow: number): void => {
-        g.beginPath();
-        for (let k = a; k < b; k++) {
-          const dx = m.verts[k * 2]! - m.islandX[i]!;
-          const dy = m.verts[k * 2 + 1]! - m.islandY[i]!;
-          const len = Math.hypot(dx, dy) || 1;
-          const x = (m.verts[k * 2]! + (dx / len) * grow) * s;
-          const y = (m.verts[k * 2 + 1]! + (dy / len) * grow) * s;
-          if (k === a) g.moveTo(x, y);
-          else g.lineTo(x, y);
-        }
-        g.closePath();
-      };
-      g.fillStyle = 'rgba(120, 225, 230, 0.4)';
-      trace(18);
-      g.fill();
-      g.fillStyle = '#e8d08a';
-      trace(10);
-      g.fill();
-      g.fillStyle = '#5fa84a';
-      trace(3);
-      g.fill();
-    }
-    g.fillStyle = '#7b8189';
-    for (let i = RIG.count; i < m.reefCount; i++) {
-      g.beginPath();
-      g.arc(m.reefX[i]! * s, m.reefY[i]! * s, Math.max(1.5, m.reefR[i]! * s), 0, Math.PI * 2);
-      g.fill();
-    }
-
-    // Island type markers.
-    const mark = Math.max(3.5, px * 0.017);
-    for (let i = 0; i < m.islandCount; i++) {
-      const type = ISLAND_TYPES[m.islandType[i]!]!;
-      const color = MARK[type]!.color;
-      if (!color) continue;
-      const x = m.islandX[i]! * s;
-      const y = m.islandY[i]! * s;
-      g.fillStyle = color;
-      g.strokeStyle = 'rgba(0,0,0,0.6)';
-      g.lineWidth = 1;
-      g.beginPath();
-      if (type === 'port') g.arc(x, y, mark, 0, Math.PI * 2);
-      else if (type === 'fort') g.rect(x - mark, y - mark, mark * 2, mark * 2);
-      else {
-        g.moveTo(x, y - mark * 1.3);
-        g.lineTo(x + mark * 1.1, y);
-        g.lineTo(x, y + mark * 1.3);
-        g.lineTo(x - mark * 1.1, y);
-        g.closePath();
-      }
-      g.fill();
-      g.stroke();
-    }
-
-    g.strokeStyle = 'rgba(255,255,255,0.55)';
-    g.lineWidth = 2;
-    g.strokeRect(1, 1, px - 2, px - 2);
-
-    // Scale bar: 500 world units.
-    const bar = 500 * s;
-    const bx = px * 0.05;
-    const by = px - px * 0.045;
-    g.strokeStyle = '#fff';
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(bx, by - 4);
-    g.lineTo(bx, by);
-    g.lineTo(bx + bar, by);
-    g.lineTo(bx + bar, by - 4);
-    g.stroke();
-    g.fillStyle = '#fff';
-    g.font = `${Math.round(px * 0.04)}px system-ui, sans-serif`;
-    g.textBaseline = 'bottom';
-    g.fillText(`500 ${t('map.unit')}`, bx + bar + px * 0.02, by + 1);
-
-    if (this.big) {
-      // Legend.
-      g.font = `${Math.round(px * 0.03)}px system-ui, sans-serif`;
-      g.textBaseline = 'middle';
-      let ly = px * 0.05;
-      for (const type of ISLAND_TYPES) {
-        const info = MARK[type]!;
-        if (!info.color) continue;
-        g.fillStyle = info.color;
-        g.fillRect(px * 0.04, ly - 5, 10, 10);
-        g.fillStyle = '#fff';
-        g.fillText(t(info.label), px * 0.04 + 16, ly);
-        ly += px * 0.045;
-      }
-      g.fillStyle = '#1b2026';
-      g.fillRect(px * 0.04, ly - 5, 10, 10);
-      g.strokeStyle = '#fff';
-      g.strokeRect(px * 0.04, ly - 5, 10, 10);
-      g.fillStyle = '#fff';
-      g.fillText(t('map.rig'), px * 0.04 + 16, ly);
-      ly += px * 0.045;
-      g.fillStyle = '#ffb347';
-      g.beginPath();
-      g.arc(px * 0.04 + 5, ly, 5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#fff';
-      g.fillText(t('map.pirate'), px * 0.04 + 16, ly);
-    }
-    return c;
+  /** Redraws the map (every frame: it moves with the player). */
+  update(
+    player: MapShip,
+    others: readonly Combatant[],
+    rigs: readonly RigState[] | null = null,
+  ): void {
+    const view: View = this.big
+      ? { cx: WORLD_SIZE / 2, cy: WORLD_SIZE / 2, range: WORLD_SIZE / 2 }
+      : { cx: player.x, cy: player.y, range: RADAR_RANGE };
+    this.draw(view, player, others, rigs);
   }
 
-  /**
-   * The radar: the area around the player (not the whole world). Islands are dim teal shapes on a
-   * grid, ships are crosses (blue and red teams, amber pirates), the carriers small icons that
-   * stick to the edge when they are out of range, and the player a white arrow in the middle.
-   */
-  private updateRadar(
+  private draw(
+    view: View,
     player: MapShip,
     others: readonly Combatant[],
     rigs: readonly RigState[] | null,
   ): void {
     const px = this.canvas.width;
     const g = this.ctx;
-    const u = px / SMALL;
-    const k = px / (2 * RADAR_RANGE);
+    // Line widths and marker sizes are for the small map; the large one scales them down a bit.
+    const u = (px / SMALL) * (this.big ? 0.6 : 1);
+    const k = px / (2 * view.range);
     const mid = px / 2;
+    const sx = (wx: number): number => (wx - view.cx) * k + mid;
+    const sy = (wy: number): number => (wy - view.cy) * k + mid;
     const m = this.map;
-    const sx = (wx: number): number => (wx - player.x) * k + mid;
-    const sy = (wy: number): number => (wy - player.y) * k + mid;
 
     g.clearRect(0, 0, px, px);
     const bg = g.createRadialGradient(mid, mid, 0, mid, mid, mid * 1.3);
@@ -263,23 +119,21 @@ export class Minimap {
 
     // Grid, fixed to the world so it slides under the player.
     g.strokeStyle = 'rgba(120, 235, 245, 0.08)';
-    g.lineWidth = u;
+    g.lineWidth = Math.max(1, u);
     g.beginPath();
     for (
-      let gx = Math.ceil((player.x - RADAR_RANGE) / RADAR_GRID) * RADAR_GRID;
-      ;
-      gx += RADAR_GRID
+      let gx = Math.ceil((view.cx - view.range) / GRID) * GRID;
+      gx <= view.cx + view.range;
+      gx += GRID
     ) {
-      if (gx > player.x + RADAR_RANGE) break;
       g.moveTo(sx(gx), 0);
       g.lineTo(sx(gx), px);
     }
     for (
-      let gy = Math.ceil((player.y - RADAR_RANGE) / RADAR_GRID) * RADAR_GRID;
-      ;
-      gy += RADAR_GRID
+      let gy = Math.ceil((view.cy - view.range) / GRID) * GRID;
+      gy <= view.cy + view.range;
+      gy += GRID
     ) {
-      if (gy > player.y + RADAR_RANGE) break;
       g.moveTo(0, sy(gy));
       g.lineTo(px, sy(gy));
     }
@@ -297,11 +151,8 @@ export class Minimap {
     g.strokeStyle = 'rgba(150, 240, 245, 0.55)';
     g.lineWidth = 1.2 * u;
     for (let i = 0; i < m.islandCount; i++) {
-      const reach = RADAR_RANGE * 1.42 + m.islandR[i]!;
-      if (
-        Math.abs(m.islandX[i]! - player.x) > reach ||
-        Math.abs(m.islandY[i]! - player.y) > reach
-      ) {
+      const reach = view.range * 1.42 + m.islandR[i]!;
+      if (Math.abs(m.islandX[i]! - view.cx) > reach || Math.abs(m.islandY[i]! - view.cy) > reach) {
         continue;
       }
       g.beginPath();
@@ -321,7 +172,7 @@ export class Minimap {
       const y = sy(m.reefY[i]!);
       if (x < -10 || y < -10 || x > px + 10 || y > px + 10) continue;
       g.beginPath();
-      g.arc(x, y, Math.max(1.5 * u, m.reefR[i]! * k), 0, Math.PI * 2);
+      g.arc(x, y, Math.max(1.2 * u, m.reefR[i]! * k), 0, Math.PI * 2);
       g.fill();
     }
 
@@ -347,7 +198,7 @@ export class Minimap {
       g.strokeStyle = 'rgba(255,255,255,0.4)';
       g.stroke();
       if (st && Math.abs(st.meter) > 0.005) {
-        g.strokeStyle = st.meter > 0 ? RADAR_BLUE : RADAR_RED;
+        g.strokeStyle = st.meter > 0 ? BLUE : RED;
         g.beginPath();
         g.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + Math.abs(st.meter) * Math.PI * 2);
         g.stroke();
@@ -359,7 +210,7 @@ export class Minimap {
       g.strokeRect(x - 3 * u, y - 3 * u, 6 * u, 6 * u);
     }
 
-    // Ships: crosses. Carriers: an icon (clamped to the edge when out of range).
+    // Ships: crosses and skulls. Carriers: a painted icon.
     const arm = 3.6 * u;
     const edge = 14 * u;
     for (const o of others) {
@@ -368,30 +219,15 @@ export class Minimap {
       const x = sx(st.x);
       const y = sy(st.y);
       if (o.def.vMax === 0) {
-        const icon = this.carrierIcons[o.team === TEAM_BLUE ? 0 : 1]!;
-        if (!icon.complete || icon.naturalWidth === 0) continue;
-        const inside = x > edge && y > edge && x < px - edge && y < px - edge;
-        // Out of range: slide along the line to the carrier until the icon touches the edge.
-        let ix = x;
-        let iy = y;
-        if (!inside) {
-          const d = Math.max(Math.abs(x - mid), Math.abs(y - mid)) || 1;
-          const f = (mid - edge) / d;
-          ix = mid + (x - mid) * f;
-          iy = mid + (y - mid) * f;
-        }
-        const w = (inside ? 30 : 22) * u;
-        g.save();
-        g.globalAlpha = inside ? 1 : 0.75;
-        g.translate(ix, iy);
-        if (inside) g.rotate(st.heading);
-        g.drawImage(icon, -w / 2, -w / 4, w, w / 2);
-        g.restore();
+        this.carrier(g, o, x, y, mid, edge, px, u);
         continue;
       }
       if (x < 0 || y < 0 || x > px || y > px) continue;
-      g.strokeStyle =
-        o.team === TEAM_BLUE ? RADAR_BLUE : o.team === TEAM_PIRATE ? RADAR_PIRATE : RADAR_RED;
+      if (o.team === TEAM_PIRATE) {
+        skull(g, x, y, 5 * u);
+        continue;
+      }
+      g.strokeStyle = o.team === TEAM_BLUE ? BLUE : RED;
       g.lineWidth = 2 * u;
       g.beginPath();
       g.moveTo(x - arm, y - arm);
@@ -403,7 +239,7 @@ export class Minimap {
 
     // The player: a white arrow pointing where the ship heads, inside a small ring.
     g.save();
-    g.translate(mid, mid);
+    g.translate(sx(player.x), sy(player.y));
     g.strokeStyle = 'rgba(255,255,255,0.55)';
     g.lineWidth = 1.2 * u;
     g.beginPath();
@@ -419,126 +255,109 @@ export class Minimap {
     g.closePath();
     g.fill();
     g.restore();
+
+    if (this.big) this.coverage(g, view, player, k, mid, u);
   }
 
-  /** Redraws the dynamic layer: ships and the camera's view area. */
-  update(
-    player: MapShip,
-    others: readonly Combatant[],
-    camera: PerspectiveCamera,
-    rigs: readonly RigState[] | null = null,
+  /** A carrier: its icon where it is, or (small radar) at the edge toward it when out of range. */
+  private carrier(
+    g: CanvasRenderingContext2D,
+    o: Combatant,
+    x: number,
+    y: number,
+    mid: number,
+    edge: number,
+    px: number,
+    u: number,
   ): void {
-    if (!this.big) {
-      this.updateRadar(player, others, rigs);
-      return;
+    const icon = this.carrierIcons[o.team === TEAM_BLUE ? 0 : 1];
+    if (!icon) return;
+    const inside = x > edge && y > edge && x < px - edge && y < px - edge;
+    let ix = x;
+    let iy = y;
+    if (!inside) {
+      // Slide along the line to the carrier until the icon touches the edge.
+      const d = Math.max(Math.abs(x - mid), Math.abs(y - mid)) || 1;
+      const f = (mid - edge) / d;
+      ix = mid + (x - mid) * f;
+      iy = mid + (y - mid) * f;
     }
-    const px = this.canvas.width;
-    const g = this.ctx;
-    const s = px / WORLD_SIZE;
-    g.clearRect(0, 0, px, px);
-    if (this.base) g.drawImage(this.base, 0, 0);
-
-    // Oil rigs: the capture circle in the owner's color, the gauge around it, and a derrick mark.
-    for (let i = 0; i < RIGS.length; i++) {
-      const rig = RIGS[i]!;
-      const st = rigs?.[i];
-      const cx = rig.x * s;
-      const cy = rig.y * s;
-      const rr = RIG.captureRadius * s;
-      const owner = st?.owner ?? RIG_NO_OWNER;
-      g.fillStyle =
-        owner === RIG_NO_OWNER
-          ? 'rgba(255,255,255,0.12)'
-          : owner === TEAM_BLUE
-            ? 'rgba(74,168,255,0.35)'
-            : 'rgba(255,77,90,0.35)';
-      g.beginPath();
-      g.arc(cx, cy, rr, 0, Math.PI * 2);
-      g.fill();
-      g.lineWidth = Math.max(2, px * 0.007);
-      g.strokeStyle = 'rgba(255,255,255,0.45)';
-      g.beginPath();
-      g.arc(cx, cy, rr, 0, Math.PI * 2);
-      g.stroke();
-      if (st && Math.abs(st.meter) > 0.005) {
-        g.strokeStyle = st.meter > 0 ? '#4aa8ff' : '#ff4d5a';
-        g.beginPath();
-        g.arc(cx, cy, rr, -Math.PI / 2, -Math.PI / 2 + Math.abs(st.meter) * Math.PI * 2);
-        g.stroke();
-      }
-      g.fillStyle = '#1b2026';
-      g.strokeStyle = '#fff';
-      g.lineWidth = 1;
-      const h = Math.max(2.5, px * 0.012);
-      g.fillRect(cx - h, cy - h, h * 2, h * 2);
-      g.strokeRect(cx - h, cy - h, h * 2, h * 2);
-    }
-
-    // What the camera sees: the four screen corners projected onto the water.
-    let ok = true;
-    for (let i = 0; i < 4; i++) {
-      this.ray.set(CORNERS[i * 2]!, CORNERS[i * 2 + 1]!, 0.5).unproject(camera);
-      this.ray.sub(this.cam.copy(camera.position));
-      if (this.ray.y > -1e-3) {
-        // Looking above the horizon: clamp the far edge to a long distance.
-        this.ray.y = -1e-3;
-      }
-      const k = Math.min(
-        -camera.position.y / this.ray.y,
-        2500 / (Math.hypot(this.ray.x, this.ray.z) || 1),
-      );
-      this.view[i * 2] = this.cam.x + this.ray.x * k;
-      this.view[i * 2 + 1] = this.cam.z + this.ray.z * k;
-      if (!Number.isFinite(this.view[i * 2]!)) ok = false;
-    }
-    if (ok) {
-      g.strokeStyle = 'rgba(255,255,255,0.8)';
-      g.lineWidth = 1.5;
-      g.beginPath();
-      g.moveTo(this.view[0]! * s, this.view[1]! * s);
-      for (let i = 1; i < 4; i++) g.lineTo(this.view[i * 2]! * s, this.view[i * 2 + 1]! * s);
-      g.closePath();
-      g.stroke();
-    }
-
-    const r = Math.max(2.5, px * 0.011);
-    for (const o of others) {
-      const st = o.state;
-      if (!st.alive) continue;
-      g.fillStyle =
-        o.team === TEAM_BLUE ? '#4aa8ff' : o.team === TEAM_PIRATE ? '#ffb347' : '#ff4d5a';
-      if (o.def.vMax === 0) {
-        // A carrier: its hull seen from above, in its team color, with a white outline.
-        g.save();
-        g.translate(st.x * s, st.y * s);
-        g.rotate(st.heading);
-        const len = o.def.length * s;
-        g.fillRect(-len / 2, -len * 0.18, len, len * 0.36);
-        g.strokeStyle = '#fff';
-        g.lineWidth = 1.5;
-        g.strokeRect(-len / 2, -len * 0.18, len, len * 0.36);
-        g.restore();
-        continue;
-      }
-      g.beginPath();
-      g.arc(st.x * s, st.y * s, o.team === TEAM_PIRATE ? r * 0.8 : r, 0, Math.PI * 2);
-      g.fill();
-    }
-    // The player: a blue arrow pointing where the ship heads.
+    const w = (inside ? 32 : 22) * u;
     g.save();
-    g.translate(player.x * s, player.y * s);
-    g.rotate(player.heading);
-    g.fillStyle = '#3aa0ff';
-    g.strokeStyle = '#fff';
-    g.lineWidth = 1.5;
-    g.beginPath();
-    g.moveTo(r * 2.2, 0);
-    g.lineTo(-r * 1.4, r * 1.3);
-    g.lineTo(-r * 0.6, 0);
-    g.lineTo(-r * 1.4, -r * 1.3);
-    g.closePath();
-    g.fill();
-    g.stroke();
+    g.globalAlpha = inside ? 1 : 0.8;
+    g.translate(ix, iy);
+    if (inside) g.rotate(o.state.heading);
+    g.drawImage(icon, -w / 2, -w / 4, w, w / 2);
     g.restore();
   }
+
+  /**
+   * On the large map: the square the small radar covers right now (the player's position plus or
+   * minus `RADAR_RANGE` in both directions, mapped the same way as everything else).
+   */
+  private coverage(
+    g: CanvasRenderingContext2D,
+    view: View,
+    player: MapShip,
+    k: number,
+    mid: number,
+    u: number,
+  ): void {
+    const x0 = (player.x - RADAR_RANGE - view.cx) * k + mid;
+    const y0 = (player.y - RADAR_RANGE - view.cy) * k + mid;
+    const side = 2 * RADAR_RANGE * k;
+    g.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    g.fillRect(x0, y0, side, side);
+    g.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    g.lineWidth = 1.5 * u;
+    g.strokeRect(x0, y0, side, side);
+
+    // Legend.
+    const px = this.canvas.width;
+    g.font = `${Math.round(px * 0.028)}px Oxanium, system-ui, sans-serif`;
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    const lx = px * 0.035;
+    let ly = px * 0.045;
+    const step = px * 0.045;
+    g.fillStyle = '#0a1c24';
+    g.strokeStyle = '#fff';
+    g.lineWidth = u;
+    g.fillRect(lx - 3 * u, ly - 3 * u, 6 * u, 6 * u);
+    g.strokeRect(lx - 3 * u, ly - 3 * u, 6 * u, 6 * u);
+    g.fillStyle = '#fff';
+    g.fillText(t('map.rig'), lx + 12 * u, ly);
+    ly += step;
+    skull(g, lx, ly, 5 * u);
+    g.fillStyle = '#fff';
+    g.fillText(t('map.pirate'), lx + 12 * u, ly);
+  }
+}
+
+/** Paints every visible pixel of a (white) picture in one color. */
+function paint(img: HTMLImageElement, color: string): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const g = c.getContext('2d')!;
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = color;
+  g.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+/** A small yellow skull (the pirate mark): round head, jaw, dark eyes and nose. */
+function skull(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  g.fillStyle = SKULL;
+  g.beginPath();
+  g.arc(x, y - r * 0.15, r * 0.85, 0, Math.PI * 2);
+  g.fill();
+  g.fillRect(x - r * 0.45, y + r * 0.3, r * 0.9, r * 0.7);
+  g.fillStyle = '#10222a';
+  g.beginPath();
+  g.arc(x - r * 0.33, y - r * 0.2, r * 0.22, 0, Math.PI * 2);
+  g.arc(x + r * 0.33, y - r * 0.2, r * 0.22, 0, Math.PI * 2);
+  g.fill();
+  g.fillRect(x - r * 0.07, y + r * 0.1, r * 0.14, r * 0.22);
 }

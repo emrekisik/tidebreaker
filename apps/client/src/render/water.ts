@@ -33,6 +33,9 @@ const FRAGMENT = /* glsl */ `
 uniform float uTime;
 uniform vec3 uDeep;
 uniform vec3 uShallow;
+// Two more blues the sea drifts through (see the patches below).
+uniform vec3 uMid;
+uniform vec3 uDark;
 uniform vec3 uFoam;
 uniform vec3 uSky;
 uniform vec3 uSun;
@@ -87,7 +90,16 @@ void main() {
   float depthPatch = vnoise(p * 0.018 + vec2(uTime * 0.01, 0.0));
   float crest = vH / uWaveMax;
   float t = clamp(0.34 + crest * 0.42 + (diff - 0.7) * 1.6 + (depthPatch - 0.5) * 0.3, 0.0, 1.0);
-  vec3 col = mix(uDeep, uShallow, t);
+  // The sea is not one color: large slow patches blend four blues. The depth color moves between
+  // the teal and the dark grey-blue, the light color between the bright and the mid blue.
+  float pa = vnoise(p * 0.0085 + vec2(uTime * 0.004, 3.1));
+  float pb = vnoise(p * 0.0125 + vec2(9.7, -uTime * 0.003));
+  float pc = vnoise(p * 0.02 + vec2(-4.3, 1.9 + uTime * 0.002));
+  vec3 deepL = mix(uDeep, uDark, smoothstep(0.38, 0.72, pa));
+  deepL = mix(deepL, uMid, 0.7 * smoothstep(0.5, 0.82, pb));
+  vec3 shallowL = mix(uShallow, uMid, smoothstep(0.45, 0.8, pc) * 0.75);
+  shallowL = mix(shallowL, uDark * 1.6, 0.35 * smoothstep(0.55, 0.85, pa));
+  vec3 col = mix(deepL, shallowL, t);
 
   // Light shining through thin crests: a brighter, greener tint on the sun-facing side.
   float through = smoothstep(0.25, 0.95, crest) * (0.4 + 0.6 * max(dot(n, uSun), 0.0));
@@ -150,6 +162,8 @@ export class Water {
         uTime: { value: 0 },
         uDeep: { value: new Color(0x0b6989) },
         uShallow: { value: new Color(0x13a0dd) },
+        uMid: { value: new Color(0x0c78a7) },
+        uDark: { value: new Color(0x1e566f) },
         uFoam: { value: new Color(0xe6f6fb) },
         uSky: { value: new Color(0x2c76a8) },
         uSun: { value: SUN },

@@ -219,6 +219,10 @@ const events: OnlineEvents = {
   },
   onUpgrade(x, y, length) {
     effects.upgrade(x, y, length);
+    damageNumbers.showArrows(stage.camera, x, y);
+  },
+  onXp(x, y, xp) {
+    damageNumbers.showXp(stage.camera, x, y, xp);
   },
   onSunk(entity, x, y) {
     effects.explode(x, y, entity.combatant.def.length);
@@ -417,7 +421,7 @@ function update(nowMs: number): void {
     others.push(e.combatant);
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
-  minimap?.update(ps, others, stage.camera, online?.rigState ?? null);
+  minimap?.update(ps, others, online?.rigState ?? null);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;
