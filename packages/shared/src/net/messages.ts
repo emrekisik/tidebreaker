@@ -63,6 +63,7 @@ export const EVENT = {
   BUMP: 5,
   PICKUP: 6,
   POWER: 7,
+  BLAST: 8,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = {
@@ -638,6 +639,17 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A barrel went off at (x, y). */
+  blast(id: number, x: number, y: number): void {
+    if (!this.room(7)) return;
+    const w = this.w;
+    w.u8(EVENT.BLAST);
+    w.u16(id);
+    w.u16(qPos(x));
+    w.u16(qPos(y));
+    this.count++;
+  }
+
   /** Writes the event count; returns false when there is nothing to send. */
   finish(): boolean {
     this.w.patchU8(this.countAt, this.count);
@@ -710,6 +722,8 @@ export interface ServerHandler {
     y: number,
   ): void;
   power(tick: number, id: number, level: number): void;
+  /** An explosive barrel went off. */
+  blast(tick: number, id: number, x: number, y: number): void;
 }
 
 const self = newSelfState();
@@ -980,6 +994,13 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const x = dqPos(r.u16());
         const y = dqPos(r.u16());
         if (r.ok) h.pickup(tick, id, collector, kind, value, x, y);
+        break;
+      }
+      case EVENT.BLAST: {
+        const id = r.u16();
+        const x = dqPos(r.u16());
+        const y = dqPos(r.u16());
+        if (r.ok) h.blast(tick, id, x, y);
         break;
       }
       default:

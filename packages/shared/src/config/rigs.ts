@@ -23,10 +23,12 @@ export const RIG = {
   powerPerTier: 0.5,
   /** More power than this on one side does not make the capture any faster. */
   maxPowerAdvantage: 3,
-  /** Every owned rig pays this much (score and money) to every player of the owning team... */
+  /** Every owned rig pays this much money (no score) to every player of the owning team... */
   incomeCash: 1,
   /** ...this often (seconds). */
   incomeEverySec: 3,
+  /** Score for each player of a team that is inside the circle when the rig becomes theirs. */
+  captureScore: 40,
 } as const;
 
 /** Centers of the rigs, north to south. */

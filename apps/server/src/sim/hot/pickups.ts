@@ -30,19 +30,20 @@ const SPAWN_TRIES = 14;
 const EDGE = MAP.boundary.width + 25;
 
 /**
- * Everything floating in the sea that a ship can pick up: crates, barrels, treasure chests and the
- * banknote piles of sunk ships (GAME_DESIGN.md §7.1). Plain data in typed arrays, one fixed slot
+ * Everything floating in the sea: crates and treasure chests to pick up, explosive barrels to avoid
+ * (or shoot), and the banknote piles and loot crates that sunk ships and pirates leave
+ * (GAME_DESIGN.md §7.1). Plain data in typed arrays, one fixed slot
  * per pickup, so nothing is allocated while the game runs. Lives in `hot/`: no allocation here.
  *
  * Crates, barrels and chests respawn in their slot after a delay; banknote piles expire.
  */
 export class Pickups {
   readonly active = new Uint8Array(PICKUP_CAPACITY);
-  /** `KIND.CRATE`, `KIND.BARREL`, `KIND.CHEST` or `KIND.BANKNOTE` of each slot. */
+  /** `KIND.CRATE`, `KIND.BARREL`, `KIND.CHEST` or `KIND.BANKNOTE` of each slot (a dropped loot slot may hold a crate). */
   readonly kind = new Uint8Array(PICKUP_CAPACITY);
   readonly x = new Float32Array(PICKUP_CAPACITY);
   readonly y = new Float32Array(PICKUP_CAPACITY);
-  /** Money (score and cash) a ship gets for it, zone multiplier included. */
+  /** Money a ship gets for it, zone multiplier included (0 for the explosive barrels). */
   readonly value = new Uint16Array(PICKUP_CAPACITY);
   /** Counts spawns of a slot, so clients know when a slot holds a new pickup. */
   readonly gen = new Uint16Array(PICKUP_CAPACITY);
@@ -104,8 +105,18 @@ export class Pickups {
 
   /** Drops a pile of banknotes worth `value` at (x, y). Returns false when the pool is full. */
   dropBanknote(x: number, y: number, value: number): boolean {
+    return this.drop(x, y, value, KIND.BANKNOTE);
+  }
+
+  /** Drops a loot crate (what a sunk pirate leaves) worth `value` at (x, y). */
+  dropLoot(x: number, y: number, value: number): boolean {
+    return this.drop(x, y, value, KIND.CRATE);
+  }
+
+  private drop(x: number, y: number, value: number, kind: number): boolean {
     for (let i = NOTE_START; i < PICKUP_CAPACITY; i++) {
       if (this.active[i] === 1) continue;
+      this.kind[i] = kind;
       this.active[i] = 1;
       this.x[i] = x;
       this.y[i] = y;
@@ -120,6 +131,8 @@ export class Pickups {
   /** Size class 0..3 of a pile (for the look of banknotes) or the zone (0..2) of other pickups. */
   look(i: number): number {
     if (i >= NOTE_START) {
+      // A loot crate (what a sunk pirate leaves) is always the big look.
+      if (this.kind[i] === KIND.CRATE) return 3;
       const v = this.value[i]!;
       return v < 20 ? 0 : v < 60 ? 1 : v < 150 ? 2 : 3;
     }
@@ -149,8 +162,7 @@ export class Pickups {
       }
       if (!this.spotIsFree(this.x[i]!, this.y[i]!, this.home[i]! > 0, ships)) continue;
       const dist = Math.hypot(this.x[i]! - WORLD_CENTER, this.y[i]! - WORLD_CENTER);
-      const base =
-        k === KIND.CRATE ? P.crate.cash : k === KIND.BARREL ? P.barrel.cash : P.chest.cash;
+      const base = k === KIND.CRATE ? P.crate.cash : k === KIND.BARREL ? 0 : P.chest.cash;
       const mul = zoneMultiplier(dist, MAP.regions.inner, MAP.regions.outer);
       this.value[i] = Math.round(base * mul);
       this.active[i] = 1;

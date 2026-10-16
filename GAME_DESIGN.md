@@ -77,7 +77,7 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 - İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı. Her uçak gemisinin yanında 6 başlangıç sandığı vardır (doğduğun yerin hemen önünde, 25 sn'de yeniden çıkar).
 
 **Ölüm kuralı (io standardı)**
-- **Takım modunda ölüm kuralı (kararlaştırıldı):** her sınıfta **3 can** vardır (`ECONOMY.death.lives`; alttaki panelde ♥♥♥). Batan oyuncunun cebindeki **tüm para** her batışta banknot yığınları (en çok 5, 40 sn kalır) olarak batık yerine saçılır ve herkes toplayabilir; sınıfı, yükseltmeleri ve skoru ilk iki batışta **kalır**. **Üçüncü batışta** (canlar bitince) gemisi **bir sınıf geriler** (T1'in altına inmez), canlar yeniden 3 olur, skoru yeni sınıfın alt sınırına iner. Sınıf atlayınca canlar yeniden 3 olur. **Yükseltmeler gemi sınıfına aittir:** sınıf düşünce yeni sınıf yükseltmesiz başlar (T1 zaten en alt sınıf olduğu için T1'de batan kendi yükseltmelerini korur). Kendi uçak gemisinde 5 sn sonra yeni sınıfta doğar. Yeni turda herkes sıfırdan T1'dir.
+- **Takım modunda ölüm kuralı (kararlaştırıldı):** her sınıfta **3 can** vardır (`ECONOMY.death.lives`; alttaki panelde ♥♥♥). Batan oyuncunun cebindeki paranın **%80'i** her batışta banknot yığınları (en çok 5, 40 sn kalır) olarak batık yerine saçılır ve herkes toplayabilir (kalan %20 gemide kalır); sınıfı ve yükseltmeleri ilk iki batışta **kalır**, skor hiç düşmez. **Üçüncü batışta** (canlar bitince) gemisi **bir sınıf geriler** (T1'in altına inmez), canlar yeniden 3 olur. Sınıf atlayınca canlar yeniden 3 olur. **Yükseltmeler gemi sınıfına aittir:** sınıf düşünce yeni sınıf yükseltmesiz başlar (T1 zaten en alt sınıf olduğu için T1'de batan kendi yükseltmelerini korur). Kendi uçak gemisinde 5 sn sonra yeni sınıfta doğar. Yeni turda herkes sıfırdan T1'dir.
 - Eski FFA kuralı (her şey sıfırlanır, T1'de doğ) yalnızca tasarım geçmişidir.
 - Ölünce `YOU_DIED` ekranı: yaşama süresi, öldürme sayısı, score, öldüren kişi. "Tekrar oyna" ismi hatırlar.
 - Bağlantı kopması: son 10 sn içinde hasar alıp vermişse gemi 10 sn boyunca kontrolsüz yavaşlayarak kalır (combat-log koruması), yoksa anında kaldırılır.
@@ -103,9 +103,9 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 Haritanın ortasında, **iki uçak gemisinin tam ortasında** (aralarındaki doğrunun orta dikmesinde, yani **iki takıma da eşit uzaklıkta**) **3 deniz petrol kuyusu** vardır (`config/rigs.ts`: biri merkezde, ikisi 280 birim kuzey ve güneyinde). Her kuyunun etrafında 32 birim yarıçaplı bir **ele geçirme alanı** ve ortasında yarıçapı 6 birim, **katı** bir platform bulunur (mermiyi ve gemiyi engeller; haritada ilk 3 "resif" olarak tutulur). Harita üretimi kuyuların çevresini (alan + 28 birim) ada ve resiften boş bırakır.
 - **Ele geçirme:** alanın içindeki canlı gemilerin **gücü** toplanır (gücü = `1 + sınıf × 0,5`: T1 = 1 … T5 = 3). Gücü yüksek olan takıma doğru **ibre** kayar (`+1` mavi, `−1` kırmızı). Güç eşitse ibre durur; alan boşsa ibre olduğu yerde kalır. Hız: 1 güç puanı ibreyi nötrden tama **30 sn**'de götürür (tam sağdan tam sola 60 sn); en çok 3 puanlık üstünlük hesaba katılır.
 - **Sahiplik:** ibre bir uçta **tam dolunca** o takım kuyuyu ele geçirir; ibre **nötre (0) dönene kadar** kuyu onundur (rakip önce ibreyi sıfıra getirmelidir).
-- **Gelir:** sahip olunan her kuyu için, **takımın her oyuncusuna** (alanda olsun olmasın) **3 saniyede 1 para** (ve skor) verilir (`RIG.incomeCash` / `incomeEverySec`). Yeni turda tüm kuyular nötrdür.
+- **Gelir:** sahip olunan her kuyu için, **takımın her oyuncusuna** (alanda olsun olmasın) **3 saniyede 1 para** (skor değil) verilir (`RIG.incomeCash` / `incomeEverySec`). Bir kuyuyu **ele geçiren** takımın, o anda yakalama dairesinin içindeki her oyuncusu **skor** kazanır (`RIG.captureScore` = 40). Yeni turda tüm kuyular nötrdür.
 - **Gösterim:** kuyular 3B dünyada platform + yerde ibreyi gösteren renkli halka olarak, üstte 3 küçük ibre göstergesi (sahibinin renginde çerçeve) ve mini haritada (çevre halkası + ibre yayı + simge) görünür. Sunucu `RIGS` mesajıyla (0x8E) ibre ve sahibi yalnızca değişince yollar.
-- **Botlar:** her takımın yarısı (ve tüm küçük botlar) kuyuları tutar; ele geçirilmemiş en yakın kuyuya gider ve çevresinde dolanır.
+- **Botlar:** her takımın yarısı (ve tüm küçük botlar) kuyuları tutar; ele geçirilmemiş en yakın kuyuya gider ve çevresinde dolanır. Hasarlı bot (can + kalkan < %35) kendi uçak gemisine döner ve ~75 birim yakınında **tamamen durur** (gövde yalnızca duran gemide onarılır, §4.5), %70'e çıkana kadar bekler; menzile giren düşmana ateş etmeyi sürdürür. Botlar bir üst sınıfa para biriktirir: küçük yükseltmeleri yalnızca sınıf bedelinin %30'unu aşmıyorsa alırlar. Patlayıcı varillerden uzak durur (hedef almazlar).
 
 ### 4.3 Adalar
 Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz; liman ve hazine adası yalnızca görünüm) + 45 resif kümesi (≈ 90 kaya). Seed ile Poisson-disc örnekleme (min mesafe), gövde: 12–18 köşeli, gürültüyle bozulmuş çokgen (yarıçap 12–30; liman ≥ 18, kale ≥ 20, çünkü binalar sığmalı).
@@ -241,14 +241,16 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 - **Dallanma (backlog, Faz 10):** T4'ten itibaren iki yol (ör. "Fırkateyn" dengeli / "Hızlı Saldırı Gemisi" cam top). Veri modeli buna hazır olmalıdır: `ShipDef.next: ShipId[]`.
 
 ### 6.4 Ödül formülleri (config'te)
+**Skor ile para ayrıdır.** Para: toplanabilirler, kuyu geliri, uçak gemisine hasar, katile verilen ödül ve yerden toplanan ganimet; **yükseltmeler ve sınıf atlama paraya** mal olur. Skor: yalnızca düşman gemi/korsan batırmak (ve yardım) ile kuyu ele geçirmekten gelir, **para toplamak skoru artırmaz**; liderlik tablosunda ve kurbanın ödül değerinde sayılır, hiçbir şey satın almaz.
+
 ```
-tierScore      = [0, 120, 450, 1200, 2600]      // config/economy.ts (güncel; sınıf tablosundaki "Min score" eski tahmindi)
-killReward     = min(victimScore * 0.35, 1500) * tierDiffFactor * repeatFactor
+tierCost       = [0, 70, 250, 650, 1500]        // config/economy.ts: bir üst sınıfın bedeli PARA'dır (harcanır; skor değil)
+killReward     = min(tierValue[kurbanTier] + victimScore * 0.2, 1500) * tierDiffFactor * repeatFactor   // SKOR; katil aynı miktarda PARA da alır (`kill.cashShare`)
 wreckLoot      = victim'in cebindeki paranın %80'i  // `ECONOMY.death.cashLossPct`; kalan %20 gemide kalır. En çok 5 yığın, 40 sn sonra söner; herkes toplayabilir
-carrierDamage  = hasar * 0.25                   // düşman uçak gemisine verilen her hasar puanı skor + para (ECONOMY.carrier)
+carrierDamage  = hasar * 0.25                   // düşman uçak gemisine verilen her hasar puanı yalnızca PARA verir (ECONOMY.carrier), skor vermez
 tierDiffFactor = victimTier >= killerTier ? 1 : (−1: 0.7, −2: 0.3, ≤−3: 0.1)
 repeatFactor   = aynı katil→aynı kurban 300 sn içinde 3. ve sonrası: 0.25
-pirateReward(playerTier) = base * clamp(1 − 0.25*(playerTier − pirateTier), 0.1, 1)
+pirateReward(playerTier) = base * clamp(1 − 0.25*(playerTier − pirateTier), 0.1, 1)   // SKOR; para korsanın bıraktığı ganimet kutusundadır (§7.2)
 assist         = son 10 sn içinde hasar verenler, killReward'ı hasar oranında paylaşır
 ```
 - **Anti-snowball:** liderlik tablosunda 1. oyuncunun öldürülme ödülüne +%20 bounty.
@@ -264,9 +266,10 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 | Öğe | Değer | Notlar |
 |---|---|---|
 | **Sandık (crate)** | 10 para | Harita genelinde 60 adet (küçülen harita alanına göre), 25 sn sonra yeniden doğar. Her uçak gemisinin yanında 6 başlangıç sandığı ayrıca vardır |
-| **Varil (barrel)** | 4 para + %25 ihtimalle gövdeyi %15 onarır | 25 adet |
+| **Patlayıcı varil (barrel)** | para vermez | 25 adet, 25 sn sonra yeniden doğar. **Gemi çarpınca ya da mermi isabet edince patlar**: gövdesine 15 birim (`blast.radius`) içindeki her gemi (korsanlar dahil; uçak gemileri ve doğuş korumalı gemiler hariç) merkezde 90, kenarda %30'u kadar hasar alır (`blast.damage`, `edgeFactor`); yakındaki varillere zincirleme geçer. Hasar, patlatana (çarpan ya da vuran) yazılır: öldürürse kill onundur. Çarpanın kendi gemisi de merkezde tam hasar alır. `BLAST` olayı gönderilir |
 | **Hazine sandığı (chest)** | 100 para | 5 adet, kale ve hazine adalarının kıyısında (6–14 birim açıkta), 90 sn bekleme. Harita üstünde ışın işareti (sonra) |
-| **Ganimet parası (banknote)** | değişken | Batan gemilerden düşer |
+| **Ganimet parası (banknote)** | değişken | Batan oyuncu gemilerinden düşer (cebindeki paranın %80'i) |
+| **Ganimet kutusu (loot crate)** | korsanın türüne göre 24 / 60 / 160 para (`PirateType.loot`) | Batan **korsandan** düşer (büyük sandık görünümü), 40 sn kalır, ilk ulaşan alır |
 | **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
 
@@ -285,7 +288,7 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 - **Silahlar ve görünüm:** korsanlar **yalnızca top** kullanır (makineli ve roket yok): gemi başına yan başına 1 / 2 / 3 top (`pirate_cannon_s/m/l`: hasar 9 / 13 / 17, reload 1,1 / 1,2 / 1,3 sn, menzil 48 / 55 / 62). Toplar sabit yan borda toplarıdır (kıç–pruva ekseninin ±90°'si çevresinde ±55° yay), bu yüzden korsan hedefini yanına alacak şekilde dolanır. Üç tür de aynı yelkenli gemi modelini kullanır (`pirate_ship.glb`; boyutlar 7 / 10 / 14), takım boyası yoktur (model kendi renginde), kehribar halka ve isim plakası ile ayrılır.
 - **Koylar ve kadro (uygulandı, Faz 5b):** haritada sol–sağ simetrik **6 koy** vardır (`config/pirates.ts`): kuzey ve güney kenarın ortasında 2 koy (her birinde 1 brig + 1 akıncı + 2 sandal), diğer 4 koy ortada (her birinde 1 akıncı + 2 sandal), yani toplam **20 korsan** (2 brig, 6 akıncı, 12 sandal). Simetri sayesinde hiçbir koy bir takıma daha yakın değildir. Harita üretimi her koyun çevresini (40 birim) ada ve resiften boş bırakır. Batan korsan türüne göre **40 / 70 / 120 sn** sonra kendi koyunda yeniden doğar; yeni turda hepsi koyunda başlar.
 - **Takımlar:** korsanlar kendi takımındadır (`TEAM_PIRATE = 2`): iki takıma da düşmandır, birbirlerine ateş etmez, **uçak gemilerinin taretleri onlara da ateş eder**. Skor tablosunda yer almazlar, takım kill sayacına yazılmazlar; bir oyuncuyu batırırlarsa o oyuncu normal ölüm kuralına göre (para düşer, can gider) kaybeder.
-- **Ödül:** batıran(lar) hasar oranında paylaşır; oyuncunun sınıfı korsandan yüksekse ödül azalır: `reward × clamp(1 − 0.25 × (oyuncuTier − korsanTier), 0.1, 1)` (`pirateReward`, T1 = 1). Örnek: sandalı (18) T1 tam, T3 yarı alır.
+- **Ödül:** batıran(lar) hasar oranında **skor** paylaşır; para korsanın düşürdüğü **ganimet kutusundadır** (herkes alabilir). Oyuncunun sınıfı korsandan yüksekse skor azalır: `reward × clamp(1 − 0.25 × (oyuncuTier − korsanTier), 0.1, 1)` (`pirateReward`, T1 = 1). Örnek: sandalı (18) T1 tam, T3 yarı alır.
 - Tüccar gemisi kasıtlı bir **PvP mıknatısı**: büyük ödül, oyuncuları aynı noktada çatıştırır.
 - Backlog olay fikirleri: **Kraken** (hull 3000, ödül hasar oranında paylaşılır), **Fırtına bölgesi**, **Korsan Armadası**.
 
@@ -413,7 +416,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x02 | `PLAY` | `u8 nameLen, utf8 name[≤48 byte], u8 shipId` (`shipId` = `SHIP_IDS` sırası). Normalde sunucu bunu yok sayar: **herkes T1 başlar**. Yalnızca test sürümlerinde (`NODE_ENV` ≠ `production`) istenen sınıfla başlanır |
 | 0x03 | `INPUT` | `u16 seq, u8 flags (bit0=fire), i8 moveX, i8 moveY, u16 aim, u8 aimDist` (9 bayt; `aimDist` = gemiden imlece uzaklık, birim, 0–255) |
 | 0x04 | `UPGRADE` | `u8 statId (0..5)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
-| 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu skor eşiğini doğrular; gemi aynı yerde yeni sınıfa geçer |
+| 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu parayı doğrular, sınıf bedelini (`ECONOMY.tierCost`) düşer; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
 | 0x07 | `EMOTE` | `u8 emoteId` |
 
@@ -467,6 +470,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
+| `BLAST` (8) | `u16 pickupId, u16 x, u16 y`: bir patlayıcı varil patladı (ateş topu ve şok halkası). Varilin hasarı ayrıca her etkilenen gemi için `SHIP_HIT` (silah = `NO_WEAPON`) olarak gelir; varil `LEAVE` ile kalkar |
 | `RIGS` (S2C 0x8E, ayrı mesaj) | `u8 count`, her kuyu için `i8 ibre×127, u8 sahip (255 = yok)`; değişince (en çok 2 Hz) ve yeni girene |
 | `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
@@ -581,19 +585,20 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 - **Okyanus:** parlak turkuaz-mavi (koyu `#0b6989`, açık `#13a0dd`); dalga yüzleri ışık/gölge bantları oluşturur, tepelerde ince köpük.
 - **Takımlar:** mavi (boya `#72a9e4`, halka `#23b4ff`), kırmızı (boya `#ff6b78`, halka `#ff2a45`); parlaklık 4,0, ışıma 0,2 (kullanıcının "Görünüm" panelinden seçtiği kombinasyon). Takım rengi gemilerin gövde boyasına uygulanır ve hafif kendi ışığı vardır (parlar); silahlar boyanmaz. Yalnızca **oyuncunun kendi gemisinin** altında parlayan bir halka vardır; diğer gemilerde halka yoktur.
 - **Can/kalkan:** can çubuğu takım renginde, kalkan çubuğu daha ince ve **açık camgöbeği** (takım mavisinden ayrışır), kayıp kısım beyaz. Kalkan efektleri de camgöbeği. Oyuncu panelinde iki çubuğun yanında **sayısal değer** de yazar (yalnızca güncel değer: `320`, `130`; çubukların başında gemi ve kalkan simgeleri durur, çubuğun üzerinde her 20 birimde bir ince çizgi vardır; kalkan üst sınırı yükseltmeyle büyür).
+- **Sallanma:** gemi dalgayı boyuna ve enine eğimle izler; **büyük gemiler daha az sallanır** (`FX.sway`): `refLength` (6 birim) ve kısası tam, daha uzunlar `refLength / boy` oranında (en az 0,12), yukarı-aşağı oynama bunun karekökü kadar. T1 (5,8) tam sallanır, T3 (12,5) yaklaşık yarı, T5 (20,5) yaklaşık üçte bir, uçak gemisi neredeyse hiç.
 - **Gemi izi:** kıçtan kesintisiz, dantelli beyaz köpük şeridi; baş tarafında gövdeye yapışık köpük ve geriye açılan soluk Kelvin kolları (bkz. §12.2).
 - **Kontur:** gemi gövdesinde ince koyu kenar çizgisi (ters gövde / inverted hull), sadece gövdede (silahlarda yok). Varsayılan **kapalı**, "Görünüm" test panelinden açılır.
 - **"Görünüm" test paneli:** okyanus (koyu/açık), takım boyaları, takım halkaları için renk seçiciler; takım parlaklığı ve ışıma kaydırıcıları; kontur anahtarı. Değerler canlı uygulanır, tarayıcıda hatırlanır ve "Kodları kopyala" ile hex kodları olarak alınır (seçilen kombinasyon config'e işlenir).
 
 ### 12.2d Arayüz stili (HUD teması)
 Tüm HUD tek bir temayı paylaşır (`apps/client/src/ui/theme.css`): **düz (köşesiz) koyu lacivert yarı saydam paneller**, ince kenar, kalın büyük harfli etiketler, yazı tipi **Oxanium** (`@fontsource` ile pakete gömülü, 500/700, latin + latin-ext; Türkçe karakterler için), her yükseltmenin kendi rengi. Yerleşim (1600×900 için çizilir, pencereye göre 0,6–1,3 ölçeklenir, `--ui-scale`):
-- **Sol üst:** oyuncunun gemisi: can sayısı (kalp içinde sayı), gövde (yeşil) ve kalkan (turkuaz) çubukları, para (yeşil banknot simgesi) ve **XP** (= skor, sarı; "skor / sonraki sınıfın eşiği" yazar, altında ince bir çubuk sonraki sınıfa ne kadar kaldığını gösterir).
+- **Sol üst:** oyuncunun gemisi: can sayısı (kalp içinde sayı), gövde (yeşil) ve kalkan (turkuaz) çubukları, para (yeşil banknot simgesi) ve **skor** (sarı, "Skor 450"; XP yoktur). Altında `Sv 2` ve yeşil bir çubuk: eldeki paranın bir üst sınıfın bedelinin ne kadarını karşıladığı, sağında bedelin kendisi.
 - **Üst orta:** ince şerit: solda mavi, sağda kırmızı kenar; iki uçak gemisinin simgesi ve çift çubuğu (gövde yeşil, kalkan turkuaz; dışarı doğru boşalır), ortada takım skoru. Altında 3 petrol kuyusu için **altıgen A / B / C** rozetleri: kenar çizgisi kapmada kimin önde olduğunu gösterir (mavi saat yönünde, kırmızı ters yönde), tutulan kuyu sahibinin rengiyle dolar.
 - **Alt orta:** sınıf atlanabildiğinde bir sonraki geminin **kartı** (yukarıdan görünüm resmi, `T` tuşu, ad) ve altında altın **SINIF ATLA** çubuğu. Altta **6 yükseltme kutusu yan yana** (anahtar kutusu, simge, ad, maliyet, 8 küçük dikdörtgen seviye göstergesi): 1 kalkan, 2 atış hızı, 3 hasar, 4 hız, 5 dönüş, 6 tamir.
 - **Yükseltme satırı sıkışır:** hiçbir şey alınamıyorsa (para yetmiyor ya da hepsi sonuna geldi) satır aşağı kayıp küçülür; her kutuda yalnızca simge ve seviye kalır. Alınabilir bir şey olunca yukarı açılır. Harita dışındaki tüm paneller %60 civarı saydamdır.
 - **Sol alt:** **yerel radar**: haritanın tamamı değil, oyuncunun çevresindeki ~280 birimlik alan (oyuncu hep ortada, beyaz ok). Koyu turkuaz zemin, ızgara, halkalar ve yavaş tarama çizgisi; adalar soluk turkuaz şekiller, gemiler `x` işaretleri (mavi takım turkuaz, kırmızı pembe, korsan kehribar), petrol kuyuları daire ve ibreyle; uçak gemileri küçük gemi simgesiyle gösterilir ve menzil dışındaysa radarın kenarına yapışıp yönünü gösterir. `M` tüm haritayı açıp kapatır; üzerinde beyaz bir **yamuk** oyuncunun ekranında şu an gerçekte görünen deniz alanını gösterir (ekranın dört köşesinden kameradan denize ışın atılarak hesaplanır, bu yüzden zoom'a, kamera eğimine ve pencere şekline göre değişir; radarın kapsadığı alan değildir). Sol üst panelde XP çubuğunun yanında oyuncunun seviyesi (`Sv 2`) yazar.
 - Gemi üstü isim plakaları da koyu plaka stilindedir. Simgeler `apps/client/src/ui/icons/`, kart resimleri `apps/client/public/icons/ships/card/` içindedir. Metin stringleri yine `tr`/`en` dosyalarındadır; büyük harf CSS ile yapılır (`<html lang>` ayarlanır).
-- **Efektler (istemci):** bir gemiyi batırınca (ya da yardım edince) kazanılan XP, batan geminin yerinde altın "+45 XP" olarak yükselip kaybolur (sunucu skoru, batırma mesajından hemen sonra gelen STATS farkından hesaplanır; yerden toplanan paralar kendi sayılarıyla gösterildiği için düşülür). Sınıf atlayınca halka ve kıvılcımlara ek olarak gemiden üç **yukarı ok** sırayla yükselir. Oyuncunun kendi gemisinin üstünde de can/kalkan çubuğu vardır (isimsiz). Gövde iyileşirken (yenilenme, varil) gemi üstünde dönen bir anahtar yükselir (`FX.repair`). Deniz rengi dört maviyi (`#0b6989`, `#13a0dd`, `#0c78a7`, `#1e566f`) büyük, yavaş yamalar halinde karıştırır.
+- **Efektler (istemci):** bir gemiyi batırınca (ya da yardım edince) kazanılan skor, batan geminin yerinde altın "+45 puan" olarak yükselip kaybolur; bir kuyuyu ele geçirince aynısı oyuncunun gemisinin üstünde çıkar (skor yalnızca batırma ve kuyudan geldiği için STATS farkı tek başına yeter). Patlayıcı varil patlayınca büyük bir ateş topu ve sudan yayılan beyaz bir şok halkası çıkar (`FX.blast`), yakındaysa kamera sarsılır. Sınıf atlayınca halka ve kıvılcımlara ek olarak gemiden üç **yukarı ok** sırayla yükselir. Oyuncunun kendi gemisinin üstünde de can/kalkan çubuğu vardır (isimsiz). Gövde iyileşirken (yenilenme) gemi üstünde dönen bir anahtar yükselir (`FX.repair`). Deniz rengi dört maviyi (`#0b6989`, `#13a0dd`, `#0c78a7`, `#1e566f`) büyük, yavaş yamalar halinde karıştırır.
 - **Sınıf atlama efekti:** bir gemi yeni sınıfa geçince (kendi gemin ve başkalarınınki) yeni gövde küçükten büyüyerek, hafif aşıp yerine oturarak belirir (0,9 sn), beyaz bir parlama yapar; suda iki turkuaz halka yayılır, kıvılcımlar ve yükselen ışık zerrecikleri çıkar (`FX.upgrade`).
 
 ### 12.3 Kamera
@@ -842,14 +847,14 @@ export const statCost = (level: number) => Math.ceil(STAT_COST_BASE * Math.pow(S
 export const STAT_EFFECT = {            // per level
   speed: 0.04, reload: 0.04, turn: 0.05, shield: 0.12, regenPctMaxHullPerSec: 0.004,
 } as const;
-export const KILL = { victimScorePct: 0.35, cap: 1500, wreckPct: 0.25, wreckMaxBanknotes: 25, banknoteMin: 5,
+export const KILL = { tierValue: [15, 40, 110, 260, 520], victimScorePct: 0.2, cashShare: 1, cap: 1500, wreckPct: 0.25, wreckMaxBanknotes: 25, banknoteMin: 5,
                       wreckDecaySec: 40, leaderBountyPct: 0.2, assistWindowSec: 10, repeatWindowSec: 300 };
 export const COMBAT = { shieldDelaySec: 4, shieldRechargeSec: 6, hullRegenDelaySec: 6, spawnProtectSec: 4 };
 
 // pickups.ts
 export const PICKUPS = {
   crate:  { cash: 8,   target: 140, respawnSec: 25 },
-  barrel: { cash: 4,   target: 60,  respawnSec: 25, repairChance: 0.25, repairPct: 0.15 },
+  barrel: { target: 25, respawnSec: 25, hitRadius: 1.4, blast: { radius: 15, damage: 90, edgeFactor: 0.3 } },   // patlayıcı: para vermez
   chest:  { cash: 100, target: 8,   respawnSec: 90 },
 };
 

@@ -13,8 +13,10 @@ export interface PirateType {
   def: ShipDef;
   /** Tier used for the reward scale (1..3, like the player classes). */
   tier: number;
-  /** Money (score and cash) for sinking it, before the tier scale (see `pirateReward`). */
+  /** Score for sinking it, before the tier scale (see `pirateReward`). */
   reward: number;
+  /** Money in the loot crate it drops when sunk (anyone can pick it up). */
+  loot: number;
   /** Seconds until a sunk pirate of this type shows up again at its cove. */
   respawnSec: number;
   /** It notices a player this close. */
@@ -95,6 +97,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     def: skiff,
     tier: 1,
     reward: 18,
+    loot: 24,
     respawnSec: 40,
     detectRadius: 65,
     reload: 1,
@@ -106,6 +109,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     def: raider,
     tier: 2,
     reward: 45,
+    loot: 60,
     respawnSec: 70,
     detectRadius: 75,
     reload: 1,
@@ -117,6 +121,7 @@ export const PIRATE_TYPES: readonly PirateType[] = [
     def: corsair,
     tier: 3,
     reward: 140,
+    loot: 160,
     respawnSec: 120,
     detectRadius: 85,
     reload: 1,

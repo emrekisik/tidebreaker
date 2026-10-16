@@ -18,12 +18,14 @@ export const TIER_SHIPS: readonly ShipId[] = [
 export type PickupKind = 'crate' | 'barrel' | 'chest' | 'banknote';
 
 /**
- * Money, score and upgrades (GAME_DESIGN.md §6, §7). Every number here is a first guess that
- * `pnpm balance-sim` helps to tune; the pacing goal is T2 ~1.5 min, T3 ~4, T4 ~8, T5 ~15.
+ * Money, score and upgrades (GAME_DESIGN.md §6, §7). Money (cash) buys upgrades AND the next class;
+ * score only counts (leaderboard) and comes from sinking ships (players, pirates) and capturing oil
+ * rigs, never from picking money up. Every number here is a first guess that `pnpm balance-sim`
+ * helps to tune; the pacing goal is T2 ~1.5 min, T3 ~4, T4 ~8, T5 ~15.
  */
 export const ECONOMY = {
-  /** Score needed to be allowed to move up to tier index i (0 = T1). */
-  tierScore: [0, 120, 450, 1200, 2600],
+  /** Money the move up to tier index i costs (0 = T1); it is spent, like an upgrade. */
+  tierCost: [0, 70, 250, 650, 1500],
   /** Highest upgrade level per stat while at tier index i. */
   statCap: [3, 4, 5, 7, 8],
   /** `statCost(L) = ceil(base * growth^L)` money for going from level L to L+1. */
@@ -50,7 +52,11 @@ export const ECONOMY = {
 
   /** Sinking an enemy ship. */
   kill: {
-    victimScorePct: 0.35,
+    /** Base reward by the victim's tier (0 = T1) plus this share of the victim's score. */
+    tierValue: [15, 40, 110, 260, 520],
+    victimScorePct: 0.2,
+    /** The killer also gets this share of the reward as money (the score part is always 1). */
+    cashShare: 1,
     cap: 1500,
     /** Reward factor by (killer tier - victim tier): 0, 1, 2, 3 or more tiers below. */
     tierDiff: [1, 0.7, 0.3, 0.1],
@@ -64,15 +70,26 @@ export const ECONOMY = {
     minReward: 6,
   },
 
-  /** Score and money per point of damage dealt to the enemy carrier. */
+  /** Money (no score) per point of damage dealt to the enemy carrier. */
   carrier: { perDamage: 0.25 },
 
   /** Things floating in the sea. Values are multiplied by the zone factor of where they are. */
   pickups: {
     crate: { cash: 10, target: 60, respawnSec: 25 },
-    barrel: { cash: 4, target: 25, respawnSec: 25, repairChance: 0.25, repairPct: 0.15 },
+    /**
+     * Explosive barrels: a ship that touches one or a shot that hits one sets it off. Every ship
+     * within `radius` (measured from its hull) takes `damage`, less toward the edge (`edgeFactor`
+     * at the rim). Barrels close by go off with it.
+     */
+    barrel: {
+      target: 25,
+      respawnSec: 25,
+      /** Size of the barrel as a target (shots and hulls). */
+      hitRadius: 1.4,
+      blast: { radius: 15, damage: 90, edgeFactor: 0.3 },
+    },
     chest: { cash: 100, target: 5, respawnSec: 90 },
-    /** Banknote piles dropped by sunk ships: capacity of the pool. */
+    /** Piles and loot crates dropped by sunk ships and pirates: capacity of the pool. */
     banknoteCapacity: 64,
     /** Multipliers by region: inner (dangerous), middle, outer (safe). */
     zoneMul: { inner: 2.5, middle: 1.5, outer: 1 },

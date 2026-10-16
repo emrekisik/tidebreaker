@@ -6,6 +6,7 @@ import {
   MATCH_STATE,
   NO_WEAPON,
   PICKUP_CAPACITY,
+  END_REASON,
   PICKUP_ID_BASE,
   PIRATE,
   PIRATE_COUNT,
@@ -691,7 +692,7 @@ describe('money and progress', () => {
     expect(open.room.world.tier[b.heard.joined[0]!.entityId - 1]).toBe(4);
   });
 
-  it('a ship that touches a crate takes it: money and score, STATS, a PICKUP event', async () => {
+  it('a ship that touches a crate takes it: money (not score), STATS, a PICKUP event', async () => {
     const { room, join, tick } = setup({ anyClass: false });
     const a = await join('A');
     const b = await join('B');
@@ -713,14 +714,14 @@ describe('money and progress', () => {
     s.y = p.y[crate]!;
     await tick(2);
     expect(room.world.cash[slot]).toBe(cash0 + value);
-    expect(room.world.score[slot]).toBe(score0 + value);
+    expect(room.world.score[slot]).toBe(score0); // picking money up never scores
     expect(p.active[crate]).toBe(0);
     expect(
       a.heard.pickups.some((e) => e.id === PICKUP_ID_BASE + crate && e.collector === slot + 1),
     ).toBe(true);
     const stats = a.heard.stats[a.heard.stats.length - 1]!;
     expect(stats.cash).toBe(cash0 + value);
-    expect(stats.score).toBe(score0 + value);
+    expect(stats.score).toBe(score0);
     // B is told it is gone, and that it came back after the respawn delay (somewhere else).
     expect(b.heard.leaves).toContain(PICKUP_ID_BASE + crate);
     const entersBefore = b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + crate).length;
@@ -777,7 +778,7 @@ describe('money and progress', () => {
     expect(w.slots[slot]!.state.shield).toBeCloseTo(w.maxShieldOf(slot), 3);
   });
 
-  it('moving up a class needs the score; position, speed and health share stay', async () => {
+  it('moving up a class costs money; position, speed and health share stay', async () => {
     const { room, join, tick } = setup({ anyClass: false });
     const a = await join('A');
     await tick(2);
@@ -789,11 +790,12 @@ describe('money and progress', () => {
     const x = s.x;
     request(a, 'tier');
     await tick(1);
-    expect(w.tier[slot]).toBe(0); // not enough score
-    w.score[slot] = ECONOMY.tierScore[1]!;
+    expect(w.tier[slot]).toBe(0); // not enough money
+    w.cash[slot] = ECONOMY.tierCost[1]!;
     request(a, 'tier');
     await tick(2);
     expect(w.tier[slot]).toBe(1);
+    expect(w.cash[slot]).toBe(0); // the class was paid for
     expect(w.slots[slot]!.def.id).toBe('gunboat');
     expect(w.slots[slot]!.state.hull / w.slots[slot]!.def.hull).toBeCloseTo(0.5, 1);
     expect(Math.abs(s.x - x)).toBeLessThan(2);
@@ -824,9 +826,9 @@ describe('money and progress', () => {
     }
     expect(w.deaths[bSlot]).toBe(1);
     expect(w.score[aSlot]).toBeGreaterThan(scoreBefore);
-    // The loser: one class down, score at that tier's floor, money gone, upgrades clipped.
+    // The loser: one class down (the score stays), money gone, upgrades clipped.
     expect(w.tier[bSlot]).toBe(2);
-    expect(w.score[bSlot]).toBe(ECONOMY.tierScore[2]);
+    expect(w.score[bSlot]).toBe(1000);
     // 80% of the money floated away, the rest stays.
     expect(w.cash[bSlot]).toBe(200 - Math.floor(200 * ECONOMY.death.cashLossPct));
     expect(w.level(bSlot, 0)).toBeLessThanOrEqual(ECONOMY.statCap[2]!);
@@ -862,7 +864,7 @@ describe('money and progress', () => {
     expect(notesActive()).toBe(0);
   });
 
-  it('damage to the enemy carrier pays', async () => {
+  it('damage to the enemy carrier pays money, not score', async () => {
     const { room, join, tick } = setup({ anyClass: true });
     const a = await join('A', 'corvette'); // blue
     await tick(2);
@@ -878,8 +880,8 @@ describe('money and progress', () => {
       a.input(0, 0, 0, 45, true);
       await tick(1);
     }
-    expect(room.world.score[slot]!).toBeGreaterThan(before);
-    expect(room.world.cash[slot]! - cashBefore).toBe(room.world.score[slot]! - before);
+    expect(room.world.cash[slot]!).toBeGreaterThan(cashBefore);
+    expect(room.world.score[slot]!).toBe(before);
   });
 
   it('a new round starts everyone over as T1', async () => {
@@ -991,7 +993,7 @@ describe('upgrades belong to the class', () => {
     expect(w.level(slot, 0)).toBe(1);
     expect(w.level(slot, 3)).toBe(1);
     const cash = w.cash[slot]!;
-    w.score[slot] = ECONOMY.tierScore[1]!;
+    w.cash[slot] = cash + ECONOMY.tierCost[1]!;
     request(a, 'tier');
     await tick(2);
     expect(w.tier[slot]).toBe(1);
@@ -1078,11 +1080,10 @@ describe('lives', () => {
     await sinkOnce();
     expect(w.tier[bSlot]).toBe(2); // the third sinking costs the class
     expect(w.lives[bSlot]).toBe(ECONOMY.death.lives);
-    expect(w.score[bSlot]).toBe(ECONOMY.tierScore[2]);
     expect(w.slots[bSlot]!.def.id).toBe('corvette');
     // Moving up again gives a full set of lives.
     w.lives[bSlot] = 1;
-    w.score[bSlot] = ECONOMY.tierScore[3]!;
+    w.cash[bSlot] = ECONOMY.tierCost[3]!;
     request(b, 'tier');
     await tick(2);
     expect(w.tier[bSlot]).toBe(3);
@@ -1165,6 +1166,10 @@ describe('oil rigs', () => {
     }
     expect(w.rigMeter[1]).toBe(1);
     expect(w.rigOwner[1]).toBe(TEAM_BLUE);
+    // Taking it scored for the player standing there, and only for them.
+    expect(w.score[blueSlot]).toBe(RIG.captureScore);
+    expect(w.score[blue2Slot]).toBe(0);
+    expect(w.score[redSlot]).toBe(0);
     // Now it pays every blue player (not only the one standing there), nothing to red.
     const before = [w.cash[blueSlot]!, w.cash[blue2Slot]!, w.cash[redSlot]!];
     for (let i = 0; i < RIG.incomeEverySec * TICK_RATE * 4; i++) {
@@ -1349,13 +1354,29 @@ describe('pirates', () => {
     const ps = slotOf(room, p);
     const st = w.slots[ps]!.state;
     const cash0 = w.cash[slot]!;
+    const score0 = w.score[slot]!;
     const gen0 = w.spawnGen[ps]!;
     // A big shot, owned by the player, lands right on the pirate.
     w.spawn(st.x - 4, st.y, 0, 60, 30, 0.15, 500, slot + 1, 0);
     await tick(2);
     expect(st.alive).toBe(false);
     const type = PIRATE_TYPES[PIRATE_SKIFF_INDEX]!;
-    expect(w.cash[slot]! - cash0).toBe(pirateReward(type.reward, type.tier, 0));
+    // Score for the kill; the money is in the loot crate it left behind.
+    expect(w.score[slot]! - score0).toBe(pirateReward(type.reward, type.tier, 0));
+    expect(w.cash[slot]).toBe(cash0);
+    const p0 = w.pickups;
+    let crate = -1;
+    for (let i = NOTE_START; i < p0.active.length; i++) {
+      if (p0.active[i] === 1 && p0.kind[i] === KIND.CRATE) crate = i;
+    }
+    expect(crate).toBeGreaterThanOrEqual(0);
+    expect(p0.value[crate]).toBe(type.loot);
+    // Whoever reaches it takes the money.
+    const mine = w.slots[slot]!.state;
+    mine.x = p0.x[crate]!;
+    mine.y = p0.y[crate]!;
+    await tick(2);
+    expect(w.cash[slot]! - cash0).toBe(type.loot);
     expect(a.heard.kills.some((k) => k.victimId === ps + 1 && k.killerId === slot + 1)).toBe(true);
     expect(a.heard.leaves).toContain(ps + 1);
     // Sinking it does not cost the player a life or give a team kill.
@@ -1400,5 +1421,107 @@ describe('pirates', () => {
     const full = st.hull + st.shield;
     await tick(TICK_RATE);
     expect(!st.alive || st.hull + st.shield < full).toBe(true);
+  });
+});
+
+describe('explosive barrels', () => {
+  /** The first barrel and a spot with open water on every side of it. */
+  const barrelOf = (room: Room): number => {
+    const p = room.world.pickups;
+    for (let i = 0; i < p.active.length; i++) {
+      if (p.active[i] === 1 && p.kind[i] === KIND.BARREL) return i;
+    }
+    return -1;
+  };
+
+  it('ramming a barrel sets it off: the ship and its neighbours take damage, money does not change', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Rammer', 'corvette');
+    const b = await join('Bystander', 'corvette');
+    await tick(2);
+    const w = room.world;
+    const p = w.pickups;
+    const barrel = barrelOf(room);
+    expect(barrel).toBeGreaterThanOrEqual(0);
+    expect(p.value[barrel]).toBe(0);
+    const bx = p.x[barrel]!;
+    const by = p.y[barrel]!;
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    const cash0 = w.cash[aSlot]!;
+    const B = ECONOMY.pickups.barrel.blast;
+    // The bystander floats near the rim of the blast.
+    place(room, b, bx + 12 + 6, by, 0);
+    place(room, a, bx, by, 0);
+    const bHull = w.slots[bSlot]!.state.hull;
+    const bShield = w.slots[bSlot]!.state.shield;
+    const aHull = w.slots[aSlot]!.state.hull + w.slots[aSlot]!.state.shield;
+    await tick(2);
+    expect(p.active[barrel]).toBe(0);
+    expect(a.heard.blasts.some((e) => e.id === PICKUP_ID_BASE + barrel)).toBe(true);
+    // The rammer sits in the middle: nearly the full damage.
+    const aLeft = w.slots[aSlot]!.state.hull + w.slots[aSlot]!.state.shield;
+    expect(aHull - aLeft).toBeGreaterThan(B.damage * 0.8);
+    expect(aHull - aLeft).toBeLessThanOrEqual(B.damage + 1);
+    // The bystander is hurt less (or not at all, when beyond the radius).
+    const bLost = bHull + bShield - (w.slots[bSlot]!.state.hull + w.slots[bSlot]!.state.shield);
+    expect(bLost).toBeLessThan(aHull - aLeft);
+    expect(w.cash[aSlot]).toBe(cash0);
+    // It comes back after a while.
+    await tick(Math.ceil((ECONOMY.pickups.barrel.respawnSec + 2) * TICK_RATE));
+    expect(p.active[barrel]).toBe(1);
+  });
+
+  it('a shot that reaches a barrel ends there and sets it off, crediting the shooter', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Victim', 'coast_guard_boat');
+    await tick(2);
+    const w = room.world;
+    const p = w.pickups;
+    const barrel = barrelOf(room);
+    const bx = p.x[barrel]!;
+    const by = p.y[barrel]!;
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    place(room, a, bx - 60, by, 0);
+    place(room, b, bx + 9, by, 0);
+    // Keep the shooter's own gun silent; fire a shot by hand along the barrel's row.
+    const victim = w.slots[bSlot]!.state;
+    const before = victim.hull + victim.shield;
+    w.spawn(bx - 8, by, 0, 60, 30, 0.15, 1, aSlot + 1, 0);
+    await tick(6);
+    expect(p.active[barrel]).toBe(0);
+    expect(a.heard.ends.some((e) => e.reason === END_REASON.HIT_ISLAND)).toBe(true);
+    expect(a.heard.blasts.length).toBeGreaterThan(0);
+    expect(before - (victim.hull + victim.shield)).toBeGreaterThan(0);
+    // The blast is attributed to the shooter (a SHIP_HIT with the shooter as attacker).
+    expect(a.heard.hits.some((h) => h.target === bSlot + 1 && h.attacker === aSlot + 1)).toBe(true);
+  });
+
+  it('a barrel next to another sets that one off too', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Rammer', 'heavy_frigate');
+    await tick(2);
+    const w = room.world;
+    const p = w.pickups;
+    const first = barrelOf(room);
+    let second = -1;
+    for (let i = first + 1; i < p.active.length; i++) {
+      if (p.active[i] === 1 && p.kind[i] === KIND.BARREL) {
+        second = i;
+        break;
+      }
+    }
+    expect(second).toBeGreaterThan(first);
+    p.x[second] = p.x[first]! + 3;
+    p.y[second] = p.y[first]!;
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    place(room, a, p.x[first]!, p.y[first]!, 0);
+    w.protectLeft[aSlot] = 0;
+    await tick(2);
+    expect(p.active[first]).toBe(0);
+    expect(p.active[second]).toBe(0);
+    expect(a.heard.blasts.length).toBeGreaterThanOrEqual(2);
   });
 });

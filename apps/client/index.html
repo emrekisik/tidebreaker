@@ -286,7 +286,7 @@
           <div class="track">
             <div id="ghost-hull" class="fill ghost"></div>
             <div id="bar-hull" class="fill"></div>
-            <div id="ticks-hull" class="ticks"></div>
+            <canvas id="ticks-hull" class="ticks"></canvas>
           </div>
           <span id="num-hull" class="bar-num"></span>
         </div>
@@ -295,7 +295,7 @@
           <div class="track">
             <div id="ghost-shield" class="fill ghost"></div>
             <div id="bar-shield" class="fill"></div>
-            <div id="ticks-shield" class="ticks"></div>
+            <canvas id="ticks-shield" class="ticks"></canvas>
           </div>
           <span id="num-shield" class="bar-num"></span>
         </div>
@@ -304,11 +304,12 @@
         <span class="hud-cash"
           ><span id="hud-cash-ico" class="ico"></span><span id="hud-cash">0</span></span
         >
-        <span class="hud-xp" id="hud-xp">XP 0</span>
+        <span class="hud-score" id="hud-score">0</span>
       </div>
-      <div class="hud-xprow">
+      <div class="hud-classrow">
         <span class="hud-lv" id="hud-lv">LV 1</span>
-        <div class="hud-xpbar"><div id="hud-xpfill"></div></div>
+        <div class="hud-classbar"><div id="hud-classfill"></div></div>
+        <span class="hud-next" id="hud-next"></span>
       </div>
     </div>
     <div id="picker" class="overlay"><div class="title" data-i18n="picker.title"></div></div>

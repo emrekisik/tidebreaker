@@ -89,6 +89,10 @@ export class PickupView {
         y -= 0.2;
       } else if (kindIdx === 2) {
         y += 0.25;
+      } else if (kindIdx === 0 && this.looks[i]! === 3) {
+        // A loot crate (left by a sunk pirate) is bigger than the ordinary ones.
+        size = 1.5;
+        y += 0.2;
       }
       d.position.set(x, y, z);
       d.rotation.set(

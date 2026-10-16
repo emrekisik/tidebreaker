@@ -1,4 +1,4 @@
-import { ECONOMY, STAT, STAT_COUNT, TIER_SHIPS, statCap, statCost } from '@tidebreaker/shared';
+import { STAT, STAT_COUNT, TIER_SHIPS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
@@ -51,9 +51,10 @@ export class ProgressHud {
   private readonly tierBtn = document.getElementById('p-tier') as HTMLButtonElement;
   private readonly lives = document.getElementById('hud-lives') as HTMLElement;
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
-  private readonly xp = document.getElementById('hud-xp') as HTMLElement;
+  private readonly score = document.getElementById('hud-score') as HTMLElement;
+  private readonly next = document.getElementById('hud-next') as HTMLElement;
   private readonly lv = document.getElementById('hud-lv') as HTMLElement;
-  private readonly xpFill = document.getElementById('hud-xpfill') as HTMLElement;
+  private readonly classFill = document.getElementById('hud-classfill') as HTMLElement;
   private readonly levels: HTMLElement[] = [];
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly pips: HTMLElement[][] = [];
@@ -153,15 +154,15 @@ export class ProgressHud {
   update(m: StatsMsg): void {
     this.lives.textContent = String(Math.max(0, m.lives));
     this.cash.textContent = String(m.cash);
-    const next = ECONOMY.tierScore[m.tier + 1];
-    // XP shows the score and what the next class needs; the bar fills between the two.
-    const base = ECONOMY.tierScore[m.tier] ?? 0;
-    this.xp.textContent =
-      next === undefined ? `${t('hud.xp')} ${m.score}` : `${t('hud.xp')} ${m.score} / ${next}`;
-    const frac = next === undefined ? 1 : (m.score - base) / Math.max(1, next - base);
+    // The score only counts; the next class is bought with money, and the bar shows how much of
+    // its price the money in hand covers.
+    this.score.textContent = `${t('hud.score')} ${m.score}`;
+    const price = tierCost(m.tier);
+    const top = price === Infinity;
     this.lv.textContent = `${t('hud.level')} ${m.tier + 1}`;
-    this.xpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
-    this.xp.title = next === undefined ? t('progress.max') : `${t('progress.tierNeed')} ${next}`;
+    this.classFill.style.width = `${(top ? 1 : Math.max(0, Math.min(1, m.cash / price))) * 100}%`;
+    this.next.textContent = top ? 'MAX' : String(price);
+    this.next.title = top ? t('progress.max') : `${t('progress.tierNeed')} ${price}`;
 
     const cap = statCap(m.tier);
     for (let i = 0; i < STAT_COUNT; i++) {

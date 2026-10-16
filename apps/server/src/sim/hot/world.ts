@@ -28,11 +28,14 @@ import {
   TEAM_COUNT,
   TEAM_RED,
   TIER_SHIPS,
+  applyDamage,
   applyWorldBounds,
   canTierUp,
   collideIslands,
   createCombatant,
   generateMap,
+  HIT_KILLED,
+  HIT_SHIELD,
   killReward,
   pirateReward,
   regenHull,
@@ -46,12 +49,14 @@ import {
   statCap,
   statCost,
   stepShip,
+  sweptSegmentCircle,
+  tierCost,
   tierOf,
   turnMul,
   updateCarrier,
   updateMounts,
 } from '@tidebreaker/shared';
-import { Pickups } from './pickups.ts';
+import { BARREL_START, CHEST_START, Pickups } from './pickups.ts';
 import { Pirates } from './pirates.ts';
 import type {
   CollisionSink,
@@ -112,7 +117,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly combatAge: Float32Array;
   /** A player who dropped out while fighting: seconds their ship still drifts in the water. */
   readonly ghostLeft: Float32Array;
-  /** Score (gates class jumps), spendable money, tier index (0 = T1) and upgrade levels per slot. */
+  /** Score (kills and rigs only; it counts and buys nothing), money (upgrades and class jumps), tier index (0 = T1) and upgrade levels per slot. */
   readonly score: Uint32Array;
   readonly cash: Uint32Array;
   readonly tier: Uint8Array;
@@ -231,13 +236,19 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       : def.shield * shieldMul(this.level(slot, STAT.SHIELD));
   }
 
-  /** Score and money for a player (both grow by the same amount). */
-  private gain(slot: number, amount: number): void {
+  /** Score for a player (kills and rig captures; never from picking money up). */
+  private addScore(slot: number, amount: number): void {
     if (slot < CARRIER_SLOTS || this.used[slot] === 0 || !(amount > 0)) return;
     this.score[slot] = this.score[slot]! + amount;
-    this.cash[slot] = this.cash[slot]! + amount;
     this.statsDirty[slot] = 1;
     this.scoresDirty = true;
+  }
+
+  /** Money for a player. */
+  private addCash(slot: number, amount: number): void {
+    if (slot < CARRIER_SLOTS || this.used[slot] === 0 || !(amount > 0)) return;
+    this.cash[slot] = this.cash[slot]! + amount;
+    this.statsDirty[slot] = 1;
   }
 
   /** Spends money on one stat. Returns false when the request is not allowed. */
@@ -267,15 +278,16 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return true;
   }
 
-  /** Moves a player up one class (their score must allow it). Keeps position, speed and health share. */
+  /** Moves a player up one class for money (`ECONOMY.tierCost`). Keeps position, speed and health share. */
   tierUp(slot: number): boolean {
     if (slot < CARRIER_SLOTS || this.used[slot] === 0) return false;
     const c = this.slots[slot]!;
     if (!c.state.alive || this.ghostLeft[slot]! > 0) return false;
-    if (!canTierUp(this.tier[slot]!, this.score[slot]!)) return false;
+    if (!canTierUp(this.tier[slot]!, this.cash[slot]!)) return false;
+    this.cash[slot] = this.cash[slot]! - tierCost(this.tier[slot]!);
     const hullShare = c.state.hull / c.def.hull;
     this.tier[slot] = this.tier[slot]! + 1;
-    // Upgrades belong to the ship class: a new class starts without them (the money stays).
+    // Upgrades belong to the ship class: a new class starts without them.
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
     this.lives[slot] = ECONOMY.death.lives;
     this.shipIdx[slot] = SHIP_IDS.indexOf(TIER_SHIPS[this.tier[slot]!]!);
@@ -363,7 +375,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   private resetProgress(slot: number, shipIdx: number): void {
     this.shipIdx[slot] = shipIdx;
     this.tier[slot] = tierOf(SHIPS[SHIP_IDS[shipIdx]!]!);
-    this.score[slot] = ECONOMY.tierScore[this.tier[slot]!]!;
+    this.score[slot] = 0;
     this.cash[slot] = 0;
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
     this.lives[slot] = ECONOMY.death.lives;
@@ -567,7 +579,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     // 5c. oil rigs: the stronger side in a rig's circle moves its gauge; owners are paid
     if (!ended) this.updateRigs(dt);
 
-    // 6. projectiles and hits
+    // 6. projectiles and hits (a shot that reaches a barrel sets it off first)
+    this.shootBarrels(dt);
     this.saveProtected();
     this.projectiles.step(dt, this.combatants, this, this);
     this.restoreProtected();
@@ -806,9 +819,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
         if (this.assistAge[victim * n + a]! > ECONOMY.kill.assistWindowSec) continue;
         const reward = pirateReward(type.reward, type.tier, this.tier[a]!);
-        this.gain(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
+        this.addScore(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
       }
     }
+    // The money is in the loot crate it leaves: whoever gets to it first takes it.
+    const wreck = this.slots[victim]!.state;
+    const lx = wreck.x + (this.rng.next() - 0.5) * 3;
+    const ly = wreck.y + (this.rng.next() - 0.5) * 3;
+    this.pickups.dropLoot(lx, ly, type.loot);
     const killer = killerId - 1;
     if (killer >= CARRIER_SLOTS && killer < this.playerEnd && this.feedCount < DIED_CAPACITY) {
       this.feedKiller[this.feedCount] = killerId;
@@ -821,7 +839,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
   // ---- money: damage credit, kill rewards, loot, pickups
 
-  /** Remembers who damaged whom (assists) and pays for damage done to the enemy carrier. */
+  /** Remembers who damaged whom (assists) and pays money for damage done to the enemy carrier. */
   private noteDamage(attacker: number, target: number, damage: number): void {
     if (attacker < CARRIER_SLOTS || attacker >= this.playerEnd) return;
     if (target < CARRIER_SLOTS) {
@@ -829,7 +847,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       const owed = this.carrierCarry[attacker]! + damage * ECONOMY.carrier.perDamage;
       const whole = Math.floor(owed);
       this.carrierCarry[attacker] = owed - whole;
-      this.gain(attacker, whole);
+      this.addCash(attacker, whole);
       return;
     }
     const at = target * this.slotCount + attacker;
@@ -865,12 +883,18 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     if (total > 0) {
       for (let a = CARRIER_SLOTS; a < this.playerEnd; a++) {
         if (this.assistAge[victim * n + a]! > ECONOMY.kill.assistWindowSec) continue;
-        this.gain(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
+        this.payKill(a, Math.round((reward * this.assistDmg[victim * n + a]!) / total));
       }
     } else if (killerIsPlayer) {
-      this.gain(killerSlot, reward);
+      this.payKill(killerSlot, reward);
     }
     this.demote(victim, x, y);
+  }
+
+  /** A kill or assist pays score, and money too (`ECONOMY.kill.cashShare` of it). */
+  private payKill(slot: number, reward: number): void {
+    this.addScore(slot, reward);
+    this.addCash(slot, Math.round(reward * ECONOMY.kill.cashShare));
   }
 
   /**
@@ -901,7 +925,6 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const before = this.tier[victim]!;
     const tier = Math.max(0, before - D.tierLoss);
     this.tier[victim] = tier;
-    this.score[victim] = ECONOMY.tierScore[tier]!;
     this.shipIdx[victim] = SHIP_IDS.indexOf(TIER_SHIPS[tier]!);
     // The lower class has its own upgrades: they start from nothing. (A T1 ship stays T1 and
     // keeps what it bought.)
@@ -933,14 +956,91 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
           touched = dx * dx + dy * dy < reach * reach;
         }
         if (!touched) continue;
+        if (p.kind[i] === KIND_BARREL) {
+          // Ramming a barrel sets it off right under the hull.
+          this.blast(i, s + 1);
+          continue;
+        }
         const value = p.value[i]!;
         this.events.pickup(PICKUP_ID_BASE + i, s + 1, p.kind[i]!, value, p.x[i]!, p.y[i]!);
-        this.gain(s, value);
-        if (p.kind[i] === KIND_BARREL && this.rng.next() < ECONOMY.pickups.barrel.repairChance) {
-          st.hull = Math.min(c.def.hull, st.hull + c.def.hull * ECONOMY.pickups.barrel.repairPct);
-        }
+        this.addCash(s, value);
         p.take(i);
       }
+    }
+  }
+
+  // ---- explosive barrels (GAME_DESIGN.md §7.1)
+
+  /** Projectiles that fly into a barrel this tick end there and set it off. */
+  private shootBarrels(dt: number): void {
+    const p = this.pickups;
+    const B = ECONOMY.pickups.barrel;
+    const set = this.projectiles;
+    for (let b = BARREL_START; b < CHEST_START; b++) {
+      if (p.active[b] === 0) continue;
+      const bx = p.x[b]!;
+      const by = p.y[b]!;
+      for (let i = 0; i < set.highWater; i++) {
+        if (set.active[i] === 0) continue;
+        const dx = set.vx[i]! * dt;
+        const dy = set.vy[i]! * dt;
+        const reach = B.hitRadius + set.radius[i]!;
+        const t = sweptSegmentCircle(set.x[i]!, set.y[i]!, dx, dy, bx, by, reach);
+        if (t < 0) continue;
+        this.events.projectileEnd(i, END_REASON.HIT_ISLAND, set.x[i]! + dx * t, set.y[i]! + dy * t);
+        const owner = set.owner[i]!;
+        set.remove(i);
+        this.blast(b, owner);
+        break;
+      }
+    }
+  }
+
+  /**
+   * A barrel goes off: every ship within the blast radius of its hull takes damage (less toward the
+   * rim; ships under spawn protection and carriers are spared), and barrels close by go off too.
+   * `attackerId` (an entity id, 0 = nobody) is credited for the damage.
+   */
+  private blast(index: number, attackerId: number): void {
+    const p = this.pickups;
+    if (p.active[index] === 0) return;
+    const B = ECONOMY.pickups.barrel.blast;
+    const bx = p.x[index]!;
+    const by = p.y[index]!;
+    p.take(index);
+    this.events.blast(PICKUP_ID_BASE + index, bx, by);
+    for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+      if (this.used[s] === 0 || this.protectLeft[s]! > 0) continue;
+      const c = this.slots[s]!;
+      const st = c.state;
+      if (!st.alive) continue;
+      const cos = Math.cos(st.heading);
+      const sin = Math.sin(st.heading);
+      const circles = c.def.hitCircles;
+      let near = Infinity;
+      for (let k = 0; k < circles.length; k++) {
+        const circle = circles[k]!;
+        const dx = st.x + cos * circle.offset - bx;
+        const dy = st.y + sin * circle.offset - by;
+        const d = Math.sqrt(dx * dx + dy * dy) - circle.radius;
+        if (d < near) near = d;
+      }
+      if (near >= B.radius) continue;
+      const f = 1 - (1 - B.edgeFactor) * (Math.max(0, near) / B.radius);
+      const damage = B.damage * f;
+      const flags = applyDamage(st, damage);
+      this.events.shipHit(c.id, attackerId, damage, (flags & HIT_SHIELD) !== 0, NO_WEAPON, bx, by);
+      this.noteDamage(attackerId - 1, s, damage);
+      if (s < this.playerEnd) this.combatAge[s] = 0;
+      if (attackerId - 1 >= CARRIER_SLOTS) this.combatAge[attackerId - 1] = 0;
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, attackerId, st.x, st.y, NO_WEAPON);
+    }
+    // Chain reaction: barrels within most of the blast go off as well.
+    for (let b = BARREL_START; b < CHEST_START; b++) {
+      if (p.active[b] === 0) continue;
+      const dx = p.x[b]! - bx;
+      const dy = p.y[b]! - by;
+      if (dx * dx + dy * dy < B.radius * B.radius * 0.36) this.blast(b, attackerId);
     }
   }
 
@@ -981,6 +1081,18 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       else if (meter <= -1) this.rigOwner[i] = TEAM_RED;
       else if (owner === TEAM_BLUE && meter <= 0) this.rigOwner[i] = RIG_NO_OWNER;
       else if (owner === TEAM_RED && meter >= 0) this.rigOwner[i] = RIG_NO_OWNER;
+      // A team that takes the rig scores for it: everyone of that team inside the circle.
+      const now = this.rigOwner[i]!;
+      if (now !== owner && now !== RIG_NO_OWNER) {
+        for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
+          if (this.used[s] === 0 || this.ghostLeft[s]! > 0 || this.slots[s]!.team !== now) continue;
+          const c = this.slots[s]!;
+          if (!c.state.alive) continue;
+          const dx = c.state.x - rig.x;
+          const dy = c.state.y - rig.y;
+          if (dx * dx + dy * dy <= r2) this.addScore(s, RIG.captureScore);
+        }
+      }
     }
     this.rigIncomeLeft -= dt;
     if (this.rigIncomeLeft > 0) return;
@@ -990,7 +1102,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       if (team === RIG_NO_OWNER) continue;
       for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
         if (this.used[s] === 0 || this.ghostLeft[s]! > 0) continue;
-        if (this.slots[s]!.team === team) this.gain(s, RIG.incomeCash);
+        if (this.slots[s]!.team === team) this.addCash(s, RIG.incomeCash);
       }
     }
   }

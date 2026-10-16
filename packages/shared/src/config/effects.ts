@@ -149,6 +149,16 @@ export const FX = {
    * Where the hull meets the water, stamped into the foam map every frame (so it follows the waves
    * and the hull outline instead of a flat disc). Widths are fractions of the hull half-width.
    */
+  /** An explosive barrel going off: size of the fireball (as a ship length) and foam spots in the shock ring. */
+  blast: { size: 14, ring: 30 },
+
+  /**
+   * How much a ship rocks on the waves: a hull of `refLength` or shorter follows the swell fully,
+   * longer ones less (in proportion to refLength / length, never below `min`); bobbing up and down
+   * eases off by the square root of the same factor.
+   */
+  sway: { refLength: 6, min: 0.12 },
+
   /**
    * Scene lighting: one warm sun (direction points from the sea toward the sun) casting real
    * shadows, plus a sky/sea hemisphere light so the shaded sides are bluish instead of black.

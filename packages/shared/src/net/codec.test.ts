@@ -71,6 +71,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     shipHit: (...a) => log.push(`hit ${a.join(',')}`),
     shipSunk: (...a) => log.push(`sunk ${a.join(',')}`),
     bump: (...a) => log.push(`bump ${a.join(',')}`),
+    blast: (...a) => log.push(`blast ${a.join(',')}`),
   };
   return { log, h };
 }
@@ -375,6 +376,7 @@ describe('server messages', () => {
     ev.bump(8, 0xffff, 40, 41, 5.5);
     ev.pickup(PICKUP_ID_BASE + 7, 3, KIND.CRATE, 12, 70.5, 80.25);
     ev.power(3, 6);
+    ev.blast(PICKUP_ID_BASE + 9, 33.5, 44.25);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -386,6 +388,7 @@ describe('server messages', () => {
       'bump 100,8,65535,40,41,5.5',
       `pickup 100,${PICKUP_ID_BASE + 7},3,${KIND.CRATE},12,70.5,80.25`,
       'power 100,3,6',
+      `blast 100,${PICKUP_ID_BASE + 9},33.5,44.25`,
     ]);
   });
 

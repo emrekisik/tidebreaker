@@ -1,6 +1,8 @@
 import {
+  ECONOMY,
   MATCH_STATE,
   MAX_PROJECTILES,
+  NO_WEAPON,
   SHIPS,
   STEP_MS,
   STEP_SEC,
@@ -192,6 +194,8 @@ const events: OnlineEvents = {
   },
   onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true, power = 0) {
     if (showNumber && damage > 0) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
+    // (A barrel blast hurts without a weapon: its own effect is played by onBlast.)
+    if (weaponIdx === NO_WEAPON) return;
     effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
     if (killed) {
       const c = target.combatant;
@@ -222,8 +226,18 @@ const events: OnlineEvents = {
     effects.upgrade(x, y, length);
     damageNumbers.showArrows(stage.camera, x, y);
   },
-  onXp(x, y, xp) {
-    damageNumbers.showXp(stage.camera, x, y, xp);
+  onScore(x, y, points) {
+    damageNumbers.showScore(stage.camera, x, y, points);
+  },
+  onBlast(x, y) {
+    const R = ECONOMY.pickups.barrel.blast.radius;
+    effects.blast(x, y, R);
+    // The camera jolts when it goes off near the player.
+    const me = session?.player;
+    if (me) {
+      const d = Math.hypot(me.pose.x - x, me.pose.y - y);
+      if (d < R * 3) rig.shake(Math.min(0.9, (1 - d / (R * 3)) * 0.9));
+    }
   },
   onSunk(entity, x, y) {
     effects.explode(x, y, entity.combatant.def.length);

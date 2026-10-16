@@ -28,6 +28,7 @@ import {
   segmentVsWorld,
   statCap,
   statCost,
+  tierCost,
 } from '@tidebreaker/shared';
 import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
@@ -62,7 +63,7 @@ const UPGRADE_ORDER = [STAT.SHIELD, STAT.DAMAGE, STAT.RELOAD, STAT.SPEED, STAT.R
 function pickupValue(p: Seen): number {
   const zone = [1, 1.5, 2.5][p.tier] ?? 1;
   if (p.kind === KIND.CRATE) return ECONOMY.pickups.crate.cash * zone;
-  if (p.kind === KIND.BARREL) return ECONOMY.pickups.barrel.cash * zone + 3;
+  if (p.kind === KIND.BARREL) return 0; // explosive: keep away
   if (p.kind === KIND.CHEST) return ECONOMY.pickups.chest.cash * zone;
   return [10, 35, 100, 200][p.tier] ?? 10; // banknote piles: by size
 }
@@ -82,7 +83,9 @@ const ATTACK_TIER = 2;
 const LOOT_GIVE_UP_TICKS = 200;
 const LOOT_IGNORE_TICKS = 600;
 const RETREAT_BELOW = 0.35;
-const RETREAT_UNTIL = 0.8;
+const RETREAT_UNTIL = 0.7;
+/** A retreating bot this close to its own carrier stops dead: hulls only mend while standing still. */
+const REPAIR_STOP_DIST = 75;
 const RECONNECT_MS = 2500;
 
 /**
@@ -100,7 +103,7 @@ export class BotClient {
   private land: WorldMap | null = null;
   private readonly out = new Writer(64);
   private readonly seen = new Map<number, Seen>();
-  /** Crates, barrels, chests and banknote piles in the water. */
+  /** Crates, barrels, chests and banknote piles (and loot crates) in the water. */
   private readonly pickups = new Map<number, Seen>();
   /** Pickups the bot gave up on (id -> tick until which it ignores them). */
   private readonly ignoreUntil = new Map<number, number>();
@@ -258,16 +261,19 @@ export class BotClient {
       const id = SHIP_IDS[m.shipId];
       if (id && SHIPS[id] !== this.def) this.useShip(id);
       if (this.opt.passive) return;
-      // Spend the money (the server refuses what is not allowed) and climb when possible.
+      // Spend the money (the server refuses what is not allowed). The next class comes first: small
+      // upgrades are bought only while they leave most of the money for it.
       if (m.canTierUp && this.tierUps < 8) {
         this.tierUps++;
         this.write(() => encodeTierUp(this.out, 0));
         return;
       }
+      const saving = tierCost(m.tier);
       for (let tries = 0; tries < STAT_COUNT; tries++) {
         const stat = UPGRADE_ORDER[this.nextStat]!;
         const level = m.levels[stat]!;
-        if (level < statCap(m.tier) && m.cash >= statCost(level)) {
+        const cost = statCost(level);
+        if (level < statCap(m.tier) && m.cash >= cost && (saving === Infinity || cost <= saving * 0.3)) {
           this.nextStat = (this.nextStat + 1) % STAT_COUNT;
           this.write(() => encodeUpgrade(this.out, stat));
           return;
@@ -277,6 +283,7 @@ export class BotClient {
     },
     pickup: () => {},
     power: () => {},
+    blast: () => {},
     rigs: (rows) => {
       this.rigState = rows;
     },
@@ -468,6 +475,13 @@ export class BotClient {
     const canShoot = this.pickShot(nearest, nearestD, enemyCarrier);
 
     const dist = Math.hypot(target.x - me.x, target.y - me.y);
+    // Mending needs the ship to stand still: close to the own carrier a hurt bot stops (and keeps
+    // shooting whatever comes in range).
+    if (this.retreating && !threatened && target === ownCarrier && dist < REPAIR_STOP_DIST) {
+      if (canShoot) this.sendInput(true, 0, 0, this.shot.angle, this.shot.dist);
+      else this.sendInput(false, 0, 0, me.heading, 0);
+      return;
+    }
     // Lead a moving target by the time a shot needs to reach it.
     const flight = dist / this.shotSpeed;
     const aimX = target.x + target.vx * flight;

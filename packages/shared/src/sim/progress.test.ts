@@ -46,26 +46,26 @@ describe('upgrade costs and effects', () => {
 });
 
 describe('tiers', () => {
-  it('the ladder is in tier order and every step needs more score', () => {
+  it('the ladder is in tier order and every step costs more money', () => {
     TIER_SHIPS.forEach((id, i) => expect(SHIPS[id].tier).toBe(i + 1));
-    for (let t = 1; t < ECONOMY.tierScore.length; t++) {
-      expect(ECONOMY.tierScore[t]).toBeGreaterThan(ECONOMY.tierScore[t - 1]!);
+    for (let t = 1; t < ECONOMY.tierCost.length; t++) {
+      expect(ECONOMY.tierCost[t]).toBeGreaterThan(ECONOMY.tierCost[t - 1]!);
     }
     expect(tierOf(SHIPS.cruiser)).toBe(3);
   });
 
-  it('allows moving up only with enough score and never past T5', () => {
-    const t1 = ECONOMY.tierScore[1]!;
+  it('allows moving up only with enough money and never past T5', () => {
+    const t1 = ECONOMY.tierCost[1]!;
     expect(canTierUp(0, t1 - 1)).toBe(false);
     expect(canTierUp(0, t1)).toBe(true);
-    expect(canTierUp(3, ECONOMY.tierScore[4]!)).toBe(true);
+    expect(canTierUp(3, ECONOMY.tierCost[4]!)).toBe(true);
     expect(canTierUp(4, 1e9)).toBe(false);
   });
 });
 
 describe('kill rewards', () => {
-  it('is a share of the victim score, capped', () => {
-    expect(killReward(1000, 2, 2, 0)).toBe(350);
+  it('is the victim class value plus a share of the victim score, capped', () => {
+    expect(killReward(1000, 2, 2, 0)).toBe(Math.round(ECONOMY.kill.tierValue[2]! + 1000 * ECONOMY.kill.victimScorePct));
     expect(killReward(100000, 4, 4, 0)).toBe(ECONOMY.kill.cap);
   });
 

@@ -86,12 +86,14 @@ export class ShipEntity {
     const root = this.model.root;
     root.visible = sink < 1;
     // Ride the same waves that are drawn: bob, pitch along the hull, roll across it.
-    const bob = waveHeight(this.pose.x, this.pose.y, timeSec) * BOB;
+    // Big ships ride the swell much more calmly than small ones.
+    const calm = Math.max(FX.sway.min, Math.min(1, FX.sway.refLength / this.combatant.def.length));
+    const bob = waveHeight(this.pose.x, this.pose.y, timeSec) * BOB * Math.sqrt(calm);
     waveSlope(this.pose.x, this.pose.y, timeSec, slope);
     const c = Math.cos(this.pose.heading);
     const sn = Math.sin(this.pose.heading);
-    const pitch = Math.atan(slope[0]! * c + slope[1]! * sn) * TILT;
-    const roll = -Math.atan(-slope[0]! * sn + slope[1]! * c) * TILT;
+    const pitch = Math.atan(slope[0]! * c + slope[1]! * sn) * TILT * calm;
+    const roll = -Math.atan(-slope[0]! * sn + slope[1]! * c) * TILT * calm;
     let rattleY = 0;
     let rattleRoll = 0;
     let rattlePitch = 0;

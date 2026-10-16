@@ -28,7 +28,7 @@ function make(scene: Scene, geo: BufferGeometry, color: number, glow: number): I
 export function makePickupMeshes(scene: Scene): InstancedMesh[] {
   return [
     make(scene, new BoxGeometry(1.6, 1.3, 1.6), 0xb07a45, 0.25),
-    make(scene, new CylinderGeometry(0.75, 0.75, 1.5, 8), 0xc4472f, 0.25),
+    make(scene, new CylinderGeometry(0.85, 0.85, 1.7, 8), 0xd8321f, 0.55),
     make(scene, new BoxGeometry(2.6, 1.6, 1.8), 0xe9b92f, 0.45),
     make(scene, new BoxGeometry(1.7, 0.3, 1.1), 0x59d27a, 0.55),
   ];

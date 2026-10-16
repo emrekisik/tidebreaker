@@ -1,5 +1,6 @@
 import {
   ECONOMY,
+  KIND,
   STAT_COUNT,
   TEAM_BLUE,
   TEAM_RED,
@@ -37,7 +38,7 @@ export function simulateEconomy(players: number, minutes: number): void {
       let bestD = Infinity;
       const p = world.pickups;
       for (let i = 0; i < p.active.length; i++) {
-        if (p.active[i] === 0) continue;
+        if (p.active[i] === 0 || p.kind[i] === KIND.BARREL) continue; // barrels explode: keep away
         const d = Math.hypot(p.x[i]! - st.x, p.y[i]! - st.y);
         if (d < bestD) {
           bestD = d;

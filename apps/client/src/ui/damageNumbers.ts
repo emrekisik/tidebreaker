@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import cashIcon from './icons/cash.svg?raw';
 import repairIcon from './icons/repair.svg?raw';
+import { t } from '../i18n/index.ts';
 import type { PerspectiveCamera } from 'three';
 
 const POOL = 12;
@@ -88,11 +89,11 @@ export class DamageNumbers {
     el.classList.add('bump');
   }
 
-  /** A floating "+45 XP" at a sunk ship's position (rises and fades, a little bigger and gold). */
-  showXp(camera: PerspectiveCamera, simX: number, simY: number, xp: number): void {
-    const el = this.floating('xp-pop');
+  /** A floating "+45 pts" (score from a kill, an assist or a rig; rises and fades, a little bigger and gold). */
+  showScore(camera: PerspectiveCamera, simX: number, simY: number, points: number): void {
+    const el = this.floating('score-pop');
     this.place(el, camera, simX, simY, 2.5);
-    el.textContent = `+${Math.round(xp)} XP`;
+    el.textContent = `+${Math.round(points)} ${t('hud.pts')}`;
   }
 
   /** Three arrows rising one after another from a ship that just became a bigger class. */

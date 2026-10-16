@@ -25,14 +25,20 @@ export function tierOf(def: ShipDef): number {
   return Math.max(0, Math.min(TIER_SHIPS.length - 1, def.tier - 1));
 }
 
-/** True when `score` allows moving up from tier index `tier`. */
-export function canTierUp(tier: number, score: number): boolean {
-  return tier < TIER_SHIPS.length - 1 && score >= ECONOMY.tierScore[tier + 1]!;
+/** Money the move up from tier index `tier` costs (Infinity at the top class). */
+export function tierCost(tier: number): number {
+  return ECONOMY.tierCost[tier + 1] ?? Infinity;
+}
+
+/** True when `cash` pays for moving up from tier index `tier`. */
+export function canTierUp(tier: number, cash: number): boolean {
+  return tier < TIER_SHIPS.length - 1 && cash >= tierCost(tier);
 }
 
 /**
- * Score and money for sinking an enemy: a share of the victim's score, smaller for a victim of a
- * lower tier, and much smaller when the same pair keeps repeating (spawn camping).
+ * Reward for sinking an enemy (score; the killer gets money too, see `ECONOMY.kill.cashShare`): the
+ * victim's class value plus a share of the victim's score, smaller for a victim of a lower tier than
+ * the killer, and much smaller when the same pair keeps repeating (spawn camping).
  * `repeats` = how many times this killer already sank this victim within the repeat window.
  */
 export function killReward(
@@ -45,7 +51,8 @@ export function killReward(
   const diff = Math.max(0, killerTier - victimTier);
   const tierFactor = K.tierDiff[Math.min(diff, K.tierDiff.length - 1)]!;
   const repeatFactor = repeats >= K.repeatFree ? K.repeatFactor : 1;
-  const base = Math.min(victimScore * K.victimScorePct, K.cap);
+  const value = K.tierValue[Math.max(0, Math.min(K.tierValue.length - 1, victimTier))]!;
+  const base = Math.min(value + victimScore * K.victimScorePct, K.cap);
   return Math.max(K.minReward, Math.round(base * tierFactor * repeatFactor));
 }
 
@@ -56,7 +63,7 @@ export function zoneMultiplier(distFromCenter: number, inner: number, outer: num
 }
 
 /**
- * Money for sinking a pirate of tier `pirateTier` (1..3) when the player's class is tier index
+ * Score for sinking a pirate of tier `pirateTier` (1..3) when the player's class is tier index
  * `playerTier` (0 = T1): the full `base` for a player no stronger than the pirate, less for each
  * tier above it, so big ships do not get rich on skiffs.
  */

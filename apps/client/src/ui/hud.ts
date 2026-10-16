@@ -5,7 +5,7 @@ import shieldIcon from './icons/shield.svg?raw';
 
 const HINT_VISIBLE_MS = 15000;
 /** One line is drawn on a bar for every this many points. */
-const TICK_POINTS = 20;
+const TICK_POINTS = 50;
 
 /** DOM HUD: hull/shield bars (a number and a mark every 20 points) and the white "recently lost" part, sunk counter, control hint. */
 export class Hud {
@@ -15,8 +15,8 @@ export class Hud {
   private readonly shieldGhost = document.getElementById('ghost-shield') as HTMLElement;
   private readonly hullNum = document.getElementById('num-hull') as HTMLElement;
   private readonly shieldNum = document.getElementById('num-shield') as HTMLElement;
-  private readonly hullTicks = document.getElementById('ticks-hull') as HTMLElement;
-  private readonly shieldTicks = document.getElementById('ticks-shield') as HTMLElement;
+  private readonly hullTicks = document.getElementById('ticks-hull') as HTMLCanvasElement;
+  private readonly shieldTicks = document.getElementById('ticks-shield') as HTMLCanvasElement;
   private readonly sunk = document.getElementById('sunk-count') as HTMLElement;
   private readonly hint = document.getElementById('hint') as HTMLElement;
   private readonly startMs = performance.now();
@@ -32,6 +32,33 @@ export class Hud {
     };
     set('ico-hull', hullIcon);
     set('ico-shield', shieldIcon);
+    // The lines are sized in device pixels, so they are redrawn when the window (and with it the UI scale) changes.
+    window.addEventListener('resize', () => {
+      this.drawTicks(this.hullTicks, this.lastHullMax);
+      this.drawTicks(this.shieldTicks, this.lastShieldMax);
+    });
+  }
+
+  /**
+   * Draws the marks of one bar: a line every `TICK_POINTS` points, each exactly one screen pixel
+   * wide (at a high pixel ratio one CSS pixel) and snapped to whole device pixels, so every line is
+   * crisp and the same thickness whatever the UI scale.
+   */
+  private drawTicks(canvas: HTMLCanvasElement, max: number): void {
+    if (max <= 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(rect.width * dpr));
+    const h = Math.max(1, Math.round(rect.height * dpr));
+    canvas.width = w;
+    canvas.height = h;
+    const g = canvas.getContext('2d');
+    if (!g) return;
+    g.fillStyle = 'rgba(4, 14, 24, 0.95)';
+    const line = Math.max(1, Math.round(dpr));
+    for (let v = TICK_POINTS; v < max; v += TICK_POINTS) {
+      g.fillRect(Math.round((v / max) * w), 0, line, h);
+    }
   }
   /** What was last written (the page is only touched when something changes). */
   private lastHull = -1;
@@ -71,7 +98,7 @@ export class Hud {
     const hullMax = Math.round(maxHull);
     if (hullMax !== this.lastHullMax) {
       this.lastHullMax = hullMax;
-      this.hullTicks.style.setProperty('--tick', `${(100 * TICK_POINTS) / hullMax}%`);
+      this.drawTicks(this.hullTicks, hullMax);
     }
     if (hull !== this.lastHull) {
       this.lastHull = hull;
@@ -81,7 +108,7 @@ export class Hud {
     const shieldMax = Math.round(maxShield);
     if (shieldMax !== this.lastShieldMax) {
       this.lastShieldMax = shieldMax;
-      this.shieldTicks.style.setProperty('--tick', `${(100 * TICK_POINTS) / shieldMax}%`);
+      this.drawTicks(this.shieldTicks, shieldMax);
     }
     if (shield !== this.lastShield) {
       this.lastShield = shield;

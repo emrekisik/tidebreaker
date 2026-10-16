@@ -525,6 +525,33 @@ export class Effects {
   }
 
   /** A ship blew up: fireball, shock ring, smoke column, embers and tumbling hull chunks. */
+  /** An explosive barrel goes off: a big fireball and a white shock ring running out over the water. */
+  blast(x: number, y: number, radius: number): void {
+    this.explode(x, y, FX.blast.size);
+    const n = FX.blast.ring;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + this.r(-0.05, 0.05);
+      this.foam.spawn(
+        x,
+        this.foamY,
+        y,
+        Math.cos(a) * radius * 2,
+        0,
+        Math.sin(a) * radius * 2,
+        0.9,
+        1.4,
+        2.6,
+        0,
+        1.3,
+        0xffffff,
+        0xcfe9f2,
+        0.85,
+        0,
+        0,
+      );
+    }
+  }
+
   /** A ship became a bigger class: a flash, two rings on the water, sparks and rising motes. */
   upgrade(x: number, y: number, length: number): void {
     const U = FX.upgrade;

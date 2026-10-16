@@ -71,8 +71,10 @@ type TeamName = 'blue' | 'red' | 'pirate';
 
 /** What the game tells the UI beyond the effects shared with the sandbox. */
 export interface OnlineEvents extends GameEvents {
-  /** The player earned `xp` for a kill or assist; shown where the ship went down. */
-  onXp(x: number, y: number, xp: number): void;
+  /** The player scored `points` (a kill, an assist or a captured rig); shown at the spot. */
+  onScore(x: number, y: number, points: number): void;
+  /** An explosive barrel went off here. */
+  onBlast(x: number, y: number): void;
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
   onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
@@ -205,12 +207,10 @@ export class OnlineGame implements GameSession, ServerHandler {
   private rejectJoin: ((e: ConnectError) => void) | null = null;
   private joined_ = false;
   private shipIdx = 0;
-  /** Where and when a ship last went down, and the last money pickup (see `stats`). */
+  /** Where and when a ship last went down (see `stats`). */
   private killX = 0;
   private killY = 0;
   private lastKillMs = -1e9;
-  private pickupScore = 0;
-  private lastPickupMs = -1e9;
 
   constructor(deps: OnlineDeps) {
     this.deps = deps;
@@ -479,14 +479,17 @@ export class OnlineGame implements GameSession, ServerHandler {
 
   stats(m: StatsMsg): void {
     const p = this.progress;
-    // Score that arrives right after a ship went down is the reward for it (pickups are shown
-    // by their own numbers, so they do not count).
+    // Score only comes from sinking ships and capturing rigs. A kill shows its points where the ship
+    // went down; anything else (a rig) over the player's own ship.
     const now = performance.now();
     const gained = m.score - p.score;
-    if (gained > 0 && now - this.lastKillMs < KILL_REWARD_MS) {
-      const xp = gained - (now - this.lastPickupMs < KILL_REWARD_MS ? this.pickupScore : 0);
-      if (xp > 0) this.deps.events.onXp(this.killX, this.killY, xp);
-      this.lastKillMs = -1e9;
+    if (gained > 0 && this.player) {
+      if (now - this.lastKillMs < KILL_REWARD_MS) {
+        this.deps.events.onScore(this.killX, this.killY, gained);
+        this.lastKillMs = -1e9;
+      } else if (this.player) {
+        this.deps.events.onScore(this.player.pose.x, this.player.pose.y, gained);
+      }
     }
     p.score = m.score;
     p.cash = m.cash;
@@ -547,11 +550,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     x: number,
     y: number,
   ): void {
-    if (collector === this.myId) {
-      this.pickupScore = value;
-      this.lastPickupMs = performance.now();
-      this.deps.events.onPickup(kind, value, x, y);
-    }
+    if (collector === this.myId) this.deps.events.onPickup(kind, value, x, y);
   }
 
   // ---- messages: snapshots
@@ -770,6 +769,10 @@ export class OnlineGame implements GameSession, ServerHandler {
     };
     if (target === this.myId) apply();
     else this.at(tick * STEP_MS, apply);
+  }
+
+  blast(tick: number, _id: number, x: number, y: number): void {
+    this.at(tick * STEP_MS, () => this.deps.events.onBlast(x, y));
   }
 
   shipSunk(tick: number, id: number, _killer: number, x: number, y: number): void {
