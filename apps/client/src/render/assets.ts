@@ -489,6 +489,30 @@ export class AssetProvider {
     return this.buildPlaceholder(modelKey, team, ring);
   }
 
+  /**
+   * A drone: one mesh (a static model fitted to `length` units, nose along +x) with a team-colored
+   * glow and a ring on the water below (the drone hovers above it). Placeholder: a small box.
+   */
+  createDrone(modelKey: string, team: Team, length: number): ShipModel {
+    const prop = this.props.get(modelKey);
+    const spec = PROP_SPECS[modelKey];
+    const glow = this.glowMats[team].color;
+    const map = prop ? ((prop.material as MeshLambertMaterial).map ?? null) : null;
+    const normal = new MeshLambertMaterial({ map, color: map ? 0xffffff : glow, emissive: glow, emissiveIntensity: 0.5 });
+    const flash = new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 });
+    const mesh = new Mesh(prop ? prop.geometry : new BoxGeometry(1, 0.3, 0.8), normal);
+    mesh.scale.setScalar(length);
+    mesh.rotation.y = spec?.yaw ?? 0;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    const model = new ShipModel([mesh], [normal], [flash], []);
+    model.hullLength = length;
+    model.hullWidth = length * 0.8;
+    model.root.add(mesh);
+    this.addTeamRing(model, length * 2, team);
+    return model;
+  }
+
   /** Team paint color (sRGB hex). */
   setTeamColor(team: Team, hex: number): void {
     this.style.tint[team].set(hex);

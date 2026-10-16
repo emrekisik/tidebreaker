@@ -147,6 +147,29 @@ export const WEAPONS = {
     accelSec: 0,
     visual: 'shell',
   },
+  // Drone guns (GAME_DESIGN.md §7.3): the FPV drone's small machine gun and the combat drone's rocket.
+  drone_gun: {
+    damage: 1.8,
+    intervalSec: 0.12,
+    range: 36,
+    projectileSpeed: 75,
+    radius: 0.15,
+    spreadDeg: 5,
+    startSpeedPct: 1,
+    accelSec: 0,
+    visual: 'bullet',
+  },
+  drone_rocket: {
+    damage: 20,
+    intervalSec: 2.4,
+    range: 62,
+    projectileSpeed: 66,
+    radius: 0.3,
+    spreadDeg: 2.5,
+    startSpeedPct: 0.25,
+    accelSec: 0.8,
+    visual: 'rocket',
+  },
 } as const satisfies Record<string, WeaponDef>;
 
 export type WeaponId = keyof typeof WEAPONS;

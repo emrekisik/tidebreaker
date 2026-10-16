@@ -23,6 +23,7 @@ import {
   encodeReject,
   encodeRigs,
   encodeStats,
+  encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
   encodeWelcome,
@@ -163,6 +164,10 @@ describe('client messages', () => {
     w.reset();
     encodeTierUp(w, 0);
     expect(decodeClient(w.toBytes(), m)).toBe(C2S.TIER_UP);
+    w.reset();
+    encodeBuyDrone(w, 1);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.BUY_DRONE);
+    expect(m.stat).toBe(1);
   });
 
   it('INPUT is 9 bytes and round-trips', () => {
@@ -257,6 +262,7 @@ describe('server messages', () => {
       maxShield: 177,
       canTierUp: true,
       lives: 2,
+      drones: 1,
     });
     send();
     encodeRigs(w, [1, -0.5, 0], [0, 1, 255]);
@@ -273,7 +279,7 @@ describe('server messages', () => {
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
       'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
-      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2}',
+      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1}',
       `rigs ${JSON.stringify([
         { meter: 1, owner: 0 },
         { meter: -63 / 127, owner: 1 },

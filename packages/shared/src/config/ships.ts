@@ -34,6 +34,8 @@ export interface ShipDef {
   hitCircles: readonly HitCircle[];
   /** Index i is the i-th entry of `aimNodes` in MODEL_SPECS; earlier mounts fire first. */
   mounts: readonly MountDef[];
+  /** Drones: flies over land and never collides with ships. */
+  flying?: boolean;
 }
 
 /** Movement model constants (GAME_DESIGN.md §5.2). */

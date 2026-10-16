@@ -9,8 +9,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, meshopt, prune, textureCompress } from '@gltf-transform/functions';
-import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
+import { dedup, meshopt, prune, simplify, textureCompress, weld } from '@gltf-transform/functions';
+import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -33,9 +33,27 @@ const TEXTURE_PX = {
   'oil_rig.glb': 1024,
   'island_rocky.glb': 1024,
   'island_tropical.glb': 1024,
+  // Small props and drones: seen from far above, many at once.
+  'red_oil_barrel.glb': 512,
+  'wooden_create_loot.glb': 512,
+  'pirate_golden_treasure_chest.glb': 512,
+  'money_model.glb': 512,
+  'fpv_drone.glb': 512,
+  'combat_drone.glb': 512,
+};
+// Models that are drawn many times at a small size are cut down to about this many triangles (the
+// generated sources have 10-20 thousand each).
+const TARGET_TRIS = {
+  'red_oil_barrel.glb': 1800,
+  'wooden_create_loot.glb': 1800,
+  'pirate_golden_treasure_chest.glb': 2000,
+  'money_model.glb': 1500,
+  'fpv_drone.glb': 3500,
+  'combat_drone.glb': 3500,
 };
 
 await MeshoptEncoder.ready;
+await MeshoptSimplifier.ready;
 await MeshoptDecoder.ready;
 const io = new NodeIO()
   .registerExtensions(ALL_EXTENSIONS)
@@ -72,7 +90,8 @@ for (const file of readdirSync(srcDir)
   // client can find the node by a stable name.
   const stem = file.replace(/.glb$/, '');
   for (const node of sceneRoot.listNodes()) {
-    if (node.getName().startsWith('tripo')) node.setName(stem);
+    // ("tripo_<uuid>", or a bare uuid from other exports)
+    if (/^(tripo|[0-9a-f]{8}_[0-9a-f]{4}_)/.test(node.getName())) node.setName(stem);
   }
 
   // Move every mesh into a child node. Quantization (part of meshopt) rewrites the transform of
@@ -83,6 +102,18 @@ for (const file of readdirSync(srcDir)
     const child = doc.createNode(`${node.getName()}.mesh`).setMesh(mesh);
     node.setMesh(null);
     node.addChild(child);
+  }
+
+  const target = TARGET_TRIS[file];
+  if (target) {
+    const tris = sceneRoot
+      .listMeshes()
+      .flatMap((m) => m.listPrimitives())
+      .reduce((n, p) => n + (p.getIndices()?.getCount() ?? 0) / 3, 0);
+    await doc.transform(
+      weld(),
+      simplify({ simplifier: MeshoptSimplifier, ratio: Math.min(1, target / tris), error: 0.02 }),
+    );
   }
 
   await doc.transform(

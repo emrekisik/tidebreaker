@@ -19,6 +19,7 @@ import {
   encodeInput,
   encodePing,
   encodePlay,
+  encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
   generateMap,
@@ -29,6 +30,8 @@ import {
   statCap,
   statCost,
   tierCost,
+  DRONE,
+  DRONE_TYPES,
 } from '@tidebreaker/shared';
 import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
@@ -123,6 +126,10 @@ export class BotClient {
   private seq = 0;
   private tick = 0;
   private retreating = false;
+  /** Money and drones as the server last said (a bot buys drones while it mends at its carrier). */
+  private cash = 0;
+  private droneCount = 0;
+  private lastBuyTick = 0;
   /** Which way this bot circles around its target. */
   private readonly side = Math.random() < 0.5 ? 1 : -1;
   /** The ship class changes as the bot climbs; these follow it. */
@@ -260,6 +267,8 @@ export class BotClient {
     stats: (m) => {
       const id = SHIP_IDS[m.shipId];
       if (id && SHIPS[id] !== this.def) this.useShip(id);
+      this.cash = m.cash;
+      this.droneCount = m.drones;
       if (this.opt.passive) return;
       // Spend the money (the server refuses what is not allowed). The next class comes first: small
       // upgrades are bought only while they leave most of the money for it.
@@ -478,6 +487,7 @@ export class BotClient {
     // Mending needs the ship to stand still: close to the own carrier a hurt bot stops (and keeps
     // shooting whatever comes in range).
     if (this.retreating && !threatened && target === ownCarrier && dist < REPAIR_STOP_DIST) {
+      this.maybeBuyDrone();
       if (canShoot) this.sendInput(true, 0, 0, this.shot.angle, this.shot.dist);
       else this.sendInput(false, 0, 0, me.heading, 0);
       return;
@@ -538,6 +548,21 @@ export class BotClient {
     // Shooting does not depend on where the ship is sailing: a retreating bot shoots back.
     if (canShoot) this.sendInput(true, steer, throttle, this.shot.angle, this.shot.dist);
     else this.sendInput(false, steer, throttle, aimAngle, dist);
+  }
+
+  /** At its own carrier with money to spare: buys a drone (the best one it can pay for). */
+  private maybeBuyDrone(): void {
+    if (this.droneCount >= DRONE.perPlayer || this.tick - this.lastBuyTick < 40) return;
+    // Money for the next class is kept: a drone is bought only from what is left over.
+    const saving = tierCost(this.def.tier - 1);
+    const spare = this.cash - (saving === Infinity ? 0 : saving * 0.5);
+    for (let t = DRONE_TYPES.length - 1; t >= 0; t--) {
+      if (spare >= DRONE_TYPES[t]!.price) {
+        this.lastBuyTick = this.tick;
+        this.write(() => encodeBuyDrone(this.out, t));
+        return;
+      }
+    }
   }
 
   private sendInput(

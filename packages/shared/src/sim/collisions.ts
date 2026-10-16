@@ -47,10 +47,10 @@ function applyVelocityChange(s: ShipState, dvx: number, dvy: number): void {
 export function resolveCollisions(ships: readonly Combatant[], sink: CollisionSink): void {
   for (let i = 0; i < ships.length; i++) {
     const a = ships[i]!;
-    if (!a.state.alive) continue;
+    if (!a.state.alive || a.def.flying) continue;
     for (let j = i + 1; j < ships.length; j++) {
       const b = ships[j]!;
-      if (!b.state.alive) continue;
+      if (!b.state.alive || b.def.flying) continue;
       collide(a, b, sink);
     }
   }

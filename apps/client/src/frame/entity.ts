@@ -1,5 +1,5 @@
 import type { PerspectiveCamera } from 'three';
-import { FX, TRAINING } from '@tidebreaker/shared';
+import { DRONE, FX, TRAINING } from '@tidebreaker/shared';
 import type { Combatant } from '@tidebreaker/shared';
 import type { ShipModel } from '../render/assets.ts';
 import type { HealthBar } from './healthBar.ts';
@@ -7,6 +7,14 @@ import { PoseInterp } from './pose.ts';
 import { waveHeight, waveSlope } from '../render/waves.ts';
 
 const slope = new Float32Array(2);
+
+/** Signed difference between two headings, in -PI..PI. */
+function angleDelta(a: number, b: number): number {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
 /** How strongly ships follow the waves (1 = exactly). Tilt is exaggerated so it reads from above. */
 const BOB = 0.5;
 const TILT = 1.0;
@@ -34,6 +42,8 @@ export class ShipEntity {
   /** Hull a moment ago and the clock for the repair effect (see Effects.ship). */
   repairLast = 0;
   repairClock = 0;
+  /** Heading last frame, for banking a drone into its turns. */
+  private lastHeading = 0;
   /** Seconds left of the pop-in after a class change (0 = none). */
   morphSeconds = 0;
   /** Collision rattle: starts at the impact strength and dies out (cosmetic). */
@@ -85,6 +95,11 @@ export class ShipEntity {
     }
     const root = this.model.root;
     root.visible = sink < 1;
+    if (this.combatant.def.flying) {
+      this.renderFlying(dtSec, timeSec, sink);
+      this.finishRender(dtSec, camera);
+      return;
+    }
     // Ride the same waves that are drawn: bob, pitch along the hull, roll across it.
     // Big ships ride the swell much more calmly than small ones.
     const calm = Math.max(FX.sway.min, Math.min(1, FX.sway.refLength / this.combatant.def.length));
@@ -120,6 +135,34 @@ export class ShipEntity {
     if (this.mountAims) this.model.aimTurretsEach(this.pose.heading, this.mountAims);
     else this.model.aimTurrets(this.pose.x, this.pose.y, this.pose.heading, this.aim, this.aimDist);
 
+    this.finishRender(dtSec, camera);
+  }
+
+  /** A drone hovers above the water: a gentle bob, banking into its turns and leaning into its speed. */
+  private renderFlying(dtSec: number, timeSec: number, sink: number): void {
+    const root = this.model.root;
+    const s = this.combatant.state;
+    const turn = angleDelta(this.pose.heading, this.lastHeading) / Math.max(dtSec, 1e-3);
+    this.lastHeading = this.pose.heading;
+    const bob = Math.sin(timeSec * 2.3 + this.combatant.id * 1.7) * 0.25;
+    const lean = Math.min(1, Math.abs(s.speed) / Math.max(1, this.combatant.def.vMax)) * 0.28;
+    root.position.set(this.pose.x, DRONE.hover + bob - sink * DRONE.hover, this.pose.y);
+    root.rotation.y = -this.pose.heading;
+    // Bank toward the inside of a turn (clamped), nose down a little when fast.
+    root.rotation.x = Math.max(-0.5, Math.min(0.5, turn * 0.12));
+    root.rotation.z = -lean;
+    this.model.layDecals(
+      waveHeight(this.pose.x, this.pose.y, timeSec),
+      root.position.y,
+      root.rotation.x,
+      root.rotation.z,
+    );
+  }
+
+  /** The parts of drawing a ship that every kind shares: the class pop-in, the hit flash and the bar. */
+  private finishRender(dtSec: number, camera: PerspectiveCamera): void {
+    const s = this.combatant.state;
+    const root = this.model.root;
     // A new class pops in: small, growing past full size, settling back.
     if (this.morphSeconds > 0) {
       this.morphSeconds = this.morphSeconds > dtSec ? this.morphSeconds - dtSec : 0;

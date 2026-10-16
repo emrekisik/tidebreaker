@@ -1,4 +1,4 @@
-import { MATCH, SHIP_IDS, STEP_SEC, WORLD_CENTER } from '@tidebreaker/shared';
+import { DRONE, MATCH, SHIP_IDS, STEP_SEC, WORLD_CENTER } from '@tidebreaker/shared';
 import { MemoryTransport } from '../net/memTransport.ts';
 import { TestClient, settle } from '../testing.ts';
 import { Room } from '../room/room.ts';
@@ -6,7 +6,8 @@ import { Room } from '../room/room.ts';
 /**
  * Server tick cost with a full room (GAME_DESIGN.md §16: p99 must stay far below the 50 ms
  * budget; the design target is <= 8 ms): 20 players all firing, both carriers shooting, hundreds
- * of projectiles in flight, a snapshot to every client every second tick.
+ * of projectiles in flight, a snapshot to every client every second tick, and every player with a
+ * full set of drones (one of each type) fighting alongside.
  *
  *   pnpm bench
  */
@@ -37,6 +38,19 @@ for (let s = 2; s < w.playerEnd; s++) {
   w.inAimDist[s] = 40;
 }
 
+// Every player buys its drones at the own carrier (the money is given), then goes back to the fight.
+for (let s = 2; s < w.playerEnd; s++) {
+  const home = MATCH.carriers[w.slots[s]!.team]!;
+  const st = w.slots[s]!.state;
+  const at = { x: st.x, y: st.y };
+  st.x = home.x;
+  st.y = home.y + 40;
+  w.cash[s] = 1000;
+  for (let k = 0; k < DRONE.perPlayer; k++) w.buyDrone(s, k);
+  st.x = at.x;
+  st.y = at.y;
+}
+
 const times = new Float64Array(TICKS);
 let maxProjectiles = 0;
 for (let i = -200; i < TICKS; i++) {
@@ -53,6 +67,13 @@ for (let i = -200; i < TICKS; i++) {
     st.shield = w.slots[s]!.def.shield;
     st.x = WORLD_CENTER + (w.slots[s]!.team === 0 ? -20 : 20);
   }
+  for (let d = 0; d < w.slotCount - w.pirateEnd; d++) {
+    const ds = w.slots[w.pirateEnd + d]!;
+    if (w.used[w.pirateEnd + d] === 1) {
+      ds.state.hull = ds.def.hull;
+      ds.state.shield = ds.def.shield;
+    }
+  }
   if (i % 100 === 0) {
     // Clients that stay silent are dropped after 20 s; a ping keeps them alive.
     for (const c of clients) c.ping(i);
@@ -64,7 +85,7 @@ const sorted = Array.from(times).sort((a, b) => a - b);
 const pct = (p: number): number =>
   sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]!;
 const mean = sorted.reduce((a, b) => a + b, 0) / sorted.length;
-console.log(`players ${w.playerCount()}, projectiles in flight up to ${maxProjectiles}`);
+console.log(`players ${w.playerCount()}, drones ${w.drones.count}, projectiles in flight up to ${maxProjectiles}`);
 console.log(
   `tick ms: mean ${mean.toFixed(3)}  p50 ${pct(0.5).toFixed(3)}  p99 ${pct(0.99).toFixed(3)}  max ${pct(1).toFixed(3)}  (budget 50, target p99 <= 8)`,
 );

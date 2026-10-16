@@ -147,6 +147,7 @@ export class Room {
     maxShield: 0,
     canTierUp: false,
     lives: 0,
+    drones: 0,
   };
   private readonly anyClass: boolean;
   private readonly self = newSelfState();
@@ -187,7 +188,7 @@ export class Room {
     this.names[0] = 'Carrier';
     this.names[1] = 'Carrier';
     // Pirates are named by their type; the client shows the translated name.
-    for (let s = this.world.playerEnd; s < this.world.slotCount; s++) {
+    for (let s = this.world.playerEnd; s < this.world.pirateEnd; s++) {
       this.names[s] = PIRATE_TYPES[this.world.pirates.type[s - this.world.playerEnd]!]!.id;
     }
     this.transport.onConnection = (conn): void => this.attach(conn);
@@ -389,6 +390,7 @@ export class Room {
       m.maxShield = Math.round(w.maxShieldOf(s));
       m.canTierUp = canTierUp(m.tier, m.cash);
       m.lives = w.lives[s]!;
+      m.drones = w.drones.countOf[s]!;
       this.small.reset();
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
@@ -463,7 +465,14 @@ export class Room {
         if (present && c.known[s] === 0) {
           const e = this.enter;
           e.id = s + 1;
-          e.kind = s < CARRIER_SLOTS ? KIND.CARRIER : s < w.playerEnd ? KIND.SHIP : KIND.PIRATE;
+          e.kind =
+            s < CARRIER_SLOTS
+              ? KIND.CARRIER
+              : s < w.playerEnd
+                ? KIND.SHIP
+                : s < w.pirateEnd
+                  ? KIND.PIRATE
+                  : KIND.DRONE;
           e.shipId = w.shipIdx[s]!;
           e.team = ship.team;
           e.x = ship.state.x;
@@ -621,6 +630,9 @@ export class Room {
         break;
       case C2S.TIER_UP:
         if (c.stage === Stage.Playing) this.world.tierUp(c.slot);
+        break;
+      case C2S.BUY_DRONE:
+        if (c.stage === Stage.Playing) this.world.buyDrone(c.slot, c.msg.stat);
         break;
       case C2S.PING:
         this.small.reset();

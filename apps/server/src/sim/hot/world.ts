@@ -2,6 +2,8 @@ import {
   CARRIER,
   COMBAT,
   DEG2RAD,
+  DRONE,
+  DRONE_TYPES,
   ECONOMY,
   END_REASON,
   EventWriter,
@@ -35,6 +37,7 @@ import {
   createCombatant,
   generateMap,
   HIT_KILLED,
+  hullDistance,
   HIT_SHIELD,
   killReward,
   pirateReward,
@@ -56,6 +59,7 @@ import {
   updateCarrier,
   updateMounts,
 } from '@tidebreaker/shared';
+import { DRONE_SLOTS, Drones } from './drones.ts';
 import { BARREL_START, CHEST_START, Pickups } from './pickups.ts';
 import { Pirates } from './pirates.ts';
 import type {
@@ -89,8 +93,10 @@ const PEACEFUL = 1e6;
 export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink, Obstacles {
   readonly land: WorldMap;
   readonly maxPlayers: number;
-  /** One past the last player slot: pirates have the slots from here up to `slotCount`. */
+  /** One past the last player slot: pirates have the slots from here up to `pirateEnd`. */
   readonly playerEnd: number;
+  /** One past the last pirate slot: the drones have the slots from here up to `slotCount`. */
+  readonly pirateEnd: number;
   readonly slotCount: number;
   /** Every slot's combatant (used or not). */
   readonly slots: Combatant[] = new Array<Combatant>();
@@ -129,6 +135,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   /** 1 = a ship changed class in place (tier-up): clients re-create it. */
   readonly pickups: Pickups;
   readonly pirates: Pirates;
+  readonly drones: Drones;
   /** Oil rigs: gauge from -1 (red) to +1 (blue) and the owning team (RIG_NO_OWNER = nobody). */
   readonly rigMeter = new Float32Array(RIG.count);
   readonly rigOwner = new Uint8Array(RIG.count).fill(RIG_NO_OWNER);
@@ -174,7 +181,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.rng = new Mulberry32(seed ^ 0x9e3779b9);
     this.maxPlayers = MATCH.maxPlayers;
     this.playerEnd = CARRIER_SLOTS + this.maxPlayers;
-    this.slotCount = this.playerEnd + PIRATE_COUNT;
+    this.pirateEnd = this.playerEnd + PIRATE_COUNT;
+    this.slotCount = this.pirateEnd + DRONE_SLOTS;
     const n = this.slotCount;
     this.used = new Uint8Array(n);
     this.shipIdx = new Uint8Array(n);
@@ -218,6 +226,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     this.pickups = new Pickups(this.land, seed);
     this.pirates = new Pirates(this, seed);
+    this.drones = new Drones(this, seed);
     this.pirates.join();
     this.startRound();
   }
@@ -302,6 +311,37 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return true;
   }
 
+  /** Distance from `slot`'s ship to the hull of its own carrier (negative when touching). */
+  private carrierDistance(slot: number): number {
+    const st = this.slots[slot]!.state;
+    const carrier = this.slots[this.slots[slot]!.team]!;
+    return hullDistance(carrier.state, carrier.def, st.x, st.y);
+  }
+
+  /** True when `slot` is close enough to its own carrier to buy a drone. */
+  nearOwnCarrier(slot: number): boolean {
+    return this.carrierDistance(slot) <= DRONE.buyRadius;
+  }
+
+  /**
+   * Buys a drone of type `type` for a player: it must be alive, near its own carrier, have the money
+   * and a free place (`DRONE.perPlayer`). The drone takes off from the carrier. Returns false when
+   * the request is not allowed.
+   */
+  buyDrone(slot: number, type: number): boolean {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
+    if (!(type >= 0 && type < DRONE_TYPES.length)) return false;
+    if (!this.slots[slot]!.state.alive || this.ghostLeft[slot]! > 0) return false;
+    if (this.matchState !== MATCH_STATE.PLAYING) return false;
+    if (this.drones.countOf[slot]! >= DRONE.perPlayer) return false;
+    const price = DRONE_TYPES[type]!.price;
+    if (this.cash[slot]! < price || !this.nearOwnCarrier(slot)) return false;
+    if (!this.drones.spawn(slot, type)) return false;
+    this.cash[slot] = this.cash[slot]! - price;
+    this.statsDirty[slot] = 1;
+    return true;
+  }
+
   // ---- joining and leaving (called by the room, between ticks)
 
   /** Puts a new player into the world on `team`. Returns the slot, or -1 when the room is full. */
@@ -347,6 +387,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
   /** Frees a player slot for good. */
   private release(slot: number): void {
+    this.drones.removeAllOf(slot, false);
     this.used[slot] = 0;
     this.ghostLeft[slot] = 0;
     this.scoresDirty = true;
@@ -458,6 +499,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.deaths.fill(0);
     this.scoresDirty = true;
     this.projectiles.clear();
+    this.drones.clear();
     for (let t = 0; t < TEAM_COUNT; t++) {
       const b = MATCH.carriers[t]!;
       const c = this.slots[t]!;
@@ -528,12 +570,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
 
     // 3. pirates think, steer and aim like players would
     this.pirates.step(dt);
+    // 3b. drones fly and aim
+    this.drones.step(dt);
 
     // 4. collisions: ships, islands and reefs, world edge. Protected ships take no damage.
     this.saveProtected();
     resolveCollisions(this.combatants, this);
     this.restoreProtected();
-    for (let i = CARRIER_SLOTS; i < this.slotCount; i++) {
+    for (let i = CARRIER_SLOTS; i < this.pirateEnd; i++) {
       if (this.used[i] === 0) continue;
       const c = this.slots[i]!;
       if (!c.state.alive) continue;
@@ -556,7 +600,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this.rng,
         this,
         this.inAimDist[i]!,
-        i < this.playerEnd ? reloadMul(this.level(i, STAT.RELOAD)) : this.pirates.reloadOf(i),
+        i < this.playerEnd
+          ? reloadMul(this.level(i, STAT.RELOAD))
+          : i < this.pirateEnd
+            ? this.pirates.reloadOf(i)
+            : 1,
         this.level(i, STAT.DAMAGE),
       );
       // The first shot ends the spawn protection: no sniping from safety.
@@ -610,7 +658,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
           COMBAT.shieldRechargeSec,
           dt,
         );
-        // Players have to stop to repair; the pirates mend while they sail (they cannot choose).
+        // Drones never mend. Players have to stop to repair; the pirates mend while they sail (they cannot choose).
+        if (i >= this.pirateEnd) continue;
         const still = i >= this.playerEnd || Math.abs(c.state.speed) < COMBAT.repairMaxSpeed;
         if (still) {
           regenHull(
@@ -723,10 +772,17 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       return;
     }
     this.events.shipHit(targetId, ownerId, damage, shieldHit, weaponIdx, x, y);
-    this.noteDamage(ownerId - 1, target, damage);
+    // What a drone does counts for its owner.
+    const credit = this.creditOf(ownerId - 1);
+    this.noteDamage(credit, target, damage);
     if (target >= CARRIER_SLOTS) this.combatAge[target] = 0;
-    if (ownerId - 1 >= CARRIER_SLOTS) this.combatAge[ownerId - 1] = 0;
-    if (killed) this.sunk(target, ownerId, x, y, weaponIdx);
+    if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
+    if (killed) this.sunk(target, credit + 1, x, y, weaponIdx);
+  }
+
+  /** Who gets the credit for what `slot` does: a drone's owner, otherwise the slot itself. */
+  private creditOf(slot: number): number {
+    return slot >= this.pirateEnd ? this.drones.owner[slot - this.pirateEnd]! : slot;
   }
 
   onExpire(x: number, y: number, _weaponIdx: number, slot: number): void {
@@ -774,7 +830,10 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
       return;
     }
+    if (victim >= this.pirateEnd) return this.droneSunk(victim, killerId);
     if (victim >= this.playerEnd) return this.pirateSunk(victim, killerId, weapon);
+    // The drones of a sunk ship crash with it.
+    this.drones.removeAllOf(victim, true);
     this.respawnLeft[victim] = MATCH.respawnSec;
     this.inFire[victim] = 0;
     this.deaths[victim] = this.deaths[victim]! + 1;
@@ -799,6 +858,17 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.teamKills[killer.team] = this.teamKills[killer.team]! + 1;
       this.matchChanged = true;
     }
+  }
+
+  /** A drone was shot down: the other team's killer scores its bounty, and it is gone. */
+  private droneSunk(victim: number, killerId: number): void {
+    const d = this.drones.indexOf(victim);
+    if (d < 0) return;
+    const killer = killerId - 1;
+    if (killer >= CARRIER_SLOTS && killer < this.playerEnd) {
+      this.addScore(killer, DRONE_TYPES[this.drones.type[d]!]!.bounty);
+    }
+    this.drones.remove(d);
   }
 
   /**
@@ -1009,7 +1079,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     const by = p.y[index]!;
     p.take(index);
     this.events.blast(PICKUP_ID_BASE + index, bx, by);
-    for (let s = CARRIER_SLOTS; s < this.slotCount; s++) {
+    for (let s = CARRIER_SLOTS; s < this.pirateEnd; s++) {
       if (this.used[s] === 0 || this.protectLeft[s]! > 0) continue;
       const c = this.slots[s]!;
       const st = c.state;
@@ -1030,10 +1100,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       const damage = B.damage * f;
       const flags = applyDamage(st, damage);
       this.events.shipHit(c.id, attackerId, damage, (flags & HIT_SHIELD) !== 0, NO_WEAPON, bx, by);
-      this.noteDamage(attackerId - 1, s, damage);
+      const credit = attackerId > 0 ? this.creditOf(attackerId - 1) : -1;
+      this.noteDamage(credit, s, damage);
       if (s < this.playerEnd) this.combatAge[s] = 0;
-      if (attackerId - 1 >= CARRIER_SLOTS) this.combatAge[attackerId - 1] = 0;
-      if ((flags & HIT_KILLED) !== 0) this.sunk(s, attackerId, st.x, st.y, NO_WEAPON);
+      if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, NO_WEAPON);
     }
     // Chain reaction: barrels within most of the blast go off as well.
     for (let b = BARREL_START; b < CHEST_START; b++) {

@@ -82,17 +82,15 @@ export class PickupView {
       const phase = this.ids[i]! * 1.7;
       const bob = Math.sin(timeSec * 1.6 + phase) * 0.12;
       let y = waveHeight(x, z, timeSec) * 0.5 + 0.55 + bob;
-      let size = 1;
+      let size = (this.meshes[kindIdx]!.userData['scale'] as number | undefined) ?? 1;
       if (kindIdx === 3) {
         // Banknote piles: bigger piles are bigger, and lie flat on the water.
-        size = 0.9 + this.looks[i]! * 0.35;
+        size *= 0.9 + this.looks[i]! * 0.35;
         y -= 0.2;
       } else if (kindIdx === 2) {
         y += 0.25;
-      } else if (kindIdx === 0 && this.looks[i]! === 3) {
-        // A loot crate (left by a sunk pirate) is bigger than the ordinary ones.
-        size = 1.5;
-        y += 0.2;
+        // A pirate's loot chest (the big look) is bigger than the ordinary treasure chests.
+        if (this.looks[i]! === 3) size *= 1.4;
       }
       d.position.set(x, y, z);
       d.rotation.set(

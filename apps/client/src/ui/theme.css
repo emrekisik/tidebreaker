@@ -32,6 +32,7 @@
 #progress,
 #upgrades,
 #hud,
+#drone-shop,
 #minimap,
 #killfeed,
 #hint,
@@ -1006,4 +1007,106 @@ svg.ico,
 }
 #hud-cash {
   display: inline-block;
+}
+
+/* ---- the drone shop: opens when the player is at their own carrier ---- */
+#drone-shop {
+  left: 30px;
+  top: 180px;
+  width: 300px;
+  box-sizing: border-box;
+  padding: 11px 13px 12px;
+  --panel: rgba(13, 32, 50, 0.62);
+}
+#drone-shop .ds-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #cfdae6;
+}
+#drone-shop .ds-count {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.ds-btn {
+  display: grid;
+  grid-template-columns: 17px 26px 1fr auto;
+  align-items: center;
+  column-gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  margin-top: 6px;
+  box-sizing: border-box;
+  color: #e8eef4;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: rgba(10, 26, 42, 0.8);
+  border: 1px solid var(--line);
+}
+.ds-btn:hover:not(:disabled) {
+  background: rgba(24, 52, 80, 0.95);
+  border-color: #6dff9a;
+}
+.ds-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.ds-key {
+  width: 17px;
+  height: 17px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #6dff9a;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6dff9a;
+}
+.ds-ico {
+  width: 26px;
+  height: 26px;
+  color: #cfdae6;
+}
+.ds-ico svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ds-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.ds-desc {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #8fa3b5;
+  text-transform: none;
+}
+.ds-price {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #6dff9a;
+}
+.ds-price .ico {
+  width: 15px;
+  height: 15px;
+}
+.ds-btn:disabled .ds-price {
+  color: #ff8a8a;
 }

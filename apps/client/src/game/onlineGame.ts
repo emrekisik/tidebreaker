@@ -7,6 +7,8 @@ import {
   MAX_PROJECTILES,
   PICKUP_ID_BASE,
   PIRATE_TYPES,
+  DRONE,
+  DRONE_TYPES,
   ProjectileSet,
   SHIPS,
   SHIP_IDS,
@@ -179,6 +181,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     maxShield: 1,
     canTierUp: false,
     lives: 3,
+    drones: 0,
   };
   readonly clock = new ServerClock();
   predictor!: Predictor;
@@ -500,6 +503,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     p.maxShield = m.maxShield;
     p.canTierUp = m.canTierUp;
     p.lives = m.lives;
+    p.drones = m.drones;
     if (this.predictor) {
       this.predictor.speedLevel = m.levels[STAT.SPEED]!;
       this.predictor.turnLevel = m.levels[STAT.TURN]!;
@@ -586,17 +590,28 @@ export class OnlineGame implements GameSession, ServerHandler {
         ? CARRIER
         : e.kind === KIND.PIRATE
           ? (PIRATE_TYPES[e.shipId]?.def ?? PIRATE_TYPES[0]!.def)
-          : (SHIPS[SHIP_IDS[e.shipId]!] as ShipDef);
+          : e.kind === KIND.DRONE
+            ? (DRONE_TYPES[e.shipId]?.def ?? DRONE_TYPES[0]!.def)
+            : (SHIPS[SHIP_IDS[e.shipId]!] as ShipDef);
     const combatant = createCombatant(e.id, def, e.team);
     combatant.state.x = e.x;
     combatant.state.y = e.y;
     combatant.state.heading = e.heading;
-    const model = d.assets.createShip(def.modelKey, teamName(e.team), false);
+    const model =
+      e.kind === KIND.DRONE
+        ? d.assets.createDrone(def.modelKey, teamName(e.team), def.length)
+        : d.assets.createShip(def.modelKey, teamName(e.team), false);
     const bar = new HealthBar(
       d.scene,
       d.bars,
       teamName(e.team),
-      e.kind === KIND.CARRIER ? undefined : e.kind === KIND.PIRATE ? pirateName(e.name) : e.name,
+      e.kind === KIND.CARRIER || e.kind === KIND.DRONE
+        ? undefined
+        : e.kind === KIND.PIRATE
+          ? pirateName(e.name)
+          : e.name,
+      e.kind === KIND.DRONE ? 0.55 : 1,
+      e.kind === KIND.DRONE ? DRONE.hover + 2.4 : undefined,
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;

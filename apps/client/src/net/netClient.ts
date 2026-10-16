@@ -5,6 +5,7 @@ import {
   encodeInput,
   encodePing,
   encodePlay,
+  encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
 } from '@tidebreaker/shared';
@@ -80,6 +81,11 @@ export class NetClient {
 
   upgrade(stat: number): void {
     encodeUpgrade(this.out, stat);
+    this.flush();
+  }
+
+  buyDrone(type: number): void {
+    encodeBuyDrone(this.out, type);
     this.flush();
   }
 

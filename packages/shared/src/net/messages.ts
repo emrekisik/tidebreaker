@@ -22,6 +22,7 @@ export const C2S = {
   UPGRADE: 0x04,
   TIER_UP: 0x05,
   PING: 0x06,
+  BUY_DRONE: 0x07,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -72,6 +73,7 @@ export const KIND = {
   BARREL: 5,
   CHEST: 6,
   BANKNOTE: 7,
+  DRONE: 11,
   CARRIER: 10,
   PIRATE: 1,
 } as const;
@@ -136,7 +138,13 @@ export function encodeUpgrade(w: Writer, stat: number): void {
   w.u8(stat);
 }
 
-/** Move up one class (the server checks the score). */
+/** Buy a drone of type `drone` (index into DRONE_TYPES); the server checks money, place and limit. */
+export function encodeBuyDrone(w: Writer, drone: number): void {
+  w.u8(C2S.BUY_DRONE);
+  w.u8(drone);
+}
+
+/** Move up one class (the server checks the money). */
 export function encodeTierUp(w: Writer, choice = 0): void {
   w.u8(C2S.TIER_UP);
   w.u8(choice);
@@ -193,6 +201,9 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       break;
     case C2S.TIER_UP:
       out.shipId = r.u8();
+      break;
+    case C2S.BUY_DRONE:
+      out.stat = r.u8();
       break;
     case C2S.PING:
       out.clientTime = r.u32();
@@ -358,6 +369,8 @@ export interface StatsMsg {
   canTierUp: boolean;
   /** Sinkings left before the class is lost. */
   lives: number;
+  /** Drones this player has in the air. */
+  drones: number;
 }
 
 export function encodeStats(w: Writer, m: StatsMsg): void {
@@ -371,6 +384,7 @@ export function encodeStats(w: Writer, m: StatsMsg): void {
   w.u16(m.maxShield);
   w.u8(m.canTierUp ? 1 : 0);
   w.u8(m.lives);
+  w.u8(m.drones);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -750,6 +764,7 @@ const statsMsg: StatsMsg = {
   maxShield: 0,
   canTierUp: false,
   lives: 0,
+  drones: 0,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -842,6 +857,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.maxShield = r.u16();
       statsMsg.canTierUp = (r.u8() & 1) !== 0;
       statsMsg.lives = r.u8();
+      statsMsg.drones = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
       return true;

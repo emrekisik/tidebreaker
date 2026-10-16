@@ -34,12 +34,26 @@ export interface PropSpec {
   sink: number;
   /** Self-lighting (0..1) for models that come out too dark under the game's lights. */
   glow?: number;
+  /** Turn (radians, around the vertical axis) that points the model's nose along +x (drones). */
+  yaw?: number;
 }
 
 export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
   oil_rig: { file: 'oil_rig.glb', node: 'oil_rig', sink: 0.07, glow: 0.5 },
   island_rocky: { file: 'island_rocky.glb', node: 'island_rocky', sink: 0.04 },
   island_tropical: { file: 'island_tropical.glb', node: 'island_tropical', sink: 0.04 },
+  // Things floating in the sea (pickups) and the drones that fly over it.
+  red_oil_barrel: { file: 'red_oil_barrel.glb', node: 'red_oil_barrel', sink: 0.12, glow: 0.3 },
+  wooden_create_loot: { file: 'wooden_create_loot.glb', node: 'wooden_create_loot', sink: 0.1, glow: 0.25 },
+  pirate_golden_treasure_chest: {
+    file: 'pirate_golden_treasure_chest.glb',
+    node: 'pirate_golden_treasure_chest',
+    sink: 0.1,
+    glow: 0.3,
+  },
+  money_model: { file: 'money_model.glb', node: 'money_model', sink: 0.1, glow: 0.35 },
+  fpv_drone: { file: 'fpv_drone.glb', node: 'fpv_drone', sink: 0, glow: 0.2, yaw: Math.PI / 2 },
+  combat_drone: { file: 'combat_drone.glb', node: 'combat_drone', sink: 0, glow: 0.2, yaw: Math.PI / 2 },
 };
 
 export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {

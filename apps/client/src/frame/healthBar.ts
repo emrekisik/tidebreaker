@@ -19,9 +19,20 @@ export class HealthBar {
   private readonly hullTrack = new GhostTracker();
   private readonly shieldTrack = new GhostTracker();
   private readonly tag: Mesh | null;
+  private readonly lift: number;
 
   /** `name`: shows a name plate above the bar (omit it for ships that need none). */
-  constructor(scene: Scene, kit: BarKit, team: Team, name?: string) {
+  constructor(
+    scene: Scene,
+    kit: BarKit,
+    team: Team,
+    name?: string,
+    /** Smaller bars and a different height for small things (drones). */
+    scale = 1,
+    lift = HEIGHT_ABOVE_WATER,
+  ) {
+    this.lift = lift;
+    this.group.scale.setScalar(scale);
     const bg = new Mesh(kit.bgGeo, kit.bgMat);
     this.hullGhost = new Mesh(kit.hullGeo, kit.ghostMat);
     this.shieldGhost = new Mesh(kit.shieldGeo, kit.ghostMat);
@@ -67,7 +78,7 @@ export class HealthBar {
       this.shieldTrack.reset(1);
       return;
     }
-    this.group.position.set(x, HEIGHT_ABOVE_WATER, z);
+    this.group.position.set(x, this.lift, z);
     this.group.quaternion.copy(camera.quaternion);
     this.fill(this.hull, hullFrac);
     this.fill(this.shield, shieldFrac);

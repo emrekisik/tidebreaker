@@ -1068,6 +1068,8 @@ export class Effects {
     const s = e.combatant.state;
     const def = e.combatant.def;
     const p = e.pose;
+    // Drones leave no wake and no smoke trail.
+    if (def.flying) return;
     const length = def.length;
     const width = this.widthOf(e);
 

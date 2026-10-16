@@ -269,9 +269,11 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 | **Patlayıcı varil (barrel)** | para vermez | 25 adet, 25 sn sonra yeniden doğar. **Gemi çarpınca ya da mermi isabet edince patlar**: gövdesine 15 birim (`blast.radius`) içindeki her gemi (korsanlar dahil; uçak gemileri ve doğuş korumalı gemiler hariç) merkezde 90, kenarda %30'u kadar hasar alır (`blast.damage`, `edgeFactor`); yakındaki varillere zincirleme geçer. Hasar, patlatana (çarpan ya da vuran) yazılır: öldürürse kill onundur. Çarpanın kendi gemisi de merkezde tam hasar alır. `BLAST` olayı gönderilir |
 | **Hazine sandığı (chest)** | 100 para | 5 adet, kale ve hazine adalarının kıyısında (6–14 birim açıkta), 90 sn bekleme. Harita üstünde ışın işareti (sonra) |
 | **Ganimet parası (banknote)** | değişken | Batan oyuncu gemilerinden düşer (cebindeki paranın %80'i) |
-| **Ganimet kutusu (loot crate)** | korsanın türüne göre 24 / 60 / 160 para (`PirateType.loot`) | Batan **korsandan** düşer (büyük sandık görünümü), 40 sn kalır, ilk ulaşan alır |
+| **Ganimet sandığı (loot chest)** | korsanın türüne göre 24 / 60 / 160 para (`PirateType.loot`) | Batan **korsandan** düşer (altın sandık, büyük görünüm), 40 sn kalır, ilk ulaşan alır |
 | **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
+
+**Görünümler:** sandık = ahşap sandık modeli (`wooden_create_loot`), varil = kırmızı petrol varili (`red_oil_barrel`), hazine sandığı = altın korsan sandığı (`pirate_golden_treasure_chest`; **korsanın düşürdüğü ganimet de bu modeldir, 1,4 kat büyük**), banknot yığını = para modeli (`money_model`). Hepsi `InstancedMesh` ile çizilir; modeller yoksa düz renkli şekillere dönülür. Model dosyaları gltf-transform ile ~1,5–4 bin üçgene indirilir (`tools/assets/build.mjs`).
 
 Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alınınca bekleme süresinden sonra aynı yuvada yeni, geçerli (kara olmayan, hiçbir canlı gemiye ≥ 50 birim yakın olmayan) bir yerde yeniden çıkar. Değer, çıktığı bölgenin çarpanıyla çarpılır (iç ×2,5 · orta ×1,5 · dış ×1). Uçak gemisi çevresi (baseClear × 0,6) başlangıç sandıklarına ayrılmıştır.
 
@@ -292,10 +294,25 @@ Spawner kuralı (uygulandı): her toplanabilirin sabit bir yuvası vardır; alı
 - Tüccar gemisi kasıtlı bir **PvP mıknatısı**: büyük ödül, oyuncuları aynı noktada çatıştırır.
 - Backlog olay fikirleri: **Kraken** (hull 3000, ödül hasar oranında paylaşılır), **Fırtına bölgesi**, **Korsan Armadası**.
 
-### 7.3 Oyuncu öldürme
+### 7.3 Dronelar
+Oyuncu **para ile drone satın alabilir**; drone, sahibini koruyan küçük uçan bir silahtır ve düşmana kendiliğinden ateş eder. İki tür vardır (`config/drones.ts`):
+
+| Tür | Fiyat | Can / kalkan | Hız | Silah | Skor ödülü (vuran takıma) |
+|---|---|---|---|---|---|
+| **FPV drone** (`fpv_drone`) | 60 | 35 / 10 | 32 | makineli tüfek (`drone_gun`: 1,8 hasar, 0,12 sn, menzil 36) | 8 |
+| **Combat drone** (`combat_drone`) | 140 | 70 / 25 | 22 | roket (`drone_rocket`: 20 hasar, 2,4 sn, menzil 62) | 18 |
+
+- **Satın alma:** oyuncu **kendi uçak gemisinin gövdesine 50 birim** (`DRONE.buyRadius`) yaklaşınca solda **Drone mağazası** penceresi açılır (iki düğme: tuş **7** FPV, **8** Combat; tıklama da olur); uzaklaşınca kapanır. Sunucu parayı, yeri ve sınırı doğrular. Oyuncu başına en çok **2 drone** (`DRONE.perPlayer`, türlerin karışımı). Drone uçak gemisinden kalkar, ilk 1,5 sn dokunulmazdır (ilk atışta biter).
+- **Davranış (eskort):** sahibinin çevresinde yavaş dönen bir çemberde (13 birim) süzülür, sahibi giderken peşinden gider. Kendisine 75 birim içinde ve **sahibinden 100 birimden uzak olmayan** en yakın düşmana (oyuncu gemisi, korsan, düşman drone) saldırır; hedefe silah menzilinin %70'inde durur, hafif yana kayarak döner, burnunu hedefe çevirir ve ateş eder. **Düşman uçak gemisine saldırmaz** ve düşman uçak gemisinin 105 birim yakınındaki hedeflere gitmez (carrier topları drone'u vururdu).
+- **Uçar:** adalara ve gemilere çarpmaz, çarpışma hesabına girmez; varil patlaması da etkilemez. Ama mermiyle ve roketle **vurulabilir** (küçük vuruş dairesi), uçak gemilerinin topları onu da hedef alır; sebep olduğu hasar, öldürmeler ve yardımlar **sahibine** yazılır.
+- **Ömür:** canı bitince, sahibi batınca (hepsi birlikte düşer), sahibi oyundan çıkınca ya da yeni tur başlayınca yok olur. Ödenen para geri gelmez; yeniden satın alınır.
+- **Sunucu maliyeti:** drone'lar sunucuda ordinary birer slottur (`World.pirateEnd`'den sonra, en çok 48); her biri 3 tikte bir düşünür. `pnpm bench` her oyuncuya 2 drone verir: p99 ≈ 3,4 ms (hedef ≤ 8).
+- **Görünüm (istemci):** her drone statik bir model (`fpv_drone.glb`, `combat_drone.glb`), takım renginde parlar, 4,2 birim yükseklikte süzülür, dönüşlerde yatar, altında takım halkası ve güneşin gölgesi suya düşer. Üstünde küçük can/kalkan çubuğu vardır.
+
+### 7.4 Oyuncu öldürme
 §6.4'teki formüller. Ayrıca batan geminin ganimeti herkes tarafından toplanabilir (intikam ve geri dönüş mekaniği).
 
-### 7.4 Ada etkileşimleri
+### 7.5 Ada etkileşimleri
 - **Liman** ve **hazine adası kazısı** iptal edildi (karar). Yerine petrol kuyuları (§4.6).
 - **Kale** mekaniği iptal edildi (karar).
 
@@ -418,6 +435,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x04 | `UPGRADE` | `u8 statId (0..5)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu parayı doğrular, sınıf bedelini (`ECONOMY.tierCost`) düşer; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
+| 0x07 | `BUY_DRONE` | `u8 droneType` (`DRONE_TYPES` indeksi): sunucu parayı, uçak gemisine yakınlığı ve oyuncu başına sınırı doğrular |
 | 0x07 | `EMOTE` | `u8 emoteId` |
 
 **Sunucu → İstemci**
@@ -434,7 +452,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
-| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[6] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp)`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
+| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[6] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp), u8 lives, u8 drones`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
 **El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
@@ -454,7 +472,7 @@ ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%,
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
-- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan (ENTER'da `shipId` = korsan türü, `team` = 2, `name` = tür adı: `skiff`/`raider`/`corsair`; istemci çevirir), 2 tüccar, 3 ~~kale topu~~ (iptal), 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**.
+- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan (ENTER'da `shipId` = korsan türü, `team` = 2, `name` = tür adı: `skiff`/`raider`/`corsair`; istemci çevirir), 2 tüccar, 3 ~~kale topu~~ (iptal), 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**, **11 drone** (ENTER'da `shipId` = `DRONE_TYPES` indeksi, `team` = sahibinin takımı).
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
 - Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`. Toplanabilirlerin `id`'si `1000 + slot` (gemiler `1 + slot`); `ENTER`'daki `shipId` alanı toplanabilirde **görünüm sınıfı**dır (banknot yığını boyutu 0–3, diğerleri bölge 0–2). Bir toplanabilir toplanınca `PICKUP` olayı (id, toplayan, tür, değer, konum) ve `LEAVE` gelir.

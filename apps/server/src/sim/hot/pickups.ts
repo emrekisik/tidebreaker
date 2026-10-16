@@ -108,9 +108,9 @@ export class Pickups {
     return this.drop(x, y, value, KIND.BANKNOTE);
   }
 
-  /** Drops a loot crate (what a sunk pirate leaves) worth `value` at (x, y). */
+  /** Drops a loot chest (what a sunk pirate leaves) worth `value` at (x, y). */
   dropLoot(x: number, y: number, value: number): boolean {
-    return this.drop(x, y, value, KIND.CRATE);
+    return this.drop(x, y, value, KIND.CHEST);
   }
 
   private drop(x: number, y: number, value: number, kind: number): boolean {
@@ -131,8 +131,8 @@ export class Pickups {
   /** Size class 0..3 of a pile (for the look of banknotes) or the zone (0..2) of other pickups. */
   look(i: number): number {
     if (i >= NOTE_START) {
-      // A loot crate (what a sunk pirate leaves) is always the big look.
-      if (this.kind[i] === KIND.CRATE) return 3;
+      // A loot chest (what a sunk pirate leaves) is always the big look.
+      if (this.kind[i] === KIND.CHEST) return 3;
       const v = this.value[i]!;
       return v < 20 ? 0 : v < 60 ? 1 : v < 150 ? 2 : 3;
     }

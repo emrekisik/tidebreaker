@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CARRIER,
   COMBAT,
+  DRONE,
+  DRONE_TYPES,
   MATCH,
   MATCH_STATE,
   NO_WEAPON,
@@ -36,6 +38,7 @@ import {
   createShipState,
   dqAngle16,
   dqAxis,
+  encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
   pirateReward,
@@ -1365,13 +1368,13 @@ describe('pirates', () => {
     await tick(2);
     expect(st.alive).toBe(false);
     const type = PIRATE_TYPES[PIRATE_SKIFF_INDEX]!;
-    // Score for the kill; the money is in the loot crate it left behind.
+    // Score for the kill; the money is in the loot chest it left behind.
     expect(w.score[slot]! - score0).toBe(pirateReward(type.reward, type.tier, 0));
     expect(w.cash[slot]).toBe(cash0);
     const p0 = w.pickups;
     let crate = -1;
     for (let i = NOTE_START; i < p0.active.length; i++) {
-      if (p0.active[i] === 1 && p0.kind[i] === KIND.CRATE) crate = i;
+      if (p0.active[i] === 1 && p0.kind[i] === KIND.CHEST) crate = i;
     }
     expect(crate).toBeGreaterThanOrEqual(0);
     expect(p0.value[crate]).toBe(type.loot);
@@ -1527,5 +1530,154 @@ describe('explosive barrels', () => {
     expect(p.active[first]).toBe(0);
     expect(p.active[second]).toBe(0);
     expect(a.heard.blasts.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('drones', () => {
+  const buy = (c: TestClient, type: number): void => {
+    const w = new Writer(4);
+    encodeBuyDrone(w, type);
+    c.conn.send(w.toBytes());
+  };
+  /** A spot a little way off the own carrier's hull (inside the buying range). */
+  const byCarrier = (team: number): { x: number; y: number } => {
+    const b = MATCH.carriers[team]!;
+    return { x: b.x, y: b.y + 40 };
+  };
+
+  it('are bought near the own carrier with money, up to the limit; the drone shows up for everyone', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner'); // blue
+    const b = await join('Watcher'); // red
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    expect(w.nearOwnCarrier(slot)).toBe(true);
+    // Too poor.
+    w.cash[slot] = DRONE_TYPES[0]!.price - 1;
+    buy(a, 0);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(0);
+    // With the money: one drone, the money is gone, everyone is told, the owner's STATS count it.
+    w.cash[slot] = DRONE_TYPES[0]!.price + DRONE_TYPES[1]!.price + 5;
+    buy(a, 0);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(1);
+    expect(w.cash[slot]).toBe(DRONE_TYPES[1]!.price + 5);
+    expect(a.heard.stats[a.heard.stats.length - 1]!.drones).toBe(1);
+    expect(b.heard.enters.some((e) => e.kind === KIND.DRONE && e.team === TEAM_BLUE)).toBe(true);
+    // A second, then no more.
+    buy(a, 1);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(DRONE.perPlayer);
+    w.cash[slot] = 1000;
+    buy(a, 0);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(DRONE.perPlayer);
+    expect(w.cash[slot]).toBe(1000 - 0);
+  });
+
+  it('cannot be bought away from the carrier, with a bad type, or while sunk', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    w.cash[slot] = 1000;
+    place(room, a, 600, 300, 0);
+    expect(w.nearOwnCarrier(slot)).toBe(false);
+    buy(a, 0);
+    await tick(2);
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    buy(a, 7);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(0);
+    expect(w.cash[slot]).toBe(1000);
+  });
+
+  it('attack the nearest enemy near their owner, and the kill is the owner\'s', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Owner', 'corvette'); // blue
+    const b = await join('Enemy', 'coast_guard_boat'); // red
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const enemy = b.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 0);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(1);
+    // The owner sails out into the open sea; an enemy comes within reach (away from any carrier guns).
+    const es = w.slots[enemy]!.state;
+    const score0 = w.score[slot]!;
+    for (let i = 0; i < 900 && es.alive; i++) {
+      place(room, a, 560, 480, 0);
+      place(room, b, 600, 480, Math.PI);
+      w.protectLeft[enemy] = 0;
+      await tick(1);
+    }
+    // The drone hurt it (shield first, then hull) and, given time, sank it for the owner.
+    expect(es.alive).toBe(false);
+    expect(w.score[slot]!).toBeGreaterThan(score0);
+    expect(w.kills[slot]).toBe(1);
+  });
+
+  it('are shot down by the enemy for a bounty, and go with their owner when it sinks', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Owner', 'corvette');
+    const b = await join('Hunter', 'corvette');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const hunter = b.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 0);
+    buy(a, 1);
+    await tick(2);
+    expect(w.drones.countOf[slot]).toBe(2);
+    // The red player's shot lands right on the first drone (after its take-off protection).
+    await tick(Math.ceil((DRONE.launchSec + 0.5) * TICK_RATE));
+    const d0 = w.drones.slotOf(0);
+    const ds = w.slots[d0]!.state;
+    const before = w.score[hunter]!;
+    w.spawn(ds.x - 1.5, ds.y, 0, 60, 30, 1.2, 500, hunter + 1, 0);
+    await tick(2);
+    expect(ds.alive).toBe(false);
+    expect(w.drones.countOf[slot]).toBe(1);
+    expect(w.score[hunter]! - before).toBe(DRONE_TYPES[0]!.bounty);
+    expect(a.heard.leaves).toContain(d0 + 1);
+    // The owner sinks: the other drone goes too.
+    const os = w.slots[slot]!.state;
+    place(room, a, 300, 700, 0);
+    w.protectLeft[slot] = 0;
+    w.spawn(os.x - 4, os.y, 0, 60, 30, 0.15, 2000, hunter + 1, 0);
+    await tick(3);
+    expect(os.alive).toBe(false);
+    expect(w.drones.countOf[slot]).toBe(0);
+    expect(w.drones.count).toBe(0);
+  });
+
+  it('are gone when a new round starts', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 0);
+    await tick(2);
+    expect(w.drones.count).toBe(1);
+    w.startRound();
+    expect(w.drones.count).toBe(0);
+    expect(w.drones.countOf[slot]).toBe(0);
   });
 });
