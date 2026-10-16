@@ -115,8 +115,8 @@ export const FX = {
     motes: 14,
   },
 
-  /** Healing: every `everySec` a ship whose hull grew by more than `minGain` (of its max) shows `motes` green motes. */
-  repair: { everySec: 0.25, minGain: 0.0004, motes: 3, life: 0.9 },
+  /** Healing: every `everySec` a ship whose hull grew by more than `minGain` (of its max) shows a turning wrench (a DOM effect). */
+  repair: { everySec: 0.9, minGain: 0.0004 },
 
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
   explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },

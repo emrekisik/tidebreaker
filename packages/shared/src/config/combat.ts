@@ -15,6 +15,8 @@ export const COMBAT = {
   hullRegenDelaySec: 6,
   hullRegenPctPerSec: 0.003,
   hullRegenUpgradePctPerSec: 0.004,
+  /** A player's ship only mends while it is (nearly) standing still: slower than this, in units per second. */
+  repairMaxSpeed: 0.6,
   /** A player who dropped out less than this many seconds after a hit (given or taken)... */
   combatLogSec: 10,
   /** ...leaves their ship in the water, drifting without control, for this many seconds. */

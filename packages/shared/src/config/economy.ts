@@ -38,7 +38,9 @@ export const ECONOMY = {
     lives: 3,
     /** Classes lost when the lives run out (never below T1). */
     tierLoss: 1,
-    /** The money the loser carries is dropped as this many piles of banknotes (fewer if tiny). */
+    /** Share of the money the loser carries that is lost; it floats away as banknotes anyone can pick up. */
+    cashLossPct: 0.8,
+    /** The lost money is dropped as this many piles of banknotes (fewer if tiny). */
     lootPiles: 5,
     lootMinPile: 5,
     lootLifeSec: 40,

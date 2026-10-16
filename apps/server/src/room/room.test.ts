@@ -563,6 +563,27 @@ describe('hull repair', () => {
     expect(s.hull - before).toBeGreaterThan(slow / 2);
   });
 
+  it('only mends while the ship stands still', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    await tick(1);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const s = room.world.slots[slot]!.state;
+    const max = room.world.slots[slot]!.def.hull;
+    s.hull = max * 0.5;
+    s.sinceDamage = COMBAT.hullRegenDelaySec + 1;
+    // Sailing: nothing is repaired, however long it lasts.
+    for (let i = 0; i < 5 * TICK_RATE; i++) {
+      s.speed = COMBAT.repairMaxSpeed * 4;
+      await tick(1);
+    }
+    expect(s.hull).toBeCloseTo(max * 0.5, 3);
+    // Stopped: it mends.
+    s.speed = 0;
+    await tick(2 * TICK_RATE);
+    expect(s.hull).toBeGreaterThan(max * 0.5);
+  });
+
   it('never repairs a carrier hull', async () => {
     const { room, tick } = setup();
     const carrier = room.world.slots[0]!.state;
@@ -781,7 +802,7 @@ describe('money and progress', () => {
     expect(stats.shipId).toBe(idx('gunboat'));
   });
 
-  it('sinking: the killer is paid, the loser drops banknotes, a class and the unspent money', async () => {
+  it('sinking: the killer is paid, the loser drops banknotes (80% of the money) and a class', async () => {
     const { room, join, tick } = setup({ anyClass: true });
     const a = await join('Shooter', 'corvette');
     const b = await join('Victim', 'frigate');
@@ -806,7 +827,8 @@ describe('money and progress', () => {
     // The loser: one class down, score at that tier's floor, money gone, upgrades clipped.
     expect(w.tier[bSlot]).toBe(2);
     expect(w.score[bSlot]).toBe(ECONOMY.tierScore[2]);
-    expect(w.cash[bSlot]).toBe(0);
+    // 80% of the money floated away, the rest stays.
+    expect(w.cash[bSlot]).toBe(200 - Math.floor(200 * ECONOMY.death.cashLossPct));
     expect(w.level(bSlot, 0)).toBeLessThanOrEqual(ECONOMY.statCap[2]!);
     // The money lies in the sea as banknotes.
     let notes = 0;
@@ -818,7 +840,7 @@ describe('money and progress', () => {
       }
     }
     expect(notes).toBeGreaterThan(0);
-    expect(total).toBe(200);
+    expect(total).toBe(Math.floor(200 * ECONOMY.death.cashLossPct));
     // After the respawn delay the loser is back in the lower class.
     await tick(Math.ceil(MATCH.respawnSec * TICK_RATE) + 2);
     expect(w.slots[bSlot]!.def.id).toBe('corvette');
@@ -1047,7 +1069,7 @@ describe('lives', () => {
     await sinkOnce();
     expect(w.tier[bSlot]).toBe(3); // still a frigate
     expect(w.lives[bSlot]).toBe(ECONOMY.death.lives - 1);
-    expect(w.cash[bSlot]).toBe(0); // the money is gone every time
+    expect(w.cash[bSlot]).toBe(60 - Math.floor(60 * ECONOMY.death.cashLossPct)); // most of the money is gone every time
     expect(w.slots[bSlot]!.def.id).toBe('frigate');
     expect(b.heard.stats[b.heard.stats.length - 1]!.lives).toBe(ECONOMY.death.lives - 1);
     await sinkOnce();

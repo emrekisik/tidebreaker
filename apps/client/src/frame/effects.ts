@@ -29,6 +29,8 @@ export class Effects {
   private readonly debris: ParticlePool;
   private readonly foam: ParticlePool;
   private readonly rng = new Mulberry32(0x51ed1ab5);
+  /** Called where a ship is being repaired (the UI shows a wrench there). */
+  onRepair: ((x: number, y: number) => void) | null = null;
   private readonly wakeMap: WakeMap;
   private readonly foamY = WAVE_MAX + FX.foamLift;
   /** Scratch result of spotPosition (avoids allocating a vector). */
@@ -523,30 +525,6 @@ export class Effects {
   }
 
   /** A ship blew up: fireball, shock ring, smoke column, embers and tumbling hull chunks. */
-  /** Repair: soft green motes drifting up from the middle of the hull. */
-  private repair(x: number, y: number, length: number, width: number): void {
-    for (let i = 0; i < FX.repair.motes; i++) {
-      this.glow.spawn(
-        x + this.r(-0.3, 0.3) * length,
-        this.r(0.6, 1.4),
-        y + this.r(-0.5, 0.5) * width,
-        0,
-        this.r(1.4, 2.4),
-        0,
-        FX.repair.life,
-        this.r(0.8, 1.2),
-        0.15,
-        0,
-        0.4,
-        0xb8ffc9,
-        0x0dff5e,
-        0.75,
-        0,
-        0,
-      );
-    }
-  }
-
   /** A ship became a bigger class: a flash, two rings on the water, sparks and rising motes. */
   upgrade(x: number, y: number, length: number): void {
     const U = FX.upgrade;
@@ -1070,12 +1048,12 @@ export class Effects {
     else e.wakeReady = false;
     if (s.alive) this.hullContact(e, length, width);
 
-    // Healing (regeneration, a barrel): a few green motes rise from the hull.
+    // Healing (regeneration, a barrel): a wrench turns above the hull.
     e.repairClock += dt;
     if (e.repairClock >= FX.repair.everySec) {
       e.repairClock = 0;
       if (s.alive && e.repairLast > 0 && s.hull > e.repairLast + def.hull * FX.repair.minGain) {
-        this.repair(p.x, p.y, length, width);
+        this.onRepair?.(p.x, p.y);
       }
       e.repairLast = s.hull;
     }

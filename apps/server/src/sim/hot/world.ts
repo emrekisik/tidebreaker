@@ -597,13 +597,18 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
           COMBAT.shieldRechargeSec,
           dt,
         );
-        regenHull(
-          c.state,
-          c.def.hull,
-          COMBAT.hullRegenDelaySec,
-          COMBAT.hullRegenPctPerSec + this.level(i, STAT.REGEN) * COMBAT.hullRegenUpgradePctPerSec,
-          dt,
-        );
+        // Players have to stop to repair; the pirates mend while they sail (they cannot choose).
+        const still = i >= this.playerEnd || Math.abs(c.state.speed) < COMBAT.repairMaxSpeed;
+        if (still) {
+          regenHull(
+            c.state,
+            c.def.hull,
+            COMBAT.hullRegenDelaySec,
+            COMBAT.hullRegenPctPerSec +
+              this.level(i, STAT.REGEN) * COMBAT.hullRegenUpgradePctPerSec,
+            dt,
+          );
+        }
         this.combatAge[i] = Math.min(PEACEFUL, this.combatAge[i]! + dt);
       }
     }
@@ -868,20 +873,25 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.demote(victim, x, y);
   }
 
-  /** The loser's money floats away as banknote piles; the loser drops a class (never below T1). */
+  /**
+   * The loser's money (most of it) floats away as banknote piles anyone can pick up; the rest
+   * stays. Every sinking costs a life, and the last one the class (never below T1).
+   */
   private demote(victim: number, x: number, y: number): void {
     const D = ECONOMY.death;
     const cash = this.cash[victim]!;
-    const piles = Math.min(D.lootPiles, Math.floor(cash / D.lootMinPile));
-    let left = cash;
+    const lost = Math.floor(cash * D.cashLossPct);
+    const piles =
+      lost > 0 ? Math.max(1, Math.min(D.lootPiles, Math.floor(lost / D.lootMinPile))) : 0;
+    let left = lost;
     for (let p = 0; p < piles; p++) {
-      const value = p === piles - 1 ? left : Math.floor(cash / piles);
+      const value = p === piles - 1 ? left : Math.floor(lost / piles);
       left -= value;
       const a = this.rng.next() * Math.PI * 2;
       const d = this.rng.next() * D.lootSpread;
       this.pickups.dropBanknote(x + Math.cos(a) * d, y + Math.sin(a) * d, value);
     }
-    this.cash[victim] = 0;
+    this.cash[victim] = cash - lost;
     this.statsDirty[victim] = 1;
     this.scoresDirty = true;
     // A sinking costs a life; only when the last one is gone does the ship lose its class.

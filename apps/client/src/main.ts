@@ -98,6 +98,7 @@ stage.scene.add(
 const effects = new Effects(particleKit, MAX_PROJECTILES, wakeMap);
 
 const damageNumbers = new DamageNumbers(document.getElementById('dmg-layer') as HTMLElement);
+effects.onRepair = (x, y) => damageNumbers.showWrench(stage.camera, x, y);
 const assets = new AssetProvider();
 // Fleets are built from every ship class and the carrier, so all models load before anything starts.
 // (Name plates are drawn into canvases, so the font must be there first.)
@@ -245,6 +246,7 @@ const events: OnlineEvents = {
   },
   onPickup(kind, value, x, y) {
     damageNumbers.showGain(stage.camera, x, y, value);
+    damageNumbers.flyCash(stage.camera, x, y, value);
   },
   onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
     const me = online?.myId ?? 0;

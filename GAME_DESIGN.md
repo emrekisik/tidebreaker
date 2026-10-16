@@ -194,7 +194,7 @@ interface WeaponDef {
 ### 5.4 Hasar modeli
 - Hasar önce **kalkan**ı, kalkan 0 olunca **gövde (hull)** canını düşürür.
 - **Kalkan yenilenme:** son hasardan 4 sn sonra başlar, boş bir kalkan 6 sn'de dolar (`COMBAT` config'i; sınıf bazlı sabit, upgrade'siz). **Uçak gemisi** de yenilenir ama çok yavaş: 10 sn sonra başlar, boştan doluya 60 sn. Sürekli baskı turu kazandırır, kısa bir saldırı kalıcı hasar bırakmaz demek değildir.
-- **Gövde yenilenme (tamir):** her gemide **temel olarak vardır ama çok yavaştır**: son hasardan 6 sn sonra gövdenin saniyede %0,3'ü kadar onarılır (boştan doluya ≈ 5,5 dk; `COMBAT.hullRegenPctPerSec`). Oyuncu bunu **yükseltilebilir bir özellik** olarak güçlendirir: "health regen" stat'ı seviye başına saniyede %0,4 ekler (`hullRegenUpgradePctPerSec`, §6.2). Yani yükseltme sıfırdan bir yetenek açmaz, mevcut yavaş tamiri hızlandırır; böylece savaştan kaçıp toparlanmak ödüllendirilir ve yatırım bir tercih olur. Uçak gemisi gövdesini **hiç onarmaz** (yalnızca kalkanı yenilenir). Sunucuda `World.regenLevel[slot]` bu seviyeyi tutar (Faz 4'e kadar 0).
+- **Gövde yenilenme (tamir):** (**oyuncu gemisi yalnızca durarak onarılır**: hızı `COMBAT.repairMaxSpeed` = 0,6 birim/sn altındayken; korsanlar yürürken de onarılır.) her gemide **temel olarak vardır ama çok yavaştır**: son hasardan 6 sn sonra gövdenin saniyede %0,3'ü kadar onarılır (boştan doluya ≈ 5,5 dk; `COMBAT.hullRegenPctPerSec`). Oyuncu bunu **yükseltilebilir bir özellik** olarak güçlendirir: "health regen" stat'ı seviye başına saniyede %0,4 ekler (`hullRegenUpgradePctPerSec`, §6.2). Yani yükseltme sıfırdan bir yetenek açmaz, mevcut yavaş tamiri hızlandırır; böylece savaştan kaçıp toparlanmak ödüllendirilir ve yatırım bir tercih olur. Uçak gemisi gövdesini **hiç onarmaz** (yalnızca kalkanı yenilenir). Sunucuda `World.regenLevel[slot]` bu seviyeyi tutar (Faz 4'e kadar 0).
 - (Limanda yenilenme iptal: liman yok.)
 - Can sıfırlanınca: batma animasyonu (≈ 2 sn), `SHIP_SUNK` olayı, kill feed ve skor tablosu güncellenir. Ganimet (kağıt para) saçılması ekonomiyle birlikte Faz 4'te tasarlanır.
 - **Vuruş testi:** mermi hareketi **swept segment–circle** testiyle yapılır (tünelleme yok). Gemi vuruş şekli: gövde boyunca daire zinciri.
@@ -244,7 +244,7 @@ Sınıf atlamak **otomatik değil, oyuncu seçimidir**: score eşiği aşılınc
 ```
 tierScore      = [0, 120, 450, 1200, 2600]      // config/economy.ts (güncel; sınıf tablosundaki "Min score" eski tahmindi)
 killReward     = min(victimScore * 0.35, 1500) * tierDiffFactor * repeatFactor
-wreckLoot      = victim'in CEBİNDEKİ PARA      // takım modu: en çok 5 yığın, yığın başına en az 5, 40 sn sonra söner
+wreckLoot      = victim'in cebindeki paranın %80'i  // `ECONOMY.death.cashLossPct`; kalan %20 gemide kalır. En çok 5 yığın, 40 sn sonra söner; herkes toplayabilir
 carrierDamage  = hasar * 0.25                   // düşman uçak gemisine verilen her hasar puanı skor + para (ECONOMY.carrier)
 tierDiffFactor = victimTier >= killerTier ? 1 : (−1: 0.7, −2: 0.3, ≤−3: 0.1)
 repeatFactor   = aynı katil→aynı kurban 300 sn içinde 3. ve sonrası: 0.25

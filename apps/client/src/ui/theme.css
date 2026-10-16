@@ -919,3 +919,64 @@ svg.ico,
   width: 100%;
   height: 100%;
 }
+
+/* A wrench that turns like it is tightening a bolt while it floats up (repair). */
+.wrench {
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 0 6px rgba(13, 255, 94, 0.9));
+  animation: wrench-work 1.5s ease-in-out forwards;
+}
+.wrench svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@keyframes wrench-work {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20%) rotate(-45deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(-50%, -70%) rotate(35deg);
+  }
+  45% {
+    transform: translate(-50%, -110%) rotate(-45deg);
+  }
+  65% {
+    transform: translate(-50%, -150%) rotate(35deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -210%) rotate(-30deg);
+  }
+}
+/* Banknotes flying to the money counter. */
+.cash-fly {
+  position: fixed;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(55, 255, 92, 0.8));
+}
+.cash-fly svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#hud-cash.bump {
+  animation: cash-bump 0.25s ease-out;
+}
+@keyframes cash-bump {
+  40% {
+    transform: scale(1.35);
+    color: #fff;
+  }
+}
+#hud-cash {
+  display: inline-block;
+}
