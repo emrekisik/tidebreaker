@@ -40,7 +40,10 @@ import {
   dqAxis,
   BASE,
   BASE_ITEM,
+  EMOTE,
+  EMOTE_IDS,
   encodeBaseBuy,
+  encodeEmote,
   encodeBuyDrone,
   gunsCost,
   encodeTierUp,
@@ -1697,6 +1700,46 @@ describe('drones', () => {
     expect(checked).toBeGreaterThan(100);
   });
 
+  it('tell everyone whose they are (the owner entity id in ENTER power)', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner');
+    const b = await join('Watcher');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 0);
+    await tick(3);
+    const e = b.heard.enters.find((x) => x.kind === KIND.DRONE)!;
+    expect(e.power).toBe(slot + 1);
+  });
+
+  it('give up the attack and fly home when they are far from their owner', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('Owner', 'corvette');
+    const b = await join('Enemy', 'coast_guard_boat');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = byCarrier(TEAM_BLUE);
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 500;
+    buy(a, 0);
+    await tick(2);
+    const d0 = w.drones.slotOf(0);
+    // The owner is far from the drone (and from the enemy, which sits right by the drone): no attack.
+    const ds = w.slots[d0]!.state;
+    for (let i = 0; i < 90; i++) {
+      place(room, a, spot.x + 150, spot.y - 150, 0);
+      place(room, b, ds.x + 25, ds.y, Math.PI);
+      w.protectLeft[b.heard.joined[0]!.entityId - 1] = 0;
+      await tick(1);
+    }
+    expect(a.heard.spawns.filter((x) => x.owner === d0 + 1)).toHaveLength(0);
+  });
+
   it('are gone when a new round starts', async () => {
     const { room, join, tick } = setup({ anyClass: false });
     const a = await join('Owner');
@@ -1783,5 +1826,38 @@ describe('base shop', () => {
     // A new round starts the level over.
     w.startRound();
     expect(w.baseGuns[TEAM_BLUE]).toBe(0);
+  });
+});
+
+describe('emotes', () => {
+  const emote = (c: TestClient, id: number): void => {
+    const w = new Writer(4);
+    encodeEmote(w, id);
+    c.conn.send(w.toBytes());
+  };
+
+  it('are shown to everyone with the id of the sender ship, at most one per cooldown, and only valid ones', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Sender');
+    const b = await join('Watcher');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    emote(a, 3);
+    await tick(2);
+    expect(b.heard.emotes.map((e) => [e.id, e.emote])).toEqual([[slot + 1, 3]]);
+    expect(a.heard.emotes).toHaveLength(1); // the sender sees it too
+    // Too soon: dropped.
+    emote(a, 4);
+    await tick(2);
+    expect(b.heard.emotes).toHaveLength(1);
+    // After the cooldown it works again; an id that does not exist never does.
+    await tick(Math.ceil(EMOTE.cooldownSec * TICK_RATE) + 1);
+    emote(a, EMOTE_IDS.length);
+    await tick(2);
+    expect(b.heard.emotes).toHaveLength(1);
+    emote(a, 4);
+    await tick(2);
+    expect(b.heard.emotes.map((e) => e.emote)).toEqual([3, 4]);
+    expect(room.world.playerCount()).toBe(2);
   });
 });

@@ -24,6 +24,7 @@ import {
   encodeRigs,
   encodeStats,
   encodeBaseBuy,
+  encodeEmote,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -74,6 +75,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     shipSunk: (...a) => log.push(`sunk ${a.join(',')}`),
     bump: (...a) => log.push(`bump ${a.join(',')}`),
     blast: (...a) => log.push(`blast ${a.join(',')}`),
+    emote: (...a) => log.push(`emote ${a.join(',')}`),
   };
   return { log, h };
 }
@@ -173,6 +175,10 @@ describe('client messages', () => {
     encodeBaseBuy(w, 1);
     expect(decodeClient(w.toBytes(), m)).toBe(C2S.BASE_BUY);
     expect(m.stat).toBe(1);
+    w.reset();
+    encodeEmote(w, 9);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.EMOTE);
+    expect(m.stat).toBe(9);
   });
 
   it('INPUT is 9 bytes and round-trips', () => {
@@ -389,6 +395,7 @@ describe('server messages', () => {
     ev.pickup(PICKUP_ID_BASE + 7, 3, KIND.CRATE, 12, 70.5, 80.25);
     ev.power(3, 6);
     ev.blast(PICKUP_ID_BASE + 9, 33.5, 44.25);
+    ev.emote(5, 17);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -401,6 +408,7 @@ describe('server messages', () => {
       `pickup 100,${PICKUP_ID_BASE + 7},3,${KIND.CRATE},12,70.5,80.25`,
       'power 100,3,6',
       `blast 100,${PICKUP_ID_BASE + 9},33.5,44.25`,
+      'emote 100,5,17',
     ]);
   });
 

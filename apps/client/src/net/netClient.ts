@@ -6,6 +6,7 @@ import {
   encodePing,
   encodePlay,
   encodeBaseBuy,
+  encodeEmote,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -82,6 +83,11 @@ export class NetClient {
 
   upgrade(stat: number): void {
     encodeUpgrade(this.out, stat);
+    this.flush();
+  }
+
+  emote(index: number): void {
+    encodeEmote(this.out, index);
     this.flush();
   }
 

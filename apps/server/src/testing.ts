@@ -64,6 +64,7 @@ export interface Heard {
   sunk: { id: number; killer: number }[];
   bumps: { ship: number; other: number; impact: number }[];
   blasts: { tick: number; id: number; x: number; y: number }[];
+  emotes: { tick: number; id: number; emote: number }[];
   bad: number;
 }
 
@@ -79,6 +80,7 @@ export class TestClient {
     stats: [],
     pickups: [],
     blasts: [],
+    emotes: [],
     powers: [],
     rigs: [],
     rejects: [],
@@ -123,6 +125,7 @@ export class TestClient {
       pickup: (tick, id, collector, kind, value) =>
         h.pickups.push({ tick, id, collector, kind, value }),
       blast: (tick, id, x, y) => h.blasts.push({ tick, id, x, y }),
+      emote: (tick, id, emote) => h.emotes.push({ tick, id, emote }),
       pong: (clientTime, serverTime) => h.pongs.push({ clientTime, serverTime }),
       reject: (r) => h.rejects.push(r),
       snapshot: (tick, seq, self) => h.snapshots.push({ tick, seq, self: { ...self } }),

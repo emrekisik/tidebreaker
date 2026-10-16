@@ -54,6 +54,8 @@ export class Drones {
   private readonly goalY = new Float32Array(DRONE_SLOTS);
   private readonly face = new Float32Array(DRONE_SLOTS);
   private readonly noise = new Float32Array(DRONE_SLOTS);
+  /** 1 while the drone is on its way back to its owner (it strayed too far); it attacks nothing until it is close again. */
+  private readonly recall = new Uint8Array(DRONE_SLOTS);
   /** Per type: preferred fighting distance, farthest firing distance, shot speed. */
   private readonly fightDist = new Float32Array(DRONE_TYPES.length);
   private readonly fireRange = new Float32Array(DRONE_TYPES.length);
@@ -110,6 +112,7 @@ export class Drones {
     // The drones of one owner rest on opposite sides of the circle.
     this.phase[d] = this.countOf[owner]! % 2 === 0 ? Math.PI : 0;
     this.target[d] = -1;
+    this.recall[d] = 0;
     this.vx[d] = 0;
     this.vy[d] = 0;
     this.face[d] = c.state.heading;
@@ -186,10 +189,17 @@ export class Drones {
     const t = this.type[d]!;
     this.noise[d] = (this.rng.next() * 2 - 1) * DRONE.aimErrorDeg * DEG2RAD;
 
+    // Too far from the owner (chasing, or the owner sailed away): give up the fight and fly back; it
+    // takes up targets again once it is close.
+    const ownerD = Math.hypot(s.x - o.x, s.y - o.y);
+    if (ownerD > DRONE.maxFromOwner) this.recall[d] = 1;
+    else if (ownerD < DRONE.recallDone) this.recall[d] = 0;
+
     // Keep the target while it stays valid, otherwise look for the nearest enemy.
     let cur = this.target[d]!;
+    if (this.recall[d] === 1) cur = -1;
     if (cur >= 0 && !this.valid(c.team, cur, s.x, s.y, o.x, o.y, DRONE.detectRadius * 1.3)) cur = -1;
-    if (cur < 0) {
+    if (cur < 0 && this.recall[d] === 0) {
       let bestD2 = DRONE.detectRadius * DRONE.detectRadius;
       for (let j = 0; j < w.combatants.length; j++) {
         const e = w.combatants[j]!;

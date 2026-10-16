@@ -1,6 +1,6 @@
 import { Object3D } from 'three';
 import type { InstancedMesh } from 'three';
-import { KIND, PICKUP_CAPACITY, PICKUP_ID_BASE } from '@tidebreaker/shared';
+import { FX, KIND, PICKUP_CAPACITY, PICKUP_ID_BASE } from '@tidebreaker/shared';
 import { waveHeight, waveSlope } from '../render/waves.ts';
 
 const slope = new Float32Array(2);
@@ -22,6 +22,8 @@ export class PickupView {
   /** Slot -> position in the compact list, -1 when absent. */
   private readonly where = new Int16Array(PICKUP_CAPACITY).fill(-1);
   private count = 0;
+  /** Called for every floating pickup (not banknotes) with its position and radius: where it touches the water. */
+  contact: ((x: number, z: number, radius: number) => void) | null = null;
   private readonly dummy = new Object3D();
   private readonly perKind = new Uint16Array(4);
 
@@ -75,7 +77,7 @@ export class PickupView {
   }
 
   /** Positions every item on the waves. */
-  update(timeSec: number): void {
+  update(timeSec: number, focusX = 0, focusZ = 0): void {
     const d = this.dummy;
     this.perKind.fill(0);
     for (let i = 0; i < this.count; i++) {
@@ -98,6 +100,10 @@ export class PickupView {
         if (this.looks[i]! === 3) size *= 1.4;
       }
       d.position.set(x, y, z);
+      // (Only what is inside the foam map, which follows the camera focus.)
+      if (kindIdx !== 3 && Math.abs(x - focusX) < 96 && Math.abs(z - focusZ) < 96) {
+        this.contact?.(x, z, size * FX.pickupContact.radius);
+      }
       if (kindIdx === 3) {
         d.rotation.set(
           Math.sin(timeSec * 1.1 + phase) * 0.12,

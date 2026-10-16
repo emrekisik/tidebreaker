@@ -76,7 +76,10 @@ export const DRONE = {
   /** It attacks an enemy this close to itself... */
   detectRadius: 58,
   /** ...as long as the enemy is no further than this from the owner (otherwise it goes home). */
-  leash: 85,
+  leash: 52,
+  /** A drone farther than this from its owner gives up and flies back, until it is within `recallDone`. */
+  maxFromOwner: 62,
+  recallDone: 28,
   /** It likes to fight at this fraction of its weapon range, and keeps shooting inside this one. */
   fightDistFactor: 0.7,
   /** Linear acceleration (units/s^2) and how much speed it loses per second when not accelerating. */

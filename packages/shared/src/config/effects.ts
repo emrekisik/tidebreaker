@@ -160,6 +160,12 @@ export const FX = {
   sway: { refLength: 6, min: 0.12 },
 
   /**
+   * Where a floating pickup touches the water: the sea there gets darker (`shadow`, 0..1) and a faint
+   * lace of foam (`foam`, 0..1) laps at it; `radius` is the reach as a share of the pickup's size.
+   */
+  pickupContact: { shadow: 0.55, foam: 0.32, radius: 0.85 },
+
+  /**
    * Scene lighting: one warm sun (direction points from the sea toward the sun) casting real
    * shadows, plus a sky/sea hemisphere light so the shaded sides are bluish instead of black.
    * The shadow map follows the camera: it covers `rangePerHeight` x the camera height around the

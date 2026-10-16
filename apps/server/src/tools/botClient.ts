@@ -293,6 +293,7 @@ export class BotClient {
     pickup: () => {},
     power: () => {},
     blast: () => {},
+    emote: () => {},
     rigs: (rows) => {
       this.rigState = rows;
     },

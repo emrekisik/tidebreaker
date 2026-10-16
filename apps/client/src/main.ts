@@ -1,6 +1,7 @@
 import {
   DRONE,
   ECONOMY,
+  FX,
   MATCH_STATE,
   MAX_PROJECTILES,
   NO_WEAPON,
@@ -17,6 +18,7 @@ import {
   mapHash,
 } from '@tidebreaker/shared';
 import type { Combatant, ShipId, WorldMap } from '@tidebreaker/shared';
+import { Vector3 } from 'three';
 import type { Color } from 'three';
 import { FixedStep } from './frame/fixedStep.ts';
 import { aimFromScreen } from './frame/aim.ts';
@@ -53,6 +55,7 @@ import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { BaseShop } from './ui/baseShop.ts';
+import { EmoteBubbles, EmoteMenu } from './ui/emotes.ts';
 import { RigView } from './render/rigs.ts';
 import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
@@ -122,6 +125,10 @@ const hud = new Hud();
 const debugHud = debug ? new DebugHud(document.getElementById('debug') as HTMLElement) : null;
 const matchHud = new MatchHud();
 const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
+// Floating things darken the water where they touch it and leave a faint lace of foam.
+pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
+const emoteBubbles = new EmoteBubbles();
+const emoteMenu = new EmoteMenu((index) => online?.net.emote(index));
 const baseShop = new BaseShop((item, arg) => {
   if (item === 0) online?.net.buyDrone(arg);
   else online?.net.baseBuy(arg);
@@ -184,6 +191,9 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (online) scoreboard.hold(true);
   }
+  if (e.code === 'KeyC' && !e.repeat && online && (e.target as HTMLElement).tagName !== 'INPUT') {
+    emoteMenu.show();
+  }
   if (e.code === 'KeyM' && !e.repeat && minimap && (e.target as HTMLElement).tagName !== 'INPUT') {
     minimap.toggle();
     minimapEl.classList.toggle('big');
@@ -237,6 +247,9 @@ const events: OnlineEvents = {
   },
   onScore(x, y, points) {
     damageNumbers.showScore(stage.camera, x, y, points);
+  },
+  onEmote(shipId, emote) {
+    emoteBubbles.show(shipId, emote, performance.now());
   },
   onBlast(x, y) {
     const R = ECONOMY.pickups.barrel.blast.radius;
@@ -382,6 +395,17 @@ const aimOut = new Float32Array(2);
 let lastMs = performance.now();
 let lastNetInfoMs = 0;
 const others: Combatant[] = [];
+const emoteSpot = new Vector3();
+/** Screen position (pixels) of the point over ship `id`, for the emote bubbles; false when it is off screen. */
+function placeEmote(id: number, out: Float32Array): boolean {
+  const e = online?.entityOf(id);
+  if (!e) return false;
+  emoteSpot.set(e.pose.x, 7, e.pose.y).project(stage.camera);
+  if (emoteSpot.z > 1) return false;
+  out[0] = (emoteSpot.x * 0.5 + 0.5) * window.innerWidth;
+  out[1] = (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight - 6;
+  return true;
+}
 const carriers: (Combatant | undefined)[] = [undefined, undefined];
 
 function update(nowMs: number): void {
@@ -437,12 +461,13 @@ function update(nowMs: number): void {
   const p = game.player.pose;
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
   stage.followSun(rig.focusX, rig.focusZ);
+  // (The pickups stamp where they touch the water into the foam map, so they come before it is drawn.)
+  pickups.update(timeSec, rig.focusX, rig.focusZ);
   wakeMap.render(stage.renderer);
   water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);
   water.update(timeSec, rig.focusX, rig.focusZ);
   water.setShadow(stage.sunShadowMap, stage.sunShadowMatrix);
   islands?.update(timeSec);
-  pickups.update(timeSec);
 
   others.length = 0;
   carriers[0] = undefined;
@@ -453,6 +478,7 @@ function update(nowMs: number): void {
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
   minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
+  emoteBubbles.update(nowMs, placeEmote);
   // The base shop is open while the player's ship is at its own carrier.
   const ownCarrier = online ? carriers[online.myTeam] : undefined;
   if (ownCarrier) baseShop.setCarrierHull(ownCarrier.state.hull / ownCarrier.def.hull);

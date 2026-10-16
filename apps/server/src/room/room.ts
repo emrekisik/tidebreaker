@@ -482,7 +482,15 @@ export class Room {
           e.heading = ship.state.heading;
           e.hp = ship.state.hull / ship.def.hull;
           e.shield = ship.state.shield / w.maxShieldOf(s);
-          e.power = s < CARRIER_SLOTS || s >= w.playerEnd ? 0 : w.level(s, STAT.DAMAGE);
+          // (A drone's power field says whose it is: its owner's entity id.)
+          e.power =
+            s < CARRIER_SLOTS
+              ? 0
+              : s < w.playerEnd
+                ? w.level(s, STAT.DAMAGE)
+                : s < w.pirateEnd
+                  ? 0
+                  : w.drones.owner[s - w.pirateEnd]! + 1;
           e.name = this.names[s]!;
           sb.enter(e);
           c.known[s] = 1;
@@ -638,6 +646,9 @@ export class Room {
         break;
       case C2S.BASE_BUY:
         if (c.stage === Stage.Playing) this.world.buyBase(c.slot, c.msg.stat);
+        break;
+      case C2S.EMOTE:
+        if (c.stage === Stage.Playing) this.world.emote(c.slot, c.msg.stat);
         break;
       case C2S.PING:
         this.small.reset();

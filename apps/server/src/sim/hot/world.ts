@@ -7,6 +7,8 @@ import {
   DRONE,
   DRONE_TYPES,
   ECONOMY,
+  EMOTE,
+  EMOTE_IDS,
   END_REASON,
   EventWriter,
   KIND,
@@ -170,6 +172,11 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   /** Players whose damage level changed since the last tick (announced with the next events). */
   private readonly powerSlot = new Uint16Array(DIED_CAPACITY);
   private powerCount = 0;
+  /** Emotes waiting to be announced with the next events, and each player's cooldown (seconds). */
+  private readonly emoteSlot = new Uint16Array(DIED_CAPACITY);
+  private readonly emoteId = new Uint8Array(DIED_CAPACITY);
+  private emoteCount = 0;
+  private readonly emoteLeft: Float32Array;
   /** The scoreboard changed (kills, deaths, players coming or going). */
   scoresDirty = true;
   matchState: number = MATCH_STATE.PLAYING;
@@ -219,6 +226,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.pairAge = new Float32Array(n * n).fill(PEACEFUL);
     this.carrierCarry = new Float32Array(n);
     this.savedHull = new Float32Array(n);
+    this.emoteLeft = new Float32Array(n);
     this.savedShield = new Float32Array(n);
 
     // Every state gets room for the largest mount list, so a slot can change class freely.
@@ -382,6 +390,18 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       return true;
     }
     return false;
+  }
+
+  /** A player shows an emote over their ship (everyone sees it); limited to one per `EMOTE.cooldownSec`. */
+  emote(slot: number, id: number): boolean {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
+    if (!(id >= 0 && id < EMOTE_IDS.length) || !this.slots[slot]!.state.alive) return false;
+    if (this.emoteLeft[slot]! > 0 || this.emoteCount >= DIED_CAPACITY) return false;
+    this.emoteLeft[slot] = EMOTE.cooldownSec;
+    this.emoteSlot[this.emoteCount] = slot;
+    this.emoteId[this.emoteCount] = id;
+    this.emoteCount++;
+    return true;
   }
 
   // ---- joining and leaving (called by the room, between ticks)
@@ -603,6 +623,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       this.events.power(slot + 1, this.level(slot, STAT.DAMAGE));
     }
     this.powerCount = 0;
+    for (let i = 0; i < this.emoteCount; i++) {
+      this.events.emote(this.emoteSlot[i]! + 1, this.emoteId[i]!);
+    }
+    this.emoteCount = 0;
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
+      if (this.emoteLeft[i]! > 0) this.emoteLeft[i] = this.emoteLeft[i]! - dt;
+    }
     this.diedCount = 0;
     this.feedCount = 0;
     const ended = this.matchState === MATCH_STATE.ENDED;

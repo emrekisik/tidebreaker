@@ -490,15 +490,19 @@ export class AssetProvider {
   }
 
   /**
-   * A drone: one mesh (a static model fitted to `length` units, nose along +x) with a team-colored
-   * glow and a ring on the water below (the drone hovers above it). Placeholder: a small box.
+   * A drone: one mesh (a static model fitted to `length` units, nose along +x) tinted a little toward
+   * its team's color, and (`ring`: the player's own drones) a ring on the water below it. Placeholder:
+   * a small box.
    */
-  createDrone(modelKey: string, team: Team, length: number): ShipModel {
+  createDrone(modelKey: string, team: Team, length: number, ring = false): ShipModel {
     const prop = this.props.get(modelKey);
     const spec = PROP_SPECS[modelKey];
     const glow = this.glowMats[team].color;
     const map = prop ? ((prop.material as MeshLambertMaterial).map ?? null) : null;
-    const normal = new MeshLambertMaterial({ map, color: map ? 0xffffff : glow, emissive: glow, emissiveIntensity: 0.5 });
+    // Mostly its own paint, with enough of the team color to tell the sides apart: the albedo is
+    // tinted toward the team color and a faint glow of it is added.
+    const tint = new Color(0xffffff).lerp(glow, 0.42);
+    const normal = new MeshLambertMaterial({ map, color: tint, emissive: glow, emissiveIntensity: 0.14 });
     const flash = new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 });
     const mesh = new Mesh(prop ? prop.geometry : new BoxGeometry(1, 0.3, 0.8), normal);
     mesh.scale.setScalar(length);
@@ -509,7 +513,8 @@ export class AssetProvider {
     model.hullLength = length;
     model.hullWidth = length * 0.8;
     model.root.add(mesh);
-    this.addTeamRing(model, length * 2, team);
+    // The ring on the water is only for the owner's own drones.
+    if (ring) this.addTeamRing(model, length * 2, team);
     return model;
   }
 

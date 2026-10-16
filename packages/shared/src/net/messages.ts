@@ -24,6 +24,7 @@ export const C2S = {
   PING: 0x06,
   BUY_DRONE: 0x07,
   BASE_BUY: 0x08,
+  EMOTE: 0x09,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -66,6 +67,7 @@ export const EVENT = {
   PICKUP: 6,
   POWER: 7,
   BLAST: 8,
+  EMOTE: 9,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = {
@@ -151,6 +153,12 @@ export function encodeBaseBuy(w: Writer, item: number): void {
   w.u8(item);
 }
 
+/** Show an emote (`EMOTE_IDS` index) over the own ship; the server limits how often. */
+export function encodeEmote(w: Writer, emote: number): void {
+  w.u8(C2S.EMOTE);
+  w.u8(emote);
+}
+
 /** Move up one class (the server checks the money). */
 export function encodeTierUp(w: Writer, choice = 0): void {
   w.u8(C2S.TIER_UP);
@@ -211,6 +219,7 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       break;
     case C2S.BUY_DRONE:
     case C2S.BASE_BUY:
+    case C2S.EMOTE:
       out.stat = r.u8();
       break;
     case C2S.PING:
@@ -664,6 +673,16 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A ship shows an emote. */
+  emote(id: number, emote: number): void {
+    if (!this.room(4)) return;
+    const w = this.w;
+    w.u8(EVENT.EMOTE);
+    w.u16(id);
+    w.u8(emote);
+    this.count++;
+  }
+
   /** A barrel went off at (x, y). */
   blast(id: number, x: number, y: number): void {
     if (!this.room(7)) return;
@@ -749,6 +768,8 @@ export interface ServerHandler {
   power(tick: number, id: number, level: number): void;
   /** An explosive barrel went off. */
   blast(tick: number, id: number, x: number, y: number): void;
+  /** A ship shows an emote. */
+  emote(tick: number, id: number, emote: number): void;
 }
 
 const self = newSelfState();
@@ -1023,6 +1044,12 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const x = dqPos(r.u16());
         const y = dqPos(r.u16());
         if (r.ok) h.pickup(tick, id, collector, kind, value, x, y);
+        break;
+      }
+      case EVENT.EMOTE: {
+        const id = r.u16();
+        const emote = r.u8();
+        if (r.ok) h.emote(tick, id, emote);
         break;
       }
       case EVENT.BLAST: {

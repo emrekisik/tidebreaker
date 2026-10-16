@@ -77,6 +77,8 @@ export interface OnlineEvents extends GameEvents {
   onScore(x: number, y: number, points: number): void;
   /** An explosive barrel went off here. */
   onBlast(x: number, y: number): void;
+  /** A ship shows an emote (`emote` = index of `EMOTE_IDS`). */
+  onEmote(shipId: number, emote: number): void;
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
   onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
@@ -601,7 +603,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     combatant.state.heading = e.heading;
     const model =
       e.kind === KIND.DRONE
-        ? d.assets.createDrone(def.modelKey, teamName(e.team), def.length)
+        ? d.assets.createDrone(def.modelKey, teamName(e.team), def.length, e.power === this.myId)
         : d.assets.createShip(def.modelKey, teamName(e.team), false);
     const bar = new HealthBar(
       d.scene,
@@ -682,7 +684,7 @@ export class OnlineGame implements GameSession, ServerHandler {
   // ---- messages: events
 
   /** Your own ship and shots live in the present; everything else on the delayed timeline. */
-  private entityOf(id: number): ShipEntity | undefined {
+  entityOf(id: number): ShipEntity | undefined {
     return id === this.myId ? this.player : this.remotes.get(id)?.entity;
   }
 
@@ -786,6 +788,10 @@ export class OnlineGame implements GameSession, ServerHandler {
     };
     if (target === this.myId) apply();
     else this.at(tick * STEP_MS, apply);
+  }
+
+  emote(tick: number, id: number, emote: number): void {
+    this.at(tick * STEP_MS, () => this.deps.events.onEmote(id, emote));
   }
 
   blast(tick: number, _id: number, x: number, y: number): void {

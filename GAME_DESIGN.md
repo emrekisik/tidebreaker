@@ -273,7 +273,7 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 | **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
 
-**Suda durma:** para dışındaki tüm nesneler (sandık, varil, hazine sandığı) suya kısmen gömülü yüzer (modelin %30'u su altında), dalganın eğimine yaslanır, ağır ağır sallanır ve yavaşça döner; banknot yığınları suyun üstünde düz yatar.
+**Suda durma:** suya değdikleri yerde deniz koyulaşır ve ince bir köpük dantelisi oluşur (köpük haritasına her karede basılır: `FX.pickupContact`); para dışındaki tüm nesneler (sandık, varil, hazine sandığı) suya kısmen gömülü yüzer (modelin %30'u su altında), dalganın eğimine yaslanır, ağır ağır sallanır ve yavaşça döner; banknot yığınları suyun üstünde düz yatar.
 
 **Görünümler:** sandık = ahşap sandık modeli (`wooden_create_loot`), varil = kırmızı petrol varili (`red_oil_barrel`), hazine sandığı = altın korsan sandığı (`pirate_golden_treasure_chest`; **korsanın düşürdüğü ganimet de bu modeldir, 1,4 kat büyük**), banknot yığını = para modeli (`money_model`). Hepsi `InstancedMesh` ile çizilir; modeller yoksa düz renkli şekillere dönülür. Model dosyaları gltf-transform ile ~1,5–4 bin üçgene indirilir (`tools/assets/build.mjs`).
 
@@ -305,13 +305,13 @@ Oyuncu **para ile drone satın alabilir**; drone, sahibini koruyan küçük uça
 | **Combat drone** (`combat_drone`) | 140 | 70 / 25 | 22 | roket (`drone_rocket`: 20 hasar, 2,4 sn, menzil 48) | 18 |
 
 - **Satın alma:** oyuncu **kendi uçak gemisinin gövdesine 50 birim** (`DRONE.buyRadius`) yaklaşınca solda, radarın üstünde **Üs mağazası** (Base Shop) penceresi açılır; uzaklaşınca kapanır. Pencerede dört satır vardır (tuş **7** FPV, **8** Combat, **9** uçak gemisi onarımı, **0** savunma silahları; tıklama da olur), bkz. aşağıdaki **Üs mağazası** maddesi. Sunucu parayı, yeri ve sınırı doğrular. Oyuncu başına en çok **2 drone** (`DRONE.perPlayer`, türlerin karışımı). Drone uçak gemisinden kalkar, ilk 1,5 sn dokunulmazdır (ilk atışta biter).
-- **Davranış (eskort):** sahibinin çevresinde yavaş dönen bir çemberde (13 birim) süzülür, sahibi giderken peşinden gider. Kendisine 58 birim (`DRONE.detectRadius`) içinde ve **sahibinden 85 birimden (`leash`) uzak olmayan** en yakın düşmana (oyuncu gemisi, korsan, düşman drone) saldırır; doğrudan hedefe doğru uçar (bir saldırı turu), silah menzilinin %70'inde durur ve ateş eder. **Burnu hep uçtuğu yöne bakar** (sahibinin çevresinde dönerken de, teğet boyunca); yalnızca neredeyse durduğunda hedefe döner. **Düşman uçak gemisine saldırmaz** ve düşman uçak gemisinin 105 birim yakınındaki hedeflere gitmez (carrier topları drone'u vururdu).
+- **Davranış (eskort):** sahibinin çevresinde yavaş dönen bir çemberde (13 birim) süzülür, sahibi giderken peşinden gider. Kendisine 58 birim (`DRONE.detectRadius`) içinde ve **sahibinden 52 birimden (`leash`) uzak olmayan** en yakın düşmana (oyuncu gemisi, korsan, düşman drone) saldırır; doğrudan hedefe doğru uçar (bir saldırı turu), silah menzilinin %70'inde durur ve ateş eder. **Sahibinden 62 birimden (`maxFromOwner`) uzaklaşırsa** (kovalarken ya da sahibi giderken) saldırıyı bırakır ve sahibinin yanına döner; 28 birime (`recallDone`) girene kadar hiçbir şeye saldırmaz. **Burnu hep uçtuğu yöne bakar** (sahibinin çevresinde dönerken de, teğet boyunca); yalnızca neredeyse durduğunda hedefe döner. **Düşman uçak gemisine saldırmaz** ve düşman uçak gemisinin 105 birim yakınındaki hedeflere gitmez (carrier topları drone'u vururdu).
 - **Uçar:** adalara ve gemilere çarpmaz, çarpışma hesabına girmez; varil patlaması da etkilemez. Ama mermiyle ve roketle **vurulabilir** (küçük vuruş dairesi), uçak gemilerinin topları onu da hedef alır; sebep olduğu hasar, öldürmeler ve yardımlar **sahibine** yazılır.
 - **Ömür:** canı bitince, sahibi batınca (hepsi birlikte düşer), sahibi oyundan çıkınca ya da yeni tur başlayınca yok olur. Ödenen para geri gelmez; yeniden satın alınır.
 - **Sunucu maliyeti:** drone'lar sunucuda ordinary birer slottur (`World.pirateEnd`'den sonra, en çok 48); her biri 3 tikte bir düşünür. `pnpm bench` her oyuncuya 2 drone verir: p99 ≈ 3,4 ms (hedef ≤ 8).
 - **Boyut:** FPV 3,4, Combat 4,4 birim (`length`; FPV daha küçük).
 - **Üs mağazası:** drone satırlarının yanında (a) **uçak gemisi onarımı**: her alış gemiye gövdesinin %10'unu geri verir, 200 para (`BASE.repair`), yalnızca gemi hasarlıyken; (b) **savunma silahları**: uçak gemisinin toplarının **hasarını +%15** ve **atış hızını** (bekleme −%8) her seviyede artırır, en çok 5 seviye, seviye başına maliyet `250 × 1,6^seviye` (`BASE.guns`). Seviye **takımındır** (kendi takımının uçak gemisi), tüm takım görür ve yeni turda sıfırlanır. Her ikisi de oyuncunun parasından düşer, `BASE_BUY` mesajıyla istenir; alış için oyuncu canlı ve kendi uçak gemisine yakın olmalıdır.
-- **Görünüm (istemci):** her drone statik bir model (`fpv_drone.glb`, `combat_drone.glb`), takım renginde parlar, 4,2 birim yükseklikte süzülür, dönüşlerde yatar, altında takım halkası ve güneşin gölgesi suya düşer. Üstünde küçük can/kalkan çubuğu vardır.
+- **Görünüm (istemci):** her drone statik bir model (`fpv_drone.glb`, `combat_drone.glb`), kendi boyasını korur ama takım rengine doğru hafif tonlanır (mavi/kırmızı belli olur, tamamen boyanmaz); 4,2 birim yükseklikte süzülür, dönüşlerde yatar, güneşin gölgesi suya düşer. **Altındaki takım halkası yalnızca oyuncunun kendi drone'larında görünür** (ENTER'daki `power` alanı drone'un sahibinin varlık kimliğidir). Üstünde küçük can/kalkan çubuğu vardır.
 
 ### 7.4 Oyuncu öldürme
 §6.4'teki formüller. Ayrıca batan geminin ganimeti herkes tarafından toplanabilir (intikam ve geri dönüş mekaniği).
@@ -439,6 +439,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x04 | `UPGRADE` | `u8 statId (0..5)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu parayı doğrular, sınıf bedelini (`ECONOMY.tierCost`) düşer; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
+| 0x09 | `EMOTE` | `u8 emote` (`EMOTE_IDS` indeksi): oyuncu gemisinin üstünde bir konuşma balonu gösterir; sunucu `EMOTE.cooldownSec` (1,2 sn) ve geçerli kimlik denetler |
 | 0x08 | `BASE_BUY` | `u8 item` (`BASE_ITEM`: 0 uçak gemisi onarımı, 1 savunma silahları): üs mağazası; sunucu para, yakınlık ve uçak gemisinin durumunu doğrular |
 | 0x07 | `BUY_DRONE` | `u8 droneType` (`DRONE_TYPES` indeksi): sunucu parayı, uçak gemisine yakınlığı ve oyuncu başına sınırı doğrular |
 | 0x07 | `EMOTE` | `u8 emoteId` |
@@ -493,6 +494,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
+| `EMOTE` (9) | `u16 shipId, u8 emote`: bir gemi emote gösterdi (herkese gider, gönderen dahil). Balon `EMOTE.showSec` (3,5 sn) görünür |
 | `BLAST` (8) | `u16 pickupId, u16 x, u16 y`: bir patlayıcı varil patladı (ateş topu ve şok halkası). Varilin hasarı ayrıca her etkilenen gemi için `SHIP_HIT` (silah = `NO_WEAPON`) olarak gelir; varil `LEAVE` ile kalkar |
 | `RIGS` (S2C 0x8E, ayrı mesaj) | `u8 count`, her kuyu için `i8 ibre×127, u8 sahip (255 = yok)`; değişince (en çok 2 Hz) ve yeni girene |
 | `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
@@ -640,6 +642,20 @@ Tüm HUD tek bir temayı paylaşır (`apps/client/src/ui/theme.css`): **düz (k�
 - **`AssetProvider` soyutlaması:** `modelKey` → GLB yoksa **procedural placeholder** (kutu birleşimleri). Böylece oyun, nihai modeller gelmeden oynanabilir. Nihai gemi modelleri Faz 7'de ya da sanatçıdan gelince eklenir.
 - **Model manifesti (`apps/client/src/render/modelSpecs.ts`):** her GLB için gövde düğümü, baş yönü, uzunluk, su çizgisi ve nişanı takip edecek taret düğümleri veri olarak tanımlanır. Yükleyici modeli normalize eder (baş +x, uzunluk, su çizgisi y=0). Taret pivotu = Blender'daki düğümün origin'i; namlunun hangi yöne baktığı (baş/kıç) mesh sınırlarından otomatik bulunur. `pnpm assets:build` ağ sıkıştırması sırasında her mesh'i alt düğüme taşır; çünkü kuantizasyon mesh taşıyan düğümün dönüşümünü değiştirir ve pivotu bozar. Doku atlası 256 px'e indirilir.
 - Lisans: her asset `ASSETS.md`'ye (kaynak, lisans, yazar, URL) işlenir. CC0 ya da ticari kullanıma izin veren lisans şart.
+
+### 12.6a Emote'lar
+Oyuncular geminin üstünde **konuşma balonu** gösterebilir (18 adet, `emotes/*.svg`, kimlikler `config/emotes.ts`). **`C`** tuşu ortada bir menü açar (6×3 ızgara); balonlardan birine **tıklayarak** ya da üstündeki **harf** ile seçilir, `C`, `Esc` veya dışına tıklama menüyü kapatır. Menü açıkken **bütün tuşları yutar**, bu yüzden harfler gemiyi sürmez (A/D/S/W de kısayol olabilir). Seçilince menü kapanır, balon geminin üstünde zıplayarak belirir, 3,5 sn durur ve söner; gemiyi izler. Başkası yeniden gönderirse eski balon yerine geçer.
+
+| Tuş | Emote | Tuş | Emote | Tuş | Emote |
+|---|---|---|---|---|---|
+| A | A kuyusu | B | B kuyusu | V | C kuyusu (C menüyü açtığı için) |
+| K | saldır | D | savun | S | üs |
+| P | yardım | W | bekle | I | ben |
+| Y | sen | T | teşekkürler | G | gg |
+| H | mutlu | L | kahkaha | O | kalp |
+| U | üzgün | R | kızgın | M | hmm |
+
+Balonlar DOM'dadır (`#emote-layer`), gemilerin ekran konumunu kamera ile hesaplar. Sunucu yalnızca kimliği doğrular ve herkese iletir; oyuncu başına 1,2 sn sınırı vardır.
 
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).

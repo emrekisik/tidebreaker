@@ -2,6 +2,7 @@ import { COLLISION, ISLAND_COLLISION } from './collision.ts';
 import { BASE } from './base.ts';
 import { COMBAT } from './combat.ts';
 import { DRONE, DRONE_TYPES } from './drones.ts';
+import { EMOTE, EMOTE_IDS } from './emotes.ts';
 import { ECONOMY } from './economy.ts';
 import { CARRIER, MATCH } from './match.ts';
 import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS, PIRATE_TYPES } from './pirates.ts';
@@ -44,6 +45,8 @@ export function configHash(): number {
     DRONE,
     DRONE_TYPES,
     BASE,
+    EMOTE,
+    EMOTE_IDS,
   ]);
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
