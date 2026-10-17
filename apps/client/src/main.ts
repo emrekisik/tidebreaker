@@ -55,7 +55,7 @@ import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { BaseShop } from './ui/baseShop.ts';
-import { EmoteBubbles, EmoteMenu } from './ui/emotes.ts';
+import { EmoteBubbles, EmoteWheel } from './ui/emotes.ts';
 import { RigView } from './render/rigs.ts';
 import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
@@ -128,7 +128,7 @@ const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 // Floating things darken the water where they touch it and leave a faint lace of foam.
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
 const emoteBubbles = new EmoteBubbles();
-const emoteMenu = new EmoteMenu((index) => online?.net.emote(index));
+const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const baseShop = new BaseShop((item, arg) => {
   if (item === 0) online?.net.buyDrone(arg);
   else online?.net.baseBuy(arg);
@@ -192,7 +192,7 @@ window.addEventListener('keydown', (e) => {
     if (online) scoreboard.hold(true);
   }
   if (e.code === 'KeyC' && !e.repeat && online && (e.target as HTMLElement).tagName !== 'INPUT') {
-    emoteMenu.show();
+    emoteWheel.press();
   }
   if (e.code === 'KeyM' && !e.repeat && minimap && (e.target as HTMLElement).tagName !== 'INPUT') {
     minimap.toggle();
@@ -201,6 +201,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyC') emoteWheel.release();
   if (e.code === 'Tab') scoreboard.hold(false);
 });
 window.addEventListener('blur', () => scoreboard.hold(false));
@@ -479,6 +480,11 @@ function update(nowMs: number): void {
   }
   minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
   emoteBubbles.update(nowMs, placeEmote);
+  if (emoteWheel.isOpen) {
+    // The wheel is drawn around the player's own ship.
+    emoteSpot.set(ps.x, 1, ps.y).project(stage.camera);
+    emoteWheel.update((emoteSpot.x * 0.5 + 0.5) * window.innerWidth, (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight);
+  }
   // The base shop is open while the player's ship is at its own carrier.
   const ownCarrier = online ? carriers[online.myTeam] : undefined;
   if (ownCarrier) baseShop.setCarrierHull(ownCarrier.state.hull / ownCarrier.def.hull);

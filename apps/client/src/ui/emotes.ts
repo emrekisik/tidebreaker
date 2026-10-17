@@ -1,5 +1,7 @@
 import { EMOTE, EMOTE_IDS } from '@tidebreaker/shared';
 import type { EmoteId } from '@tidebreaker/shared';
+import { t } from '../i18n/index.ts';
+import type { MessageKey } from '../i18n/index.ts';
 
 /** The pictures of the emotes (white speech bubbles), by id: `emotes/<id>.svg`. */
 const files = import.meta.glob('./emotes/*.svg', {
@@ -14,9 +16,9 @@ export function emoteSvg(id: EmoteId): string {
 }
 
 /**
- * Key of each emote while the emote menu is open (`KeyboardEvent.code`). The menu swallows every
- * key, so these may be letters the game uses otherwise (A, D, S, W...). C opens and closes the menu,
- * so the bubble with a C on it is on V.
+ * Key of each emote while the emote wheel is open (`KeyboardEvent.code`). The wheel swallows every
+ * key, so these may be letters the game uses otherwise (A, D, S, W...). C holds the wheel open, so
+ * the bubble with a C on it is on V.
  */
 export const EMOTE_KEYS: Readonly<Record<EmoteId, string>> = {
   a: 'KeyA',
@@ -39,7 +41,7 @@ export const EMOTE_KEYS: Readonly<Record<EmoteId, string>> = {
   hmm: 'KeyM',
 };
 
-/** The order of the bubbles in the menu (rows of six): calls, requests, social, moods. */
+/** The order of the bubbles around the wheel, clockwise from the top: calls, requests, social, moods. */
 export const EMOTE_ORDER: readonly EmoteId[] = [
   'a',
   'b',
@@ -61,78 +63,137 @@ export const EMOTE_ORDER: readonly EmoteId[] = [
   'hmm',
 ];
 
+/** Radius of the wheel (pixels, before the UI scale) and the dead zone in its middle where nothing is picked. */
+const RING = 128;
+const DEAD_ZONE = 34;
+
 /**
- * The emote menu: opens with `C` over the middle of the screen, a grid of the bubbles. A click or the
- * key written on a bubble sends it; `C`, `Esc` or a click outside closes the menu. While it is open
- * it takes every key press, so the ship's controls do not react to the letters.
+ * The emote wheel (like a chat wheel in other games): while `C` is held a wheel of all the emotes is
+ * drawn around the player's ship; the mouse points at one (the one in that direction is lit up and its
+ * name shown), and letting go of `C` shows that emote over the ship. Letting go with the mouse in the
+ * middle, or pressing `Esc`, shows nothing. The key written on an emote also picks it at once. While
+ * the wheel is open it takes the key presses (the ship's controls ignore the letters).
  */
-export class EmoteMenu {
-  private readonly root = document.getElementById('emote-menu') as HTMLElement;
+export class EmoteWheel {
+  private readonly root = document.getElementById('emote-wheel') as HTMLElement;
+  private readonly slots: HTMLElement[] = [];
+  private readonly ball = document.createElement('div');
+  private readonly name = document.createElement('div');
   private open = false;
+  /** The emote the mouse points at (index into EMOTE_ORDER), or -1. */
+  private hover = -1;
+  private mouseX = 0;
+  private mouseY = 0;
+  private centerX = 0;
+  private centerY = 0;
 
   constructor(private readonly onPick: (index: number) => void) {
-    const panel = document.createElement('div');
-    panel.className = 'em-panel panel';
-    const grid = document.createElement('div');
-    grid.className = 'em-grid';
-    for (const id of EMOTE_ORDER) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'em-btn';
-      b.innerHTML = emoteSvg(id);
+    const ring = document.createElement('div');
+    ring.className = 'ew-ring';
+    this.ball.className = 'ew-ball';
+    this.name.className = 'ew-name';
+    this.root.append(ring, this.ball, this.name);
+    const step = (Math.PI * 2) / EMOTE_ORDER.length;
+    EMOTE_ORDER.forEach((id, i) => {
+      const el = document.createElement('div');
+      el.className = 'ew-slot';
+      el.innerHTML = emoteSvg(id);
       const key = document.createElement('span');
-      key.className = 'em-key';
+      key.className = 'ew-key';
       key.textContent = EMOTE_KEYS[id].slice(3);
-      b.append(key);
-      b.addEventListener('click', () => this.pick(id));
-      grid.append(b);
-    }
-    panel.append(grid);
-    // A click on the dark area around closes the menu; clicks never reach the game (they would fire).
-    panel.addEventListener('pointerdown', (e) => e.stopPropagation());
-    this.root.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      this.close();
+      el.append(key);
+      // Clockwise from the top.
+      el.style.left = `${Math.sin(i * step) * RING}px`;
+      el.style.top = `${-Math.cos(i * step) * RING}px`;
+      this.root.append(el);
+      this.slots.push(el);
     });
-    this.root.append(panel);
+    window.addEventListener('pointermove', (e) => {
+      this.mouseX = e.clientX;
+      this.mouseY = e.clientY;
+    });
     // Keys: capture phase, ahead of the game's own handlers.
     window.addEventListener('keydown', (e) => this.key(e), true);
+    window.addEventListener('blur', () => this.close());
   }
 
   get isOpen(): boolean {
     return this.open;
   }
 
-  toggle(): void {
-    if (this.open) this.close();
-    else this.show();
-  }
-
-  show(): void {
+  /** `C` went down: the wheel opens (around the ship, see `update`). */
+  press(): void {
+    if (this.open) return;
     this.open = true;
     this.root.classList.remove('hidden');
+    this.hover = -1;
+    this.refresh();
+  }
+
+  /** `C` came up: the emote the mouse points at is shown; with the mouse in the middle, nothing. */
+  release(): void {
+    if (!this.open) return;
+    const pick = this.hover;
+    this.close();
+    if (pick >= 0) this.onPick(EMOTE_IDS.indexOf(EMOTE_ORDER[pick]!));
   }
 
   close(): void {
     this.open = false;
+    this.hover = -1;
     this.root.classList.add('hidden');
   }
 
-  private pick(id: EmoteId): void {
-    this.close();
-    this.onPick(EMOTE_IDS.indexOf(id));
+  /**
+   * Every frame while it is open: the wheel follows the ship (`x`, `y` = the ship on the screen, in
+   * pixels) and the emote in the mouse's direction is worked out again.
+   */
+  update(x: number, y: number): void {
+    if (!this.open) return;
+    this.centerX = x;
+    this.centerY = y;
+    const k = Number.parseFloat(document.documentElement.style.getPropertyValue('--ui-scale')) || 1;
+    this.root.style.left = `${x}px`;
+    this.root.style.top = `${y}px`;
+    this.root.style.transform = `scale(${k})`;
+    const dx = (this.mouseX - this.centerX) / k;
+    const dy = (this.mouseY - this.centerY) / k;
+    const d = Math.hypot(dx, dy);
+    let hover = -1;
+    if (d >= DEAD_ZONE) {
+      const step = (Math.PI * 2) / EMOTE_ORDER.length;
+      // Angle clockwise from the top, 0..2PI.
+      const a = (Math.atan2(dx, -dy) + Math.PI * 2) % (Math.PI * 2);
+      hover = Math.round(a / step) % EMOTE_ORDER.length;
+    }
+    // The ball follows the mouse inside the ring (like a stick pointing at the choice).
+    const reach = Math.min(d, 46);
+    this.ball.style.transform = `translate(${d > 0 ? (dx / d) * reach : 0}px, ${d > 0 ? (dy / d) * reach : 0}px)`;
+    if (hover !== this.hover) {
+      this.hover = hover;
+      this.refresh();
+    }
+  }
+
+  private refresh(): void {
+    this.slots.forEach((el, i) => el.classList.toggle('lit', i === this.hover));
+    this.name.textContent = this.hover >= 0 ? t(`emote.${EMOTE_ORDER[this.hover]!}` as MessageKey) : '';
   }
 
   private key(e: KeyboardEvent): void {
     if (!this.open) return;
-    // Everything is for the menu while it is open (but the browser's own shortcuts stay alone).
+    // Everything is for the wheel while it is open (but the browser's own shortcuts stay alone).
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     e.stopImmediatePropagation();
     e.preventDefault();
-    if (e.repeat) return;
-    if (e.code === 'Escape' || e.code === 'KeyC') return this.close();
+    if (e.repeat || e.code === 'KeyC') return;
+    if (e.code === 'Escape') return this.close();
     for (const id of EMOTE_ORDER) {
-      if (EMOTE_KEYS[id] === e.code) return this.pick(id);
+      if (EMOTE_KEYS[id] === e.code) {
+        this.close();
+        this.onPick(EMOTE_IDS.indexOf(id));
+        return;
+      }
     }
   }
 }

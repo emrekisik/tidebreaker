@@ -177,6 +177,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   private readonly emoteId = new Uint8Array(DIED_CAPACITY);
   private emoteCount = 0;
   private readonly emoteLeft: Float32Array;
+  /** The emote a player pressed during the cooldown (id + 1, 0 = none): the latest one wins. */
+  private readonly emotePending: Uint8Array;
   /** The scoreboard changed (kills, deaths, players coming or going). */
   scoresDirty = true;
   matchState: number = MATCH_STATE.PLAYING;
@@ -227,6 +229,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.carrierCarry = new Float32Array(n);
     this.savedHull = new Float32Array(n);
     this.emoteLeft = new Float32Array(n);
+    this.emotePending = new Uint8Array(n);
     this.savedShield = new Float32Array(n);
 
     // Every state gets room for the largest mount list, so a slot can change class freely.
@@ -392,11 +395,23 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return false;
   }
 
-  /** A player shows an emote over their ship (everyone sees it); limited to one per `EMOTE.cooldownSec`. */
+  /**
+   * A player shows an emote over their ship (everyone sees it). One goes out right away; while the
+   * cooldown (`EMOTE.cooldownSec`) runs the latest one pressed waits and replaces what came before, so
+   * the player always ends up showing the emote they pressed last.
+   */
   emote(slot: number, id: number): boolean {
     if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
     if (!(id >= 0 && id < EMOTE_IDS.length) || !this.slots[slot]!.state.alive) return false;
-    if (this.emoteLeft[slot]! > 0 || this.emoteCount >= DIED_CAPACITY) return false;
+    if (this.emoteLeft[slot]! > 0) {
+      this.emotePending[slot] = id + 1;
+      return true;
+    }
+    return this.announceEmote(slot, id);
+  }
+
+  private announceEmote(slot: number, id: number): boolean {
+    if (this.emoteCount >= DIED_CAPACITY) return false;
     this.emoteLeft[slot] = EMOTE.cooldownSec;
     this.emoteSlot[this.emoteCount] = slot;
     this.emoteId[this.emoteCount] = id;
@@ -628,7 +643,14 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     this.emoteCount = 0;
     for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
-      if (this.emoteLeft[i]! > 0) this.emoteLeft[i] = this.emoteLeft[i]! - dt;
+      if (this.emoteLeft[i]! > 0) {
+        this.emoteLeft[i] = this.emoteLeft[i]! - dt;
+        // The cooldown is over: the latest emote pressed meanwhile is shown now.
+        if (this.emoteLeft[i]! <= 0 && this.emotePending[i]! > 0) {
+          this.announceEmote(i, this.emotePending[i]! - 1);
+          this.emotePending[i] = 0;
+        }
+      }
     }
     this.diedCount = 0;
     this.feedCount = 0;

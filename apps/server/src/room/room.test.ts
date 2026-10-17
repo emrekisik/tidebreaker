@@ -1836,8 +1836,8 @@ describe('emotes', () => {
     c.conn.send(w.toBytes());
   };
 
-  it('are shown to everyone with the id of the sender ship, at most one per cooldown, and only valid ones', async () => {
-    const { room, join, tick } = setup({ anyClass: false });
+  it('are shown to everyone with the id of the sender ship; pressed during the cooldown, only the latest is shown', async () => {
+    const { join, tick } = setup({ anyClass: false });
     const a = await join('Sender');
     const b = await join('Watcher');
     await tick(2);
@@ -1846,18 +1846,18 @@ describe('emotes', () => {
     await tick(2);
     expect(b.heard.emotes.map((e) => [e.id, e.emote])).toEqual([[slot + 1, 3]]);
     expect(a.heard.emotes).toHaveLength(1); // the sender sees it too
-    // Too soon: dropped.
+    // Three quick presses: the first is already out, of the rest only the last one is shown (later).
     emote(a, 4);
+    emote(a, 5);
+    emote(a, 6);
     await tick(2);
     expect(b.heard.emotes).toHaveLength(1);
-    // After the cooldown it works again; an id that does not exist never does.
-    await tick(Math.ceil(EMOTE.cooldownSec * TICK_RATE) + 1);
+    await tick(Math.ceil(EMOTE.cooldownSec * TICK_RATE) + 2);
+    expect(b.heard.emotes.map((e) => e.emote)).toEqual([3, 6]);
+    // An id that does not exist is never shown.
+    await tick(Math.ceil(EMOTE.cooldownSec * TICK_RATE) + 2);
     emote(a, EMOTE_IDS.length);
-    await tick(2);
-    expect(b.heard.emotes).toHaveLength(1);
-    emote(a, 4);
-    await tick(2);
-    expect(b.heard.emotes.map((e) => e.emote)).toEqual([3, 4]);
-    expect(room.world.playerCount()).toBe(2);
+    await tick(Math.ceil(EMOTE.cooldownSec * TICK_RATE) + 2);
+    expect(b.heard.emotes.map((e) => e.emote)).toEqual([3, 6]);
   });
 });

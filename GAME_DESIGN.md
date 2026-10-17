@@ -439,7 +439,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x04 | `UPGRADE` | `u8 statId (0..5)`: sunucu para, sınıf sınırı (cap) ve statId'yi doğrular |
 | 0x05 | `TIER_UP` | `u8 choiceIndex` (şimdilik 0): sunucu parayı doğrular, sınıf bedelini (`ECONOMY.tierCost`) düşer; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
-| 0x09 | `EMOTE` | `u8 emote` (`EMOTE_IDS` indeksi): oyuncu gemisinin üstünde bir konuşma balonu gösterir; sunucu `EMOTE.cooldownSec` (1,2 sn) ve geçerli kimlik denetler |
+| 0x09 | `EMOTE` | `u8 emote` (`EMOTE_IDS` indeksi): oyuncu gemisinin üstünde bir konuşma balonu gösterir; sunucu geçerli kimliği denetler, `EMOTE.cooldownSec` (0,8 sn) içinde gelenlerden yalnızca sonuncusunu süre dolunca iletir |
 | 0x08 | `BASE_BUY` | `u8 item` (`BASE_ITEM`: 0 uçak gemisi onarımı, 1 savunma silahları): üs mağazası; sunucu para, yakınlık ve uçak gemisinin durumunu doğrular |
 | 0x07 | `BUY_DRONE` | `u8 droneType` (`DRONE_TYPES` indeksi): sunucu parayı, uçak gemisine yakınlığı ve oyuncu başına sınırı doğrular |
 | 0x07 | `EMOTE` | `u8 emoteId` |
@@ -644,18 +644,20 @@ Tüm HUD tek bir temayı paylaşır (`apps/client/src/ui/theme.css`): **düz (k�
 - Lisans: her asset `ASSETS.md`'ye (kaynak, lisans, yazar, URL) işlenir. CC0 ya da ticari kullanıma izin veren lisans şart.
 
 ### 12.6a Emote'lar
-Oyuncular geminin üstünde **konuşma balonu** gösterebilir (18 adet, `emotes/*.svg`, kimlikler `config/emotes.ts`). **`C`** tuşu ortada bir menü açar (6×3 ızgara); balonlardan birine **tıklayarak** ya da üstündeki **harf** ile seçilir, `C`, `Esc` veya dışına tıklama menüyü kapatır. Menü açıkken **bütün tuşları yutar**, bu yüzden harfler gemiyi sürmez (A/D/S/W de kısayol olabilir). Seçilince menü kapanır, balon geminin üstünde zıplayarak belirir, 3,5 sn durur ve söner; gemiyi izler. Başkası yeniden gönderirse eski balon yerine geçer.
+Oyuncular geminin üstünde **konuşma balonu** gösterebilir (18 adet, `emotes/*.svg`, kimlikler `config/emotes.ts`). Seçim bir **emote çarkıyla** yapılır (sohbet çarkı mantığı): **`C` tuşu basılı tutulduğu sürece** oyuncunun gemisinin etrafında 18 balonlu bir çark çıkar (saat yönünde, tepeden başlayarak); **fare yönü** hangi balonun seçildiğini belirler (seçili balon büyür ve parlar, adı çarkın altında yazılır, ortadaki top fareyi izler). **`C` bırakılınca seçili emote atılır**, tıklamaya gerek yoktur. Fare ortadaki ölü bölgedeyse (ya da `Esc`'ye basılırsa) hiçbir şey atılmaz. Balonun üstündeki **harfe** basmak da (çark açıkken) hemen o emote'u atar. Çark açıkken tuş basışlarını yutar (harfler gemiyi sürmez); fare engellenmez, nişan alma sürer.
+
+Balon geminin üstünde zıplayarak belirir, `EMOTE.showSec` (3,5 sn) durur ve söner; gemiyi izler. **Bir gemide aynı anda tek balon vardır: en son atılan görünür**, öncekinin yerine geçer. Sunucu ardışık emote'lar arasında `EMOTE.cooldownSec` (0,8 sn) bekletir; bu sürede basılanlardan yalnızca **sonuncusu** süre dolunca gösterilir (arada basılanlar atılır), böylece oyuncu hep en son bastığını gösterir.
 
 | Tuş | Emote | Tuş | Emote | Tuş | Emote |
 |---|---|---|---|---|---|
-| A | A kuyusu | B | B kuyusu | V | C kuyusu (C menüyü açtığı için) |
+| A | A kuyusu | B | B kuyusu | V | C kuyusu (C çarkı açtığı için) |
 | K | saldır | D | savun | S | üs |
 | P | yardım | W | bekle | I | ben |
 | Y | sen | T | teşekkürler | G | gg |
 | H | mutlu | L | kahkaha | O | kalp |
 | U | üzgün | R | kızgın | M | hmm |
 
-Balonlar DOM'dadır (`#emote-layer`), gemilerin ekran konumunu kamera ile hesaplar. Sunucu yalnızca kimliği doğrular ve herkese iletir; oyuncu başına 1,2 sn sınırı vardır.
+Balonlar ve çark DOM'dadır (`#emote-layer`, `#emote-wheel`), gemilerin ekran konumunu kamera ile hesaplar.
 
 ### 12.6 UI / HUD
 - **Menü:** logo, isim alanı (otomatik odak), "Oyna" tuşu, bölge/sunucu seçici (varsayılan: otomatik), ayarlar (ses, dil).
