@@ -561,18 +561,11 @@ export class AssetProvider {
     const spec = PROP_SPECS[modelKey];
     const glow = this.glowMats[team].color;
     const map = prop ? ((prop.material as MeshLambertMaterial).map ?? null) : null;
-    // Mostly its own paint, with enough of the team color to tell the sides apart. The paint is
-    // brightened (it lights itself a little) and the team color is a pale tone of it: the drones sit
-    // over the sea, so what keeps them visible is being lighter than the water, not a saturated blue.
-    const pale = glow.clone().lerp(new Color(0xffffff), 0.45);
-    const tint = new Color(0xffffff).lerp(pale, 0.55);
-    const normal = new MeshLambertMaterial({
-      map,
-      color: tint,
-      emissive: 0xffffff,
-      emissiveMap: map,
-      emissiveIntensity: 0.5,
-    });
+    // Mostly its own paint, with parts painted in the team color: the texture's warm accents (red and
+    // orange) and the outer ends of the wings or arms. The paint also lights itself a little, so the
+    // drone stays lighter than the sea it flies over.
+    const normal = new MeshLambertMaterial({ map });
+    paintDrone(normal, glow, prop ? prop.geometry : null);
     const flash = new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 });
     const mesh = new Mesh(prop ? prop.geometry : new BoxGeometry(1, 0.3, 0.8), normal);
     mesh.scale.setScalar(length);
@@ -804,4 +797,57 @@ export class AssetProvider {
     ]);
     return { hull, turret };
   }
+}
+
+
+/**
+ * Makes a drone material paint part of the model in the team color (see `createDrone`): texels that
+ * lean toward red or orange, and light panels near the ends of the wings or arms (outer part of the
+ * span, `z` of the model). Also adds the self-lighting that keeps the drone visible over water.
+ */
+function paintDrone(mat: MeshLambertMaterial, team: Color, geometry: BufferGeometry | null): void {
+  const center = new Vector3();
+  const half = new Vector3(1, 1, 1);
+  if (geometry) {
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (box) {
+      box.getCenter(center);
+      box.getSize(half).multiplyScalar(0.5);
+    }
+  }
+  const paint = team.clone();
+  mat.customProgramCacheKey = () => 'drone-paint';
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms['uTeam'] = { value: paint };
+    shader.uniforms['uCenter'] = { value: center };
+    shader.uniforms['uHalf'] = { value: half };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLocal;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLocal = position;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vLocal;\nuniform vec3 uTeam;\nuniform vec3 uCenter;\nuniform vec3 uHalf;',
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        {
+          vec3 tc = diffuseColor.rgb;
+          float lum = dot(tc, vec3(0.299, 0.587, 0.114));
+          float sat = max(tc.r, max(tc.g, tc.b)) - min(tc.r, min(tc.g, tc.b));
+          float warm = smoothstep(0.06, 0.2, tc.r - 0.9 * max(tc.g, tc.b));
+          float outer = smoothstep(0.4, 0.62, abs(vLocal.z - uCenter.z) / uHalf.z);
+          float light = smoothstep(0.08, 0.2, lum) * (1.0 - smoothstep(0.25, 0.5, sat));
+          float mask = max(warm, light * outer);
+          vec3 painted = uTeam * (0.45 + 1.1 * lum);
+          diffuseColor.rgb = mix(tc, painted, mask);
+        }`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\ntotalEmissiveRadiance = diffuseColor.rgb * 0.45;',
+      );
+  };
 }

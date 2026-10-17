@@ -118,6 +118,10 @@ export interface OnlineEvents extends GameEvents {
   onMissile(id: number, owner: number, target: number): void;
   /** A guided missile ended: it hit, ran out or was blocked (`id` is the shot id). */
   onMissileEnd(id: number): void;
+  /** Something the whole room should know (`ANNOUNCE.*`); `name` is the player behind it, if any. */
+  onAnnounce(kind: number, arg: number, team: number, name: string): void;
+  /** A shot met a guided missile at this spot (`missile`: it was the missile that was shot down). */
+  onIntercept(x: number, y: number, weapon: number, missile: boolean): void;
   /** The lock the player was building was lost (the server refused or broke it). */
   onLockBreak(): void;
   /** The player (re)spawned. */
@@ -420,7 +424,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       this.player = new ShipEntity(
         combatant,
         model,
-        new HealthBar(d.scene, d.bars, teamName(team)),
+        new HealthBar(d.scene, d.bars, teamName(team), undefined, 1, undefined, true),
       );
       d.scene.add(model.root);
       this.entities.unshift(this.player);
@@ -642,6 +646,8 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
           : e.name,
       e.kind === KIND.DRONE ? 0.55 : 1,
       e.kind === KIND.DRONE ? DRONE.hover + 2.4 : undefined,
+      // Green for the own side (the pirates are everyone's enemy), red for the rest.
+      e.team === this.myTeam,
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
@@ -745,6 +751,11 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     else this.at(tick * STEP_MS, () => events.onMissile(id, owner, target));
   }
 
+  announce(_tick: number, kind: number, arg: number, team: number, actor: number): void {
+    const name = actor === 0 ? '' : actor === this.myId ? this.deps.name : this.nameOf(actor);
+    this.deps.events.onAnnounce(kind, arg, team, name);
+  }
+
   lockBreak(_tick: number, owner: number): void {
     if (owner === this.myId) this.deps.events.onLockBreak();
   }
@@ -818,6 +829,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       if (slot >= 0) (mine ? this.mine : this.others).remove(slot);
       if (reason === END_REASON.HIT_ISLAND) events.onBlocked(x, y, weapon, power);
       else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon, power);
+      else if (reason === END_REASON.INTERCEPT) events.onIntercept(x, y, weapon, weapon === MISSILE_WEAPON);
       if (weapon === MISSILE_WEAPON) events.onMissileEnd(id);
     };
     if (mine) finish();

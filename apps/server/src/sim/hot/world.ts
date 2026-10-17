@@ -23,6 +23,7 @@ import {
   PIRATE_COUNT,
   PIRATE_TYPES,
   ProjectileSet,
+  ANNOUNCE,
   RIG,
   RIGS,
   RIG_NO_OWNER,
@@ -186,6 +187,12 @@ export class World
   /** Players whose damage level changed since the last tick (announced with the next events). */
   private readonly powerSlot = new Uint16Array(DIED_CAPACITY);
   private powerCount = 0;
+  /** Announcements waiting for the next events (`ANNOUNCE.*`): kind, argument, team, actor id. */
+  private readonly noteKind = new Uint8Array(16);
+  private readonly noteArg = new Uint8Array(16);
+  private readonly noteTeam = new Uint8Array(16);
+  private readonly noteActor = new Uint16Array(16);
+  private noteCount = 0;
   /** Emotes waiting to be announced with the next events, and each player's cooldown (seconds). */
   private readonly emoteSlot = new Uint16Array(DIED_CAPACITY);
   private readonly emoteId = new Uint8Array(DIED_CAPACITY);
@@ -397,6 +404,7 @@ export class World
       this.cash[slot] = this.cash[slot]! - price;
       carrier.state.hull = Math.min(carrier.def.hull, carrier.state.hull + carrier.def.hull * BASE.repair.pct);
       this.statsDirty[slot] = 1;
+      this.note(ANNOUNCE.CARRIER_REPAIRED, Math.round((carrier.state.hull / carrier.def.hull) * 100), team, slot + 1);
       return true;
     }
     if (item === BASE_ITEM.GUNS) {
@@ -405,6 +413,7 @@ export class World
       if (price === Infinity || this.cash[slot]! < price) return false;
       this.cash[slot] = this.cash[slot]! - price;
       this.baseGuns[team] = level + 1;
+      this.note(ANNOUNCE.GUNS_UPGRADED, level + 1, team, slot + 1);
       // The whole team sees the new level.
       for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
         if (this.used[i] === 1 && this.slots[i]!.team === team) this.statsDirty[i] = 1;
@@ -530,6 +539,7 @@ export class World
       me.team,
     );
     this.projectiles.chase(id, targetId);
+    this.projectiles.hp[id] = MISSILE.hp;
     this.events.missile(id, slot + 1, targetId, x, y, angle);
     this.lockTarget[slot] = 0;
     this.missiles[slot] = this.missiles[slot]! - 1;
@@ -537,6 +547,16 @@ export class World
     this.combatAge[slot] = 0;
     // Firing a missile is an attack: it ends the spawn protection.
     this.endProtection(slot);
+  }
+
+  /** Queues an announcement for everyone (written with the events of the next tick). */
+  private note(kind: number, arg: number, team: number, actor: number): void {
+    if (this.noteCount >= this.noteKind.length) return;
+    this.noteKind[this.noteCount] = kind;
+    this.noteArg[this.noteCount] = arg;
+    this.noteTeam[this.noteCount] = team;
+    this.noteActor[this.noteCount] = actor;
+    this.noteCount++;
   }
 
   /** Ends a ship's spawn protection (it attacked) and tells everyone, so the hologram goes. */
@@ -792,6 +812,10 @@ export class World
       this.events.power(slot + 1, this.level(slot, STAT.DAMAGE));
     }
     this.powerCount = 0;
+    for (let i = 0; i < this.noteCount; i++) {
+      this.events.announce(this.noteKind[i]!, this.noteArg[i]!, this.noteTeam[i]!, this.noteActor[i]!);
+    }
+    this.noteCount = 0;
     for (let i = 0; i < this.emoteCount; i++) {
       this.events.emote(this.emoteSlot[i]! + 1, this.emoteId[i]!);
     }
@@ -887,6 +911,7 @@ export class World
 
     // 6. projectiles and hits (a shot that reaches a barrel sets it off first)
     this.shootBarrels(dt);
+    this.interceptMissiles(dt);
     this.saveProtected();
     this.projectiles.step(dt, this.combatants, this, this);
     this.restoreProtected();
@@ -1306,6 +1331,38 @@ export class World
     }
   }
 
+  // ---- shooting down guided missiles (GAME_DESIGN.md §7.3b)
+
+  /**
+   * Enemy shots that fly into a guided missile this tick end there and take their damage off its hit
+   * points; at zero the missile is destroyed. Shots of the missile's own team pass through it.
+   */
+  private interceptMissiles(dt: number): void {
+    const set = this.projectiles;
+    for (let m = 0; m < set.highWater; m++) {
+      if (set.active[m] === 0 || set.hp[m]! <= 0) continue;
+      const mx = set.x[m]!;
+      const my = set.y[m]!;
+      const team = set.team[m]!;
+      for (let i = 0; i < set.highWater; i++) {
+        if (set.active[i] === 0 || set.hp[i]! > 0 || set.team[i] === team) continue;
+        const dx = set.vx[i]! * dt;
+        const dy = set.vy[i]! * dt;
+        const reach = MISSILE.hitRadius + set.radius[i]!;
+        const t = sweptSegmentCircle(set.x[i]!, set.y[i]!, dx, dy, mx, my, reach);
+        if (t < 0) continue;
+        this.events.projectileEnd(i, END_REASON.INTERCEPT, set.x[i]! + dx * t, set.y[i]! + dy * t);
+        set.hp[m] = set.hp[m]! - set.damage[i]!;
+        set.remove(i);
+        if (set.hp[m]! <= 0) {
+          this.events.projectileEnd(m, END_REASON.INTERCEPT, mx, my);
+          set.remove(m);
+          break;
+        }
+      }
+    }
+  }
+
   // ---- explosive barrels (GAME_DESIGN.md §7.1)
 
   /** Projectiles that fly into a barrel this tick end there and set it off. */
@@ -1421,6 +1478,10 @@ export class World
       else if (owner === TEAM_RED && meter >= 0) this.rigOwner[i] = RIG_NO_OWNER;
       // A team that takes the rig scores for it: everyone of that team inside the circle.
       const now = this.rigOwner[i]!;
+      if (now !== owner) {
+        if (owner !== RIG_NO_OWNER) this.note(ANNOUNCE.RIG_LOST, i, owner, 0);
+        if (now !== RIG_NO_OWNER) this.note(ANNOUNCE.RIG_CAPTURED, i, now, 0);
+      }
       if (now !== owner && now !== RIG_NO_OWNER) {
         for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
           if (this.used[s] === 0 || this.ghostLeft[s]! > 0 || this.slots[s]!.team !== now) continue;

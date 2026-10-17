@@ -90,6 +90,8 @@ export class ProjectileSet implements ProjectileSink {
   readonly team: Uint8Array;
   /** Guided shots: entity id of the ship being chased (0 = flies straight) and the turn rate (radians per second). */
   readonly homingId: Uint16Array;
+  /** Hit points of a projectile that enemy shots can destroy (the guided missile); 0 = cannot be shot. */
+  readonly hp: Float32Array;
   readonly turn: Float32Array;
   readonly active: Uint8Array;
   /** Who tells where the chased ships are; without it guided shots fly straight. */
@@ -121,6 +123,7 @@ export class ProjectileSet implements ProjectileSink {
     this.owner = new Uint16Array(capacity);
     this.team = new Uint8Array(capacity);
     this.homingId = new Uint16Array(capacity);
+    this.hp = new Float32Array(capacity);
     this.turn = new Float32Array(capacity);
     this.active = new Uint8Array(capacity);
     this.freeSlots = new Int32Array(capacity);
@@ -163,6 +166,7 @@ export class ProjectileSet implements ProjectileSink {
     this.startSpeed[slot] = speed;
     this.ramp[slot] = def ? def.accelSec : 0;
     this.homingId[slot] = 0;
+    this.hp[slot] = 0;
     this.turn[slot] = def ? ((def as WeaponDef).turnRateDeg ?? 0) * DEG2RAD : 0;
     this.age[slot] = 0;
     this.owner[slot] = ownerId;

@@ -30,23 +30,25 @@ export class HealthBar {
     /** Smaller bars and a different height for small things (drones). */
     scale = 1,
     lift = HEIGHT_ABOVE_WATER,
+    /** Green hull bar (the player's side) or red (an enemy). */
+    friend = false,
   ) {
     this.lift = lift;
     this.group.scale.setScalar(scale);
     const bg = new Mesh(kit.bgGeo, kit.bgMat);
     this.hullGhost = new Mesh(kit.hullGeo, kit.ghostMat);
     this.shieldGhost = new Mesh(kit.shieldGeo, kit.ghostMat);
-    this.hull = new Mesh(kit.hullGeo, kit.hullMat[team]);
+    this.hull = new Mesh(kit.hullGeo, kit.hullMat[friend ? 'friend' : 'foe']);
     this.shield = new Mesh(kit.shieldGeo, kit.shieldMat);
     bg.renderOrder = 10;
     this.hullGhost.renderOrder = 11;
     this.shieldGhost.renderOrder = 11;
     this.hull.renderOrder = 12;
     this.shield.renderOrder = 12;
-    this.hull.position.set(0, -0.14, 0.01);
-    this.hullGhost.position.set(0, -0.14, 0.005);
-    this.shield.position.set(0, 0.2, 0.01);
-    this.shieldGhost.position.set(0, 0.2, 0.005);
+    this.hull.position.set(0, 0.17, 0.01);
+    this.hullGhost.position.set(0, 0.17, 0.005);
+    this.shield.position.set(0, -0.2, 0.01);
+    this.shieldGhost.position.set(0, -0.2, 0.005);
     this.group.add(bg, this.hullGhost, this.shieldGhost, this.hull, this.shield);
     this.tag = name ? kit.makeNameTag(name, team) : null;
     if (this.tag) {

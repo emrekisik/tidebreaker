@@ -611,7 +611,7 @@ svg.ico,
 
 /* ---- bottom left: the radar map ---- */
 #minimap {
-  left: 12px;
+  right: 12px;
   bottom: 12px;
   padding: 4px;
   border: 2px solid #5fdbe8;
@@ -624,6 +624,7 @@ svg.ico,
   position: relative;
 }
 #minimap.big {
+  right: auto;
   left: 50%;
   top: 50%;
   bottom: auto;
@@ -674,8 +675,9 @@ svg.ico,
 
 /* ---- messages ---- */
 #killfeed {
-  top: 150px;
-  left: 30px;
+  top: 22px;
+  right: 30px;
+  align-items: flex-end;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -685,7 +687,7 @@ svg.ico,
   text-shadow: none;
 }
 .feed-row {
-  align-self: flex-start;
+  align-self: flex-end;
   padding: 3px 12px;
   background: var(--panel-dark);
   border-left: 3px solid transparent;
@@ -1012,7 +1014,7 @@ svg.ico,
 /* ---- the base shop: opens when the player is at their own carrier (bottom left, above the radar) ---- */
 #base-shop {
   left: 12px;
-  bottom: 252px;
+  bottom: 96px;
   width: 310px;
   box-sizing: border-box;
   padding: 11px 13px 12px;
@@ -1166,10 +1168,10 @@ svg.ico,
 }
 .ew-ring {
   position: absolute;
-  left: -108px;
-  top: -108px;
-  width: 216px;
-  height: 216px;
+  left: -135px;
+  top: -135px;
+  width: 270px;
+  height: 270px;
   box-sizing: border-box;
   border-radius: 50%;
   background: rgba(8, 22, 36, 0.5);
@@ -1226,7 +1228,7 @@ svg.ico,
 .ew-name {
   position: absolute;
   left: -120px;
-  top: 205px;
+  top: 250px;
   width: 240px;
   text-align: center;
   font-size: 24px;
@@ -1434,4 +1436,38 @@ svg.ico,
 }
 #missile-hud.noting .mb-note {
   display: inline;
+}
+
+/* ---- announcements (top middle): rigs, carrier repairs and gun upgrades ---- */
+#announce {
+  zoom: var(--ui-scale, 1);
+  top: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-shadow: none;
+}
+.ann-row {
+  padding: 5px 18px;
+  background: var(--panel-dark);
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  transition: opacity 0.6s;
+}
+.ann-row.blue {
+  color: #cfe9ff;
+  border-color: #4fe3ff;
+}
+.ann-row.red {
+  color: #ffd3da;
+  border-color: #ff5fa8;
+}
+.ann-row.fading {
+  opacity: 0;
 }

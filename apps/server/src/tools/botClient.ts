@@ -322,6 +322,7 @@ export class BotClient {
     protectEnd: () => {},
     missile: () => {},
     lockBreak: () => {},
+    announce: () => {},
     rigs: (rows) => {
       this.rigState = rows;
     },

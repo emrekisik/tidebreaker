@@ -58,7 +58,20 @@ export const REJECT_REASON = {
   CONFIG: 6,
 } as const;
 
-export const END_REASON = { HIT_SHIP: 0, HIT_ISLAND: 1, EXPIRED: 2 } as const;
+/** `INTERCEPT`: a shot met a guided missile (it hit it, or it was the missile and was shot down). */
+export const END_REASON = { HIT_SHIP: 0, HIT_ISLAND: 1, EXPIRED: 2, INTERCEPT: 3 } as const;
+
+/** What an ANNOUNCE event tells (see `EventWriter.announce`). */
+export const ANNOUNCE = {
+  /** `arg` = rig index, `team` = the team that took it. */
+  RIG_CAPTURED: 0,
+  /** `arg` = rig index, `team` = the team that lost it. */
+  RIG_LOST: 1,
+  /** `arg` = the carrier's hull in percent, `actor` = the player who mended it. */
+  CARRIER_REPAIRED: 2,
+  /** `arg` = the new level, `actor` = the player who paid for it. */
+  GUNS_UPGRADED: 3,
+} as const;
 export const EVENT = {
   PROJECTILE_SPAWN: 1,
   PROJECTILE_END: 2,
@@ -72,6 +85,7 @@ export const EVENT = {
   PROTECT_END: 10,
   MISSILE: 11,
   LOCK_BREAK: 12,
+  ANNOUNCE: 13,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = {
@@ -719,6 +733,18 @@ export class EventWriter {
     this.count++;
   }
 
+  /** Something the whole room should be told (`ANNOUNCE.*`): `team`'s doing, by player `actor` (0 = nobody in particular). */
+  announce(kind: number, arg: number, team: number, actor: number): void {
+    if (!this.room(6)) return;
+    const w = this.w;
+    w.u8(EVENT.ANNOUNCE);
+    w.u8(kind);
+    w.u8(arg);
+    w.u8(team);
+    w.u16(actor);
+    this.count++;
+  }
+
   /** The lock `owner` was building ended without a launch (target gone, too far, protected...). */
   lockBreak(owner: number): void {
     if (!this.room(3)) return;
@@ -830,6 +856,8 @@ export interface ServerHandler {
   missile(tick: number, projId: number, owner: number, target: number, x: number, y: number, angle: number): void;
   /** The lock `owner` was building was lost. */
   lockBreak(tick: number, owner: number): void;
+  /** Something to tell the player (`ANNOUNCE.*`). */
+  announce(tick: number, kind: number, arg: number, team: number, actor: number): void;
 }
 
 const self = newSelfState();
@@ -1116,6 +1144,14 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const y = dqPos(r.u16());
         const angle = dqAngle16(r.u16());
         if (r.ok) h.missile(tick, id, owner, target, x, y, angle);
+        break;
+      }
+      case EVENT.ANNOUNCE: {
+        const kind = r.u8();
+        const arg = r.u8();
+        const team = r.u8();
+        const actor = r.u16();
+        if (r.ok) h.announce(tick, kind, arg, team, actor);
         break;
       }
       case EVENT.LOCK_BREAK: {

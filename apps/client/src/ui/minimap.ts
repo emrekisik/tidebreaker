@@ -211,11 +211,19 @@ export class Minimap {
         g.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + Math.abs(st.meter) * Math.PI * 2);
         g.stroke();
       }
+      // The rig's letter (the same A, B, C as the emotes and the rig bars), on a dark disc.
       g.fillStyle = '#0a1c24';
       g.strokeStyle = '#fff';
       g.lineWidth = u;
-      g.fillRect(x - 3 * u, y - 3 * u, 6 * u, 6 * u);
-      g.strokeRect(x - 3 * u, y - 3 * u, 6 * u, 6 * u);
+      g.beginPath();
+      g.arc(x, y, 6.2 * u, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = owner === RIG_NO_OWNER ? '#fff' : owner === TEAM_BLUE ? BLUE : RED;
+      g.font = `700 ${Math.round(8.4 * u)}px 'Oxanium', system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(String.fromCharCode(65 + i), x, y + 0.5 * u);
     }
 
     // Ships: crosses and skulls. Carriers: a painted icon.
@@ -223,7 +231,8 @@ export class Minimap {
     const edge = 14 * u;
     for (const o of others) {
       const st = o.state;
-      if (!st.alive) continue;
+      // Drones are too small and too many for the radar.
+      if (!st.alive || o.def.flying) continue;
       const x = sx(st.x);
       const y = sy(st.y);
       if (o.def.vMax === 0) {
@@ -352,9 +361,16 @@ export class Minimap {
     g.fillStyle = '#0a1c24';
     g.strokeStyle = '#fff';
     g.lineWidth = u;
-    g.fillRect(lx - 3 * u, ly - 3 * u, 6 * u, 6 * u);
-    g.strokeRect(lx - 3 * u, ly - 3 * u, 6 * u, 6 * u);
+    g.beginPath();
+    g.arc(lx, ly, 6.2 * u, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
     g.fillStyle = '#fff';
+    g.save();
+    g.font = `700 ${Math.round(8.4 * u)}px 'Oxanium', system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.fillText('A', lx, ly + 0.5 * u);
+    g.restore();
     g.fillText(t('map.rig'), lx + 12 * u, ly);
     ly += step;
     skull(g, lx, ly, 5 * u);

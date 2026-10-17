@@ -56,6 +56,7 @@ import { MODEL_SPECS, PROP_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
+import { Announcer } from './ui/announcer.ts';
 import { BaseShop } from './ui/baseShop.ts';
 import { MissileBadge, MissileLock } from './ui/missileLock.ts';
 import type { LockProjector } from './ui/missileLock.ts';
@@ -134,6 +135,7 @@ const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
+const announcer = new Announcer(document.getElementById('announce') as HTMLElement);
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const missileLock = new MissileLock(
   document.getElementById('lock-layer') as HTMLElement,
@@ -267,6 +269,14 @@ const events: OnlineEvents = {
   onMissile(id, owner, target) {
     if (owner === online?.myId) missileLock.launched(id, target);
     if (target === online?.myId && owner !== online?.myId) missileLock.warn(id);
+  },
+  onAnnounce(kind, arg, team, name) {
+    announcer.show(kind, arg, team, name);
+  },
+  onIntercept(x, y, weaponIdx, missile) {
+    // A shot hit the missile: sparks; a destroyed missile also goes off in a small fireball.
+    effects.impact(x, y, false, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
+    if (missile) effects.blast(x, y, 4);
   },
   onMissileEnd(id) {
     missileLock.ended(id);

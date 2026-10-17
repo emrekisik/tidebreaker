@@ -21,6 +21,13 @@ export const MISSILE = {
    * really on the screen. (Multiplies the camera distance of the shooter's class at full zoom-out.)
    */
   lockReach: 1.3,
+  /**
+   * A missile can be shot down: the damage of enemy shots that touch it comes off `hp`, and it is
+   * destroyed at zero. `hitRadius` is how big it counts for that (bigger than the missile, so a
+   * shot that passes close hits it).
+   */
+  hp: 30,
+  hitRadius: 1.2,
   /** The missile leaves the ship this far ahead of its center (fraction of the ship length). */
   launchAhead: 0.35,
 } as const;

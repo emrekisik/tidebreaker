@@ -45,6 +45,8 @@ import {
   encodeBaseBuy,
   encodeEmote,
   encodeLock,
+  ANNOUNCE,
+  weaponIndex,
   encodeBuyDrone,
   MISSILE,
   WEAPONS,
@@ -2036,6 +2038,76 @@ describe('guided missiles', () => {
     expect(w.missiles[aSlot]).toBe(0);
     await tick(TICK_RATE * 3);
     expect(b.heard.missiles).toHaveLength(0);
+  });
+});
+
+describe('guided missiles can be shot down', () => {
+  it('enemy shots take hit points off a missile and destroy it; its own team passes through', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Blue', 'corvette'); // blue
+    const b = await join('Red', 'corvette'); // red
+    await tick(2);
+    const w = room.world;
+    const aId = a.heard.joined[0]!.entityId;
+    const bId = b.heard.joined[0]!.entityId;
+    place(room, a, 300, 300, 0);
+    place(room, b, 900, 900, 0);
+    const set = w.projectiles;
+    const missile = set.spawn(1000, 1000, 0, 0.1, 100, 0.45, 80, aId, weaponIndex('missile'), TEAM_BLUE);
+    set.hp[missile] = MISSILE.hp;
+    // A shot of the missile's own team flies through.
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, aId, weaponIndex('cannon_t3'), TEAM_BLUE);
+    await tick(2);
+    expect(set.hp[missile]).toBe(MISSILE.hp);
+    // An enemy shot is stopped by it and takes its damage off.
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    await tick(2);
+    expect(set.hp[missile]).toBeCloseTo(MISSILE.hp - 20, 3);
+    expect(a.heard.ends.some((e) => e.reason === END_REASON.INTERCEPT)).toBe(true);
+    // Another one destroys it.
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    await tick(2);
+    expect(set.active[missile]).toBe(0);
+    expect(a.heard.ends.filter((e) => e.reason === END_REASON.INTERCEPT && e.id === missile).length).toBeGreaterThan(0);
+  });
+});
+
+describe('announcements', () => {
+  it('tell the room about rigs taken and lost, the carrier mended and its guns upgraded', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Owner'); // blue
+    const b = await join('Watcher'); // red
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const spot = { x: MATCH.carriers[TEAM_BLUE]!.x, y: MATCH.carriers[TEAM_BLUE]!.y + 40 };
+    place(room, a, spot.x, spot.y, 0);
+    w.cash[slot] = 5000;
+    w.slots[0]!.state.hull = w.slots[0]!.def.hull * 0.5;
+    const send = (item: number): void => {
+      const wr = new Writer(4);
+      encodeBaseBuy(wr, item);
+      a.conn.send(wr.toBytes());
+    };
+    send(BASE_ITEM.REPAIR);
+    send(BASE_ITEM.GUNS);
+    await tick(3);
+    const got = b.heard.announces;
+    const repair = got.find((n) => n.kind === ANNOUNCE.CARRIER_REPAIRED)!;
+    expect(repair.actor).toBe(slot + 1);
+    expect(repair.team).toBe(TEAM_BLUE);
+    expect(repair.arg).toBeGreaterThan(50);
+    const guns = got.find((n) => n.kind === ANNOUNCE.GUNS_UPGRADED)!;
+    expect(guns.arg).toBe(1);
+    expect(guns.actor).toBe(slot + 1);
+    // A rig taken, then lost again.
+    w.rigMeter[0] = 1;
+    await tick(2);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_BLUE)).toBe(true);
+    w.rigMeter[0] = -1;
+    await tick(2);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_LOST && n.arg === 0 && n.team === TEAM_BLUE)).toBe(true);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_RED)).toBe(true);
   });
 });
 

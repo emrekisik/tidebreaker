@@ -80,6 +80,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     protectEnd: (...a) => log.push(`protectEnd ${a.join(',')}`),
     missile: (...a) => log.push(`missile ${a.join(',')}`),
     lockBreak: (...a) => log.push(`lockBreak ${a.join(',')}`),
+    announce: (...a) => log.push(`announce ${a.join(',')}`),
   };
   return { log, h };
 }
@@ -408,6 +409,7 @@ describe('server messages', () => {
     ev.protectEnd(7);
     ev.missile(12, 5, 9, 100.5, 200.25, 1.5);
     ev.lockBreak(5);
+    ev.announce(2, 85, 1, 9);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -424,6 +426,7 @@ describe('server messages', () => {
       'protectEnd 100,7',
       `missile 100,12,5,9,100.5,200.25,${dqAngle16(qAngle16(1.5))}`,
       'lockBreak 100,5',
+      'announce 100,2,85,1,9',
     ]);
   });
 

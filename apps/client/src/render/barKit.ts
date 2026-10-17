@@ -32,11 +32,10 @@ export class BarKit {
   readonly bgMat = bar(0x050d16, 0.78);
   /** The white "recently lost" part behind the real bar. */
   readonly ghostMat = bar(0xffffff, 0.92);
-  /** Hull bar in the team color. */
-  readonly hullMat: Record<Team, MeshBasicMaterial> = {
-    blue: bar(0x2aa5ff),
-    red: bar(0xff2c46),
-    pirate: bar(0xffa83a),
+  /** Hull bar: green for the player's side, red for everyone else (whatever the team colors are). */
+  readonly hullMat: { friend: MeshBasicMaterial; foe: MeshBasicMaterial } = {
+    friend: bar(0x3be06f),
+    foe: bar(0xff2c46),
   };
   /** Light cyan, clearly different from the blue team. */
   readonly shieldMat = bar(0x8ff6ff);

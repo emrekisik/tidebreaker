@@ -13,6 +13,7 @@ import type { MessageKey } from '../i18n/index.ts';
 import cashIcon from './icons/cash.svg?raw';
 import damageIcon from './icons/damage.svg?raw';
 import droneIcon from './icons/drone.svg?raw';
+import uavIcon from './icons/uav.svg?raw';
 import missileIcon from './icons/missile.svg?raw';
 import repairIcon from './icons/repair.svg?raw';
 
@@ -61,7 +62,8 @@ export class BaseShop {
     DRONE_TYPES.forEach((type, i) => {
       this.addRow(
         String(7 + i),
-        droneIcon,
+        // The FPV drone is a quadcopter; the combat drone is a fixed-wing unmanned aircraft.
+        i === 0 ? droneIcon : uavIcon,
         t(`drone.${type.id}` as MessageKey),
         t(`drone.${type.id}.desc` as MessageKey),
         () => this.onBuy(0, i),

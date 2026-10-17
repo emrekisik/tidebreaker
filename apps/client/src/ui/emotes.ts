@@ -64,8 +64,8 @@ export const EMOTE_ORDER: readonly EmoteId[] = [
 ];
 
 /** Radius of the wheel (pixels, before the UI scale) and the dead zone in its middle where nothing is picked. */
-const RING = 152;
-const DEAD_ZONE = 38;
+const RING = 192;
+const DEAD_ZONE = 46;
 
 /**
  * The emote wheel (like a chat wheel in other games): while `C` is held a wheel of all the emotes is
