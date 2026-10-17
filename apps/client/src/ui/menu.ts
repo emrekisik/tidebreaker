@@ -1,6 +1,6 @@
 import { SHIP_IDS } from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { currentLanguage, saveLanguage, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
 const NAME_KEY = 'tidebreaker.name';
@@ -25,7 +25,7 @@ export class Menu {
     } catch {
       // Private mode: the defaults are fine.
     }
-    this.name.value = savedName || `Kaptan${100 + Math.floor(Math.random() * 900)}`;
+    this.name.value = savedName || `${t('menu.captain')}${100 + Math.floor(Math.random() * 900)}`;
     for (let i = 0; i < SHIP_IDS.length; i++) {
       const id: ShipId = SHIP_IDS[i]!;
       const o = document.createElement('option');
@@ -47,6 +47,15 @@ export class Menu {
       }
       onPlay(name, idx);
     });
+    // The language buttons: the choice is remembered and the page reloads so every text follows it.
+    for (const b of this.root.querySelectorAll<HTMLButtonElement>('#menu-lang button')) {
+      b.classList.toggle('on', b.dataset['lang'] === currentLanguage());
+      b.addEventListener('click', () => {
+        if (b.dataset['lang'] === currentLanguage()) return;
+        saveLanguage(b.dataset['lang'] ?? 'en');
+        location.reload();
+      });
+    }
     // Typing must not steer the ship.
     this.form.addEventListener('keydown', (e) => e.stopPropagation());
     if (!pickShip) {

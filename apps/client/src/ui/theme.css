@@ -400,15 +400,17 @@ svg.ico,
   background: rgba(40, 70, 100, 0.95);
 }
 .uc-img {
-  height: 74px;
+  height: 96px;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(10, 26, 42, 0.5);
 }
 .uc-img img {
-  width: 76px;
-  height: 76px;
+  width: 172px;
+  height: 172px;
+  max-width: none;
   object-fit: contain;
 }
 .uc-name {
@@ -1470,4 +1472,27 @@ svg.ico,
 }
 .ann-row.fading {
   opacity: 0;
+}
+
+/* ---- language choice on the menu ---- */
+#menu-lang {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+#menu-lang button {
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #9fb4c8;
+  cursor: pointer;
+  background: rgba(10, 26, 42, 0.8);
+  border: 1px solid var(--line);
+}
+#menu-lang button.on {
+  color: #fff;
+  border-color: #6dff9a;
 }

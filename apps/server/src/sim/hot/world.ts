@@ -1352,9 +1352,12 @@ export class World
         const t = sweptSegmentCircle(set.x[i]!, set.y[i]!, dx, dy, mx, my, reach);
         if (t < 0) continue;
         this.events.projectileEnd(i, END_REASON.INTERCEPT, set.x[i]! + dx * t, set.y[i]! + dy * t);
+        const shooter = set.owner[i]!;
         set.hp[m] = set.hp[m]! - set.damage[i]!;
         set.remove(i);
         if (set.hp[m]! <= 0) {
+          // Whoever destroyed it is paid (a drone's shot pays its owner).
+          this.addCash(this.creditOf(shooter - 1), MISSILE.bounty);
           this.events.projectileEnd(m, END_REASON.INTERCEPT, mx, my);
           set.remove(m);
           break;

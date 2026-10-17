@@ -25,6 +25,28 @@ export function applyI18n(root: ParentNode): void {
   });
 }
 
+const LANG_KEY = 'tidebreaker.lang';
+
+/** The language the player picked on the menu; otherwise the browser's (Turkish or English). */
 export function detectLanguage(): string {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved && tables[saved]) return saved;
+  } catch {
+    // Private mode: use the browser's language.
+  }
   return navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+}
+
+/** Remembers the language choice (the page reloads to use it everywhere). */
+export function saveLanguage(lang: string): void {
+  try {
+    localStorage.setItem(LANG_KEY, lang);
+  } catch {
+    // Not remembering is fine.
+  }
+}
+
+export function currentLanguage(): string {
+  return document.documentElement.lang === 'tr' ? 'tr' : 'en';
 }

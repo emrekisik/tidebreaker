@@ -59,6 +59,7 @@ import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { Announcer } from './ui/announcer.ts';
 import { BaseShop } from './ui/baseShop.ts';
 import { MissileBadge, MissileLock } from './ui/missileLock.ts';
+import crosshairSvg from './ui/icons/crosshair1.svg?raw';
 import type { LockProjector } from './ui/missileLock.ts';
 import { WreckMarks } from './ui/wreckMarks.ts';
 import { EmoteBubbles, EmoteWheel } from './ui/emotes.ts';
@@ -90,6 +91,17 @@ const serverUrl = params.get('server') ?? `ws://${location.hostname}:9001`;
 const debug = params.get('debug') === '1';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
+// The aiming pointer: the crosshair picture (white ring with four ticks) with a soft dark shadow so it
+// shows on light foam too, 44 pixels, hot spot in the middle.
+{
+  const svg = crosshairSvg
+    .replace(/ width="\d+" height="\d+" viewBox="[^"]*"/, ' width="44" height="44" viewBox="-6 -6 76 76"')
+    .replace(
+      '<g clip-path="url(#clip0_161_625)">',
+      '<defs><filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#000" flood-opacity="0.8"/></filter></defs><g filter="url(#sh)">',
+    );
+  canvas.style.cursor = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 22 22, crosshair`;
+}
 const stage = new Stage(canvas);
 const water = new Water();
 const wakeMap = new WakeMap();

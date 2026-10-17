@@ -2065,9 +2065,12 @@ describe('guided missiles can be shot down', () => {
     expect(set.hp[missile]).toBeCloseTo(MISSILE.hp - 20, 3);
     expect(a.heard.ends.some((e) => e.reason === END_REASON.INTERCEPT)).toBe(true);
     // Another one destroys it.
+    const cash = w.cash[bId - 1]!;
     set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_RED);
     await tick(2);
     expect(set.active[missile]).toBe(0);
+    // The one who shot it down is paid.
+    expect(w.cash[bId - 1]).toBe(cash + MISSILE.bounty);
     expect(a.heard.ends.filter((e) => e.reason === END_REASON.INTERCEPT && e.id === missile).length).toBeGreaterThan(0);
   });
 });

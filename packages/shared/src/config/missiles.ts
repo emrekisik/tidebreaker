@@ -27,6 +27,8 @@ export const MISSILE = {
    * shot that passes close hits it).
    */
   hp: 30,
+  /** Money for whoever's shot (or drone's) destroys one. */
+  bounty: 40,
   hitRadius: 1.2,
   /** The missile leaves the ship this far ahead of its center (fraction of the ship length). */
   launchAhead: 0.35,
