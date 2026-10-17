@@ -693,7 +693,7 @@ Balonlar ve çark DOM'dadır (`#emote-layer`, `#emote-wheel`), gemilerin ekran k
 ### 12.8 Girdi
 - Klavye + fare: pointer lock gerekmez. Nişan, ekran koordinatından zemin düzlemine ışın ile hesaplanır, `u16 aim` (açı) ve `u8 aimDist` (uzaklık) olarak gönderilir. Gövdeye yayılmış topların mermileri imleç noktasında **kesişir** (paralel gitmez); `aimDist` en az `MOUNT_CONVERGE_MIN` alınır.
 - **Q** = güdümlü füze kilidi (imlecin altındaki en yakın düşman gemisi; tekrar basmak iptal eder), bkz. §7.3b. Üs mağazasında **E** füze alır.
-- **Fare imleci:** nişan imleci `crosshair1.svg` (beyaz halka ve dört çentik, hafif koyu gölgeli, 44 px, orta nokta imleç noktası) olarak çizilir (CSS `cursor`).
+- **Fare imleci:** denizin üstünde sistem imleci gizlenir; yerine `crosshair1.svg` (beyaz halka ve dört çentik, hafif koyu gölgeli, 44 px) fare konumunda çizilen bir öğedir (`ui/crosshair.ts`). Oyuncunun kendi gemisinin her atışı imleci **tepki verdirir**: şişer ve hafifçe döner, sonra yerine oturur. Mermi hafif (`KICK.bullet` 0,22, hızlı atışta birikir), top mermisi 0,6, roket 0,8, güdümlü füze 1 (en sert); tepki saniyede %9'a düşerek söner. Paneller üstündeyken ve menüde imleç normaldir.
 - **Dil:** başlangıç menüsünün altında **Türkçe / English** düğmeleri vardır; seçim `localStorage`'da saklanır ve sayfa yeniden yüklenir (tüm metinler `i18n/tr.json` ve `en.json`'dan gelir). Seçim yoksa tarayıcı dili kullanılır.
 - Sekme görünmezse girdi gönderimi `setInterval` ile devam eder (AFK kuralı geçerli).
 

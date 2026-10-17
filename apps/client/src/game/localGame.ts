@@ -35,7 +35,7 @@ import type { BarKit } from '../render/barKit.ts';
 
 export interface GameEvents {
   /** A projectile left a barrel (muzzle position, fire angle, weapon index). */
-  onShot(x: number, y: number, angle: number, weaponIdx: number, power?: number): void;
+  onShot(x: number, y: number, angle: number, weaponIdx: number, power?: number, own?: boolean): void;
   onHit(
     x: number,
     y: number,
@@ -92,7 +92,8 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink, GameSessio
   private readonly shotSink: ProjectileSink = {
     spawn: (x, y, angle, speed, range, radius, damage, ownerId, weaponIdx) => {
       this.projectiles.spawn(x, y, angle, speed, range, radius, damage, ownerId, weaponIdx);
-      this.events.onShot(x, y, angle, weaponIdx);
+      // (Only the player's ship fires in the sandbox.)
+      this.events.onShot(x, y, angle, weaponIdx, 0, true);
     },
   };
   private readonly scene: Scene;

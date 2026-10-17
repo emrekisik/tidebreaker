@@ -802,7 +802,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       const late = Math.max(0, Math.min(CATCH_UP_MAX, nowTick - tick));
       this.mine.advance(slot, late, STEP_SEC, noopHits, this.obstacles ?? undefined);
       this.shots.bind(id, true, slot);
-      events.onShot(x, y, angle, weapon, power);
+      events.onShot(x, y, angle, weapon, power, true);
       return;
     }
     this.at(tick * STEP_MS, () => {

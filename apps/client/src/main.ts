@@ -59,7 +59,7 @@ import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { Announcer } from './ui/announcer.ts';
 import { BaseShop } from './ui/baseShop.ts';
 import { MissileBadge, MissileLock } from './ui/missileLock.ts';
-import crosshairSvg from './ui/icons/crosshair1.svg?raw';
+import { Crosshair, KICK } from './ui/crosshair.ts';
 import type { LockProjector } from './ui/missileLock.ts';
 import { WreckMarks } from './ui/wreckMarks.ts';
 import { EmoteBubbles, EmoteWheel } from './ui/emotes.ts';
@@ -91,17 +91,6 @@ const serverUrl = params.get('server') ?? `ws://${location.hostname}:9001`;
 const debug = params.get('debug') === '1';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-// The aiming pointer: the crosshair picture (white ring with four ticks) with a soft dark shadow so it
-// shows on light foam too, 44 pixels, hot spot in the middle.
-{
-  const svg = crosshairSvg
-    .replace(/ width="\d+" height="\d+" viewBox="[^"]*"/, ' width="44" height="44" viewBox="-6 -6 76 76"')
-    .replace(
-      '<g clip-path="url(#clip0_161_625)">',
-      '<defs><filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#000" flood-opacity="0.8"/></filter></defs><g filter="url(#sh)">',
-    );
-  canvas.style.cursor = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 22 22, crosshair`;
-}
 const stage = new Stage(canvas);
 const water = new Water();
 const wakeMap = new WakeMap();
@@ -147,6 +136,15 @@ const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
+const crosshair = new Crosshair();
+/** The mouse is over the sea (not over a panel or the menu): the crosshair is shown there. */
+let overSea = false;
+window.addEventListener('pointermove', (e) => {
+  overSea = e.target === canvas;
+});
+document.addEventListener('mouseleave', () => {
+  overSea = false;
+});
 const announcer = new Announcer(document.getElementById('announce') as HTMLElement);
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const missileLock = new MissileLock(
@@ -238,8 +236,11 @@ window.addEventListener('blur', () => scoreboard.hold(false));
 // ---- effects shared by the sandbox and online matches
 
 const events: OnlineEvents = {
-  onShot(x, y, angle, weaponIdx, power = 0) {
-    effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+  onShot(x, y, angle, weaponIdx, power = 0, own = false) {
+    const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
+    effects.muzzle(x, y, angle, visual, power);
+    // The player's own shots kick the crosshair, the heavier the shot the harder.
+    if (own) crosshair.shot(KICK[visual]);
   },
   onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true, power = 0) {
     if (showNumber && damage > 0) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
@@ -539,6 +540,13 @@ function update(nowMs: number): void {
   const dtSec = Math.max(0, Math.min(frameMs, 100)) / 1000;
   const timeSec = nowMs / 1000;
   setHologramTime(timeSec);
+
+  crosshair.update(
+    dtSec,
+    (input.ndcX * 0.5 + 0.5) * window.innerWidth,
+    (-input.ndcY * 0.5 + 0.5) * window.innerHeight,
+    overSea && !document.body.classList.contains('in-menu'),
+  );
 
   const wheel = input.consumeWheel();
   if (wheel !== 0) rig.zoomBy(wheel);

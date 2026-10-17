@@ -25,6 +25,10 @@
         display: block;
         cursor: crosshair;
       }
+      /* In a match the system cursor is hidden over the sea: the crosshair element replaces it. */
+      body:not(.in-menu) #game {
+        cursor: none;
+      }
       .overlay {
         position: fixed;
         pointer-events: none;
@@ -272,6 +276,7 @@
     <div id="emote-layer" class="overlay"></div>
     <div id="wreck-layer" class="overlay"></div>
     <div id="lock-layer" class="overlay"></div>
+    <div id="crosshair" class="overlay hidden"></div>
     <div id="missile-warning" class="overlay hidden"></div>
     <div id="emote-wheel" class="overlay hidden"></div>
     <div id="hint" class="overlay panel" data-i18n="hint.controls"></div>

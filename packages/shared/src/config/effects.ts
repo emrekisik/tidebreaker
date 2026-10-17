@@ -172,7 +172,7 @@ export const FX = {
    * Where a floating pickup touches the water: the sea there gets darker (`shadow`, 0..1) and a faint
    * lace of foam (`foam`, 0..1) laps at it; `radius` is the reach as a share of the pickup's size.
    */
-  pickupContact: { shadow: 0.55, foam: 0.75, radius: 1.45 },
+  pickupContact: { shadow: 0.55, foam: 0.5, radius: 1.15 },
 
   /**
    * Scene lighting: one warm sun (direction points from the sea toward the sun) casting real
