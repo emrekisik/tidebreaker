@@ -66,6 +66,9 @@ export const MATCH = {
   spawnCandidates: 9,
   /** Half of the angular spread of the spawn ring seen from the carrier (degrees). */
   spawnSpreadDeg: 70,
-  /** Seconds of invulnerability after (re)spawning. */
-  spawnProtectSec: 3,
+  /**
+   * Invulnerability after (re)spawning lasts until the ship attacks (fires, or hurts a ship or pirate by
+   * ramming it), but never longer than this many seconds (so nobody can capture rigs unharmed).
+   */
+  spawnProtectSec: 12,
 } as const;

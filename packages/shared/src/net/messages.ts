@@ -68,6 +68,7 @@ export const EVENT = {
   POWER: 7,
   BLAST: 8,
   EMOTE: 9,
+  PROTECT_END: 10,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = {
@@ -683,6 +684,15 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A ship's spawn protection is over (it attacked, or the time ran out). */
+  protectEnd(id: number): void {
+    if (!this.room(3)) return;
+    const w = this.w;
+    w.u8(EVENT.PROTECT_END);
+    w.u16(id);
+    this.count++;
+  }
+
   /** A barrel went off at (x, y). */
   blast(id: number, x: number, y: number): void {
     if (!this.room(7)) return;
@@ -770,6 +780,8 @@ export interface ServerHandler {
   blast(tick: number, id: number, x: number, y: number): void;
   /** A ship shows an emote. */
   emote(tick: number, id: number, emote: number): void;
+  /** A ship's spawn protection is over. */
+  protectEnd(tick: number, id: number): void;
 }
 
 const self = newSelfState();
@@ -1044,6 +1056,11 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const x = dqPos(r.u16());
         const y = dqPos(r.u16());
         if (r.ok) h.pickup(tick, id, collector, kind, value, x, y);
+        break;
+      }
+      case EVENT.PROTECT_END: {
+        const id = r.u16();
+        if (r.ok) h.protectEnd(tick, id);
         break;
       }
       case EVENT.EMOTE: {

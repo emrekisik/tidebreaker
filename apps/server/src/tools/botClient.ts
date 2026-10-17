@@ -20,6 +20,8 @@ import {
   encodePing,
   encodePlay,
   encodeBuyDrone,
+  encodeEmote,
+  EMOTE_IDS,
   encodeTierUp,
   encodeUpgrade,
   generateMap,
@@ -90,6 +92,9 @@ const RETREAT_UNTIL = 0.7;
 /** A retreating bot this close to its own carrier stops dead: hulls only mend while standing still. */
 const REPAIR_STOP_DIST = 75;
 const RECONNECT_MS = 2500;
+/** Bots talk at most this often (ticks, 20 per second). */
+const SAY_GAP_TICKS = 160;
+type EmoteBubbleId = (typeof EMOTE_IDS)[number];
 
 /**
  * A computer-controlled player that talks to the server like a browser does (same binary
@@ -126,6 +131,10 @@ export class BotClient {
   private seq = 0;
   private tick = 0;
   private retreating = false;
+  /** What the bot is doing (for its emotes), the rig it is heading for, and when it last said something. */
+  private mode = '';
+  private rigIdx = 0;
+  private lastSayTick = -1e9;
   /** Money and drones as the server last said (a bot buys drones while it mends at its carrier). */
   private cash = 0;
   private droneCount = 0;
@@ -163,6 +172,7 @@ export class BotClient {
         best = i;
       }
     }
+    this.rigIdx = Math.max(0, best);
     const rig = RIGS[Math.max(0, best)]!;
     this.rigSpot.x = rig.x;
     this.rigSpot.y = rig.y;
@@ -260,9 +270,13 @@ export class BotClient {
     youDied: (_killer, killerName) => {
       this.me.ready = false;
       this.tierUps = 0;
+      this.mode = '';
+      this.say(Math.random() < 0.5 ? 'sad' : 'angry', 0.6);
       this.log(`sunk by ${killerName || 'a carrier'}`);
     },
-    kill: () => {},
+    kill: (killerId) => {
+      if (killerId === this.me.id) this.say(['gg', 'laugh', 'happy'][Math.floor(Math.random() * 3)] as EmoteBubbleId, 0.45);
+    },
     scores: () => {},
     stats: (m) => {
       const id = SHIP_IDS[m.shipId];
@@ -274,6 +288,7 @@ export class BotClient {
       // upgrades are bought only while they leave most of the money for it.
       if (m.canTierUp && this.tierUps < 8) {
         this.tierUps++;
+        this.say('happy', 0.6);
         this.write(() => encodeTierUp(this.out, 0));
         return;
       }
@@ -294,6 +309,7 @@ export class BotClient {
     power: () => {},
     blast: () => {},
     emote: () => {},
+    protectEnd: () => {},
     rigs: (rows) => {
       this.rigState = rows;
     },
@@ -462,6 +478,29 @@ export class BotClient {
       this.lootId = 0;
     }
 
+    // What the bot is about to do, as a word: it says so when that changes (an emote that fits).
+    const mode = this.retreating
+      ? 'retreat'
+      : threatened
+        ? 'threat'
+        : hunting
+          ? 'hunt'
+          : loot
+            ? 'loot'
+            : farming && !loot && (me.id % 2 === 0 || myTier < ATTACK_TIER)
+              ? 'rig'
+              : farming && health > 0.7
+                ? 'attack'
+                : 'patrol';
+    if (mode !== this.mode) {
+      this.mode = mode;
+      if (mode === 'retreat') this.say('help', 0.7);
+      else if (mode === 'threat') this.say('defend', 0.5);
+      else if (mode === 'hunt') this.say('attack', 0.35);
+      else if (mode === 'attack') this.say('attack', 0.5);
+      else if (mode === 'rig') this.say(['a', 'b', 'c'][this.rigIdx] as EmoteBubbleId, 0.35);
+    }
+
     // What to do now. Small ships farm until they are strong enough to take on the carrier.
     // Half of the bots (and every small one) hold the oil rigs in the middle of the sea.
     const rigDuty = farming && !loot && (me.id % 2 === 0 || myTier < ATTACK_TIER);
@@ -564,6 +603,13 @@ export class BotClient {
         return;
       }
     }
+  }
+
+  /** Shows an emote over the ship now and then (not more than once in about 8 seconds, and only sometimes). */
+  private say(emote: EmoteBubbleId, chance: number): void {
+    if (this.opt.passive || this.tick - this.lastSayTick < SAY_GAP_TICKS || Math.random() > chance) return;
+    this.lastSayTick = this.tick;
+    this.write(() => encodeEmote(this.out, EMOTE_IDS.indexOf(emote)));
   }
 
   private sendInput(

@@ -82,7 +82,7 @@ export interface OnlineEvents extends GameEvents {
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
   onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
-  onSunk(entity: ShipEntity, x: number, y: number): void;
+  onSunk(entity: ShipEntity, x: number, y: number, name: string): void;
   /** The player was sunk. */
   onDied(killerId: number, killerName: string, respawnSec: number): void;
   onMatch(
@@ -418,6 +418,8 @@ export class OnlineGame implements GameSession, ServerHandler {
     this.predictor.enabled = true;
     this.player.combatant.state.alive = true;
     this.player.sinkSeconds = 0;
+    // A new life starts protected until the ship attacks (or the server says the time is up).
+    this.player.setHologram(true);
     d.events.onJoined(team, shipId);
     if (!this.joined_) {
       this.joined_ = true;
@@ -619,7 +621,9 @@ export class OnlineGame implements GameSession, ServerHandler {
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
-    model.setPower(e.power);
+    // Bit 7 of the power field: the ship is still under spawn protection.
+    model.setPower(e.power & 0x7f);
+    if (e.kind === KIND.SHIP && (e.power & 0x80) !== 0) model.setHologram(true);
     // The same ship coming back as another class (not a respawn: that one was sunk first).
     if (
       old &&
@@ -790,6 +794,11 @@ export class OnlineGame implements GameSession, ServerHandler {
     else this.at(tick * STEP_MS, apply);
   }
 
+  protectEnd(tick: number, id: number): void {
+    if (id === this.myId) this.player.setHologram(false);
+    else this.at(tick * STEP_MS, () => this.entityOf(id)?.setHologram(false));
+  }
+
   emote(tick: number, id: number, emote: number): void {
     this.at(tick * STEP_MS, () => this.deps.events.onEmote(id, emote));
   }
@@ -803,7 +812,16 @@ export class OnlineGame implements GameSession, ServerHandler {
       const e = this.entityOf(id);
       if (!e) return;
       e.combatant.state.alive = false;
-      this.deps.events.onSunk(e, x, y);
+      e.setHologram(false);
+      // The name for the skull that marks the spot: ships and pirates, no drones or carriers.
+      let name = '';
+      if (id === this.myId) name = this.deps.name;
+      else {
+        const r = this.remotes.get(id);
+        if (r && r.kind === KIND.SHIP) name = r.name;
+        else if (r && r.kind === KIND.PIRATE) name = pirateName(r.name);
+      }
+      this.deps.events.onSunk(e, x, y, name);
     };
     if (id === this.myId) apply();
     else this.at(tick * STEP_MS, apply);

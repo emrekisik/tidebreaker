@@ -37,7 +37,7 @@ import './ui/theme.css';
 import { applyI18n, detectLanguage, setLanguage, t } from './i18n/index.ts';
 import type { MessageKey } from './i18n/index.ts';
 import { Input } from './input/input.ts';
-import { AssetProvider } from './render/assets.ts';
+import { AssetProvider, setHologramTime } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
 import { IslandView } from './render/islands.ts';
 import type { IslandModel } from './render/islands.ts';
@@ -55,6 +55,7 @@ import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { BaseShop } from './ui/baseShop.ts';
+import { WreckMarks } from './ui/wreckMarks.ts';
 import { EmoteBubbles, EmoteWheel } from './ui/emotes.ts';
 import { RigView } from './render/rigs.ts';
 import { RigHud } from './ui/rigHud.ts';
@@ -128,6 +129,7 @@ const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 // Floating things darken the water where they touch it and leave a faint lace of foam.
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
 const emoteBubbles = new EmoteBubbles();
+const wreckMarks = new WreckMarks();
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const baseShop = new BaseShop((item, arg) => {
   if (item === 0) online?.net.buyDrone(arg);
@@ -262,7 +264,8 @@ const events: OnlineEvents = {
       if (d < R * 3) rig.shake(Math.min(0.9, (1 - d / (R * 3)) * 0.9));
     }
   },
-  onSunk(entity, x, y) {
+  onSunk(entity, x, y, name) {
+    if (name) wreckMarks.add(x, y, name, teamNameOf(entity.combatant.team), performance.now());
     effects.explode(x, y, entity.combatant.def.length);
   },
   onDied(killerId, killerName, respawnSec) {
@@ -397,16 +400,31 @@ let lastMs = performance.now();
 let lastNetInfoMs = 0;
 const others: Combatant[] = [];
 const emoteSpot = new Vector3();
-/** Screen position (pixels) of the point over ship `id`, for the emote bubbles; false when it is off screen. */
-function placeEmote(id: number, out: Float32Array): boolean {
+/** World position of ship `id` (for the emote bubbles); false when the ship is gone. */
+function whereEmote(id: number, out: Float32Array): boolean {
   const e = online?.entityOf(id);
   if (!e) return false;
-  emoteSpot.set(e.pose.x, 7, e.pose.y).project(stage.camera);
+  out[0] = e.pose.x;
+  out[1] = e.pose.y;
+  return true;
+}
+/** Screen position (pixels) of the point over a world position, for the emote bubbles. */
+function projectEmote(x: number, y: number, out: Float32Array): boolean {
+  emoteSpot.set(x, 7, y).project(stage.camera);
   if (emoteSpot.z > 1) return false;
   out[0] = (emoteSpot.x * 0.5 + 0.5) * window.innerWidth;
   out[1] = (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight - 6;
   return true;
 }
+/** Screen position (pixels) of a world position on the water, for the marks of sunk ships. */
+function projectWreck(x: number, y: number, out: Float32Array): boolean {
+  emoteSpot.set(x, 1, y).project(stage.camera);
+  if (emoteSpot.z > 1) return false;
+  out[0] = (emoteSpot.x * 0.5 + 0.5) * window.innerWidth;
+  out[1] = (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight;
+  return true;
+}
+const teamNameOf = (team: number): string => (team === 0 ? 'blue' : team === 1 ? 'red' : 'pirate');
 const carriers: (Combatant | undefined)[] = [undefined, undefined];
 
 function update(nowMs: number): void {
@@ -414,6 +432,7 @@ function update(nowMs: number): void {
   lastMs = nowMs;
   const dtSec = Math.max(0, Math.min(frameMs, 100)) / 1000;
   const timeSec = nowMs / 1000;
+  setHologramTime(timeSec);
 
   const wheel = input.consumeWheel();
   if (wheel !== 0) rig.zoomBy(wheel);
@@ -479,7 +498,8 @@ function update(nowMs: number): void {
     if (e.combatant.def.vMax === 0) carriers[e.combatant.team] = e.combatant;
   }
   minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
-  emoteBubbles.update(nowMs, placeEmote);
+  emoteBubbles.update(nowMs, whereEmote, projectEmote);
+  wreckMarks.update(nowMs, projectWreck);
   if (emoteWheel.isOpen) {
     // The wheel is drawn around the player's own ship.
     emoteSpot.set(ps.x, 1, ps.y).project(stage.camera);

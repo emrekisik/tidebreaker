@@ -482,12 +482,13 @@ export class Room {
           e.heading = ship.state.heading;
           e.hp = ship.state.hull / ship.def.hull;
           e.shield = ship.state.shield / w.maxShieldOf(s);
-          // (A drone's power field says whose it is: its owner's entity id.)
+          // (A ship's power field also says, in bit 7, that it is still under spawn protection; a
+          // drone's says whose it is: its owner's entity id.)
           e.power =
             s < CARRIER_SLOTS
               ? 0
               : s < w.playerEnd
-                ? w.level(s, STAT.DAMAGE)
+                ? w.level(s, STAT.DAMAGE) | (w.protectLeft[s]! > 0 ? 0x80 : 0)
                 : s < w.pirateEnd
                   ? 0
                   : w.drones.owner[s - w.pirateEnd]! + 1;

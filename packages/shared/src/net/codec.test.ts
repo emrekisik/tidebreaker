@@ -76,6 +76,7 @@ function recorder(): { log: string[]; h: ServerHandler } {
     bump: (...a) => log.push(`bump ${a.join(',')}`),
     blast: (...a) => log.push(`blast ${a.join(',')}`),
     emote: (...a) => log.push(`emote ${a.join(',')}`),
+    protectEnd: (...a) => log.push(`protectEnd ${a.join(',')}`),
   };
   return { log, h };
 }
@@ -396,6 +397,7 @@ describe('server messages', () => {
     ev.power(3, 6);
     ev.blast(PICKUP_ID_BASE + 9, 33.5, 44.25);
     ev.emote(5, 17);
+    ev.protectEnd(7);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -409,6 +411,7 @@ describe('server messages', () => {
       'power 100,3,6',
       `blast 100,${PICKUP_ID_BASE + 9},33.5,44.25`,
       'emote 100,5,17',
+      'protectEnd 100,7',
     ]);
   });
 

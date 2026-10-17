@@ -42,6 +42,11 @@ export class ShipEntity {
   /** Hull a moment ago and the clock for the repair effect (see Effects.ship). */
   repairLast = 0;
   repairClock = 0;
+  /** Under spawn protection (drawn as a hologram). */
+  setHologram(on: boolean): void {
+    this.model.setHologram(on);
+  }
+
   /** Heading last frame, for banking a drone into its turns. */
   private lastHeading = 0;
   /** Seconds left of the pop-in after a class change (0 = none). */

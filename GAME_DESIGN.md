@@ -72,7 +72,7 @@ Gir (isim) → T1 gemide doğ → topla / vur → Para + Score kazan → stat y�
 
 **İlk 60 saniye tasarımı**
 - Doğuş noktasının yakınında "starter cluster" (5–6 sandık/varil) garanti edilir. İlk ödül ≤ 10 sn içinde gelmeli.
-- **Spawn koruması:** doğuştan sonra 3 sn (`MATCH.spawnProtectSec`) hasar alınmaz; **ilk atışta biter** (korumadan ateş edip kamp yapılamaz).
+- **Spawn koruması:** (yeniden) doğan gemi **saldırana kadar** hasar almaz: ilk atışta ya da **çarparak başka bir gemiye/korsana hasar verdiği** anda biter (korumalı bir gemiye çarpmak hasar vermediği için saymaz). Ama en çok `MATCH.spawnProtectSec` = 12 sn sürer (saldırmadan korumalı gezip kuyu ele geçirilemesin). Koruma sürerken gemi **hologram** gibi görünür (saydam, parlak turkuaz kenarlar, üstünde kayan ışık bantları, hafif titreme: `hologramMaterial`). Sunucu bitişi `PROTECT_END` olayıyla herkese bildirir; yeni girenler korumayı ENTER'daki `power` alanının 7. bitinden öğrenir.
 - Ekranda 15 sn boyunca kontrol ipucu (WASD / nişan / ateş). Sonra kaybolur.
 - İlk upgrade'e (12 para) ≈ 20–30 sn'de ulaşılmalı. Her uçak gemisinin yanında 6 başlangıç sandığı vardır (doğduğun yerin hemen önünde, 25 sn'de yeniden çıkar).
 
@@ -494,6 +494,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
+| `PROTECT_END` (10) | `u16 shipId`: gemi saldırdı ya da süre doldu, spawn koruması bitti (hologram kalkar) |
 | `EMOTE` (9) | `u16 shipId, u8 emote`: bir gemi emote gösterdi (herkese gider, gönderen dahil). Balon `EMOTE.showSec` (3,5 sn) görünür |
 | `BLAST` (8) | `u16 pickupId, u16 x, u16 y`: bir patlayıcı varil patladı (ateş topu ve şok halkası). Varilin hasarı ayrıca her etkilenen gemi için `SHIP_HIT` (silah = `NO_WEAPON`) olarak gelir; varil `LEAVE` ile kalkar |
 | `RIGS` (S2C 0x8E, ayrı mesaj) | `u8 count`, her kuyu için `i8 ibre×127, u8 sahip (255 = yok)`; değişince (en çok 2 Hz) ve yeni girene |
@@ -644,7 +645,9 @@ Tüm HUD tek bir temayı paylaşır (`apps/client/src/ui/theme.css`): **düz (k�
 - Lisans: her asset `ASSETS.md`'ye (kaynak, lisans, yazar, URL) işlenir. CC0 ya da ticari kullanıma izin veren lisans şart.
 
 ### 12.6a Emote'lar
-Oyuncular geminin üstünde **konuşma balonu** gösterebilir (18 adet, `emotes/*.svg`, kimlikler `config/emotes.ts`). Seçim bir **emote çarkıyla** yapılır (sohbet çarkı mantığı): **`C` tuşu basılı tutulduğu sürece** oyuncunun gemisinin etrafında 18 balonlu bir çark çıkar (saat yönünde, tepeden başlayarak); **fare yönü** hangi balonun seçildiğini belirler (seçili balon büyür ve parlar, adı çarkın altında yazılır, ortadaki top fareyi izler). **`C` bırakılınca seçili emote atılır**, tıklamaya gerek yoktur. Fare ortadaki ölü bölgedeyse (ya da `Esc`'ye basılırsa) hiçbir şey atılmaz. Balonun üstündeki **harfe** basmak da (çark açıkken) hemen o emote'u atar. Çark açıkken tuş basışlarını yutar (harfler gemiyi sürmez); fare engellenmez, nişan alma sürer.
+Oyuncular geminin üstünde **konuşma balonu** gösterebilir (18 adet, `emotes/*.svg`, kimlikler `config/emotes.ts`). Seçim bir **emote çarkıyla** yapılır (sohbet çarkı mantığı): **`C` tuşu basılı tutulduğu sürece** oyuncunun gemisinin etrafında 18 balonlu bir çark çıkar (saat yönünde, tepeden başlayarak); **fare yönü** hangi balonun seçildiğini belirler (seçili balon büyür ve parlar, adı çarkın altında yazılır, ortadaki top fareyi izler). **`C` bırakılınca seçili emote atılır**, tıklamaya gerek yoktur. Fare ortadaki ölü bölgedeyse (ya da `Esc`'ye basılırsa) hiçbir şey atılmaz. Balonun üstündeki **harfe** basmak da (çark açıkken) hemen o emote'u atar. Batmış (yeniden doğmayı bekleyen) oyuncu da emote atabilir; balon batığın durduğu yerde görünür. Botlar da yaptıkları işe göre emote atar (en çok ~8 sn'de bir, her seferinde değil): geri çekilirken **yardım**, saldırırken **saldır**, tehdit altında **savun**, kuyuya giderken **A/B/C**, sınıf atlayınca **mutlu**, öldürünce **gg/kahkaha/mutlu**, batınca **üzgün/kızgın**.
+
+Çark açıkken tuş basışlarını yutar (harfler gemiyi sürmez); fare engellenmez, nişan alma sürer.
 
 Balon geminin üstünde zıplayarak belirir, `EMOTE.showSec` (3,5 sn) durur ve söner; gemiyi izler. **Bir gemide aynı anda tek balon vardır: en son atılan görünür**, öncekinin yerine geçer. Sunucu ardışık emote'lar arasında `EMOTE.cooldownSec` (0,8 sn) bekletir; bu sürede basılanlardan yalnızca **sonuncusu** süre dolunca gösterilir (arada basılanlar atılır), böylece oyuncu hep en son bastığını gösterir.
 

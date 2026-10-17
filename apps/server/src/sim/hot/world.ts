@@ -395,6 +395,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     return false;
   }
 
+  /** Ends a ship's spawn protection (it attacked) and tells everyone, so the hologram goes. */
+  private endProtection(slot: number): void {
+    if (this.protectLeft[slot]! <= 0) return;
+    this.protectLeft[slot] = 0;
+    if (slot < this.playerEnd) this.events.protectEnd(slot + 1);
+  }
+
   /**
    * A player shows an emote over their ship (everyone sees it). One goes out right away; while the
    * cooldown (`EMOTE.cooldownSec`) runs the latest one pressed waits and replaces what came before, so
@@ -402,7 +409,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
    */
   emote(slot: number, id: number): boolean {
     if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
-    if (!(id >= 0 && id < EMOTE_IDS.length) || !this.slots[slot]!.state.alive) return false;
+    // (A sunk player may still talk until they come back.)
+    if (!(id >= 0 && id < EMOTE_IDS.length) || this.ghostLeft[slot]! > 0) return false;
     if (this.emoteLeft[slot]! > 0) {
       this.emotePending[slot] = id + 1;
       return true;
@@ -701,7 +709,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         this.level(i, STAT.DAMAGE),
       );
       // The first shot ends the spawn protection: no sniping from safety.
-      if (shots > 0) this.protectLeft[i] = 0;
+      if (shots > 0) this.endProtection(i);
     }
     for (let t = 0; t < CARRIER_SLOTS; t++) {
       const c = this.slots[t]!;
@@ -784,7 +792,10 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
         if (this.ghostLeft[i]! <= 0 || !this.slots[i]!.state.alive) this.release(i);
         continue;
       }
-      if (this.protectLeft[i]! > 0) this.protectLeft[i] = Math.max(0, this.protectLeft[i]! - dt);
+      if (this.protectLeft[i]! > 0) {
+        this.protectLeft[i] = Math.max(0, this.protectLeft[i]! - dt);
+        if (this.protectLeft[i]! <= 0) this.events.protectEnd(i + 1);
+      }
       if (!this.slots[i]!.state.alive && this.respawnLeft[i]! > 0) {
         this.respawnLeft[i] = this.respawnLeft[i]! - dt;
         if (this.respawnLeft[i]! <= 0 && !ended) this.respawn(i);
@@ -900,12 +911,16 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     x: number,
     y: number,
     impact: number,
-    _damageA: number,
-    _damageB: number,
+    damageA: number,
+    damageB: number,
     killedA: boolean,
     killedB: boolean,
   ): void {
     this.events.bump(aId, bId, x, y, impact);
+    // Hurting a ship by ramming it is an attack: it ends the rammer's spawn protection (a ship that is
+    // itself protected takes no damage, so ramming one does not count).
+    if (damageB > 0 && this.protectLeft[bId - 1]! <= 0) this.endProtection(aId - 1);
+    if (damageA > 0 && this.protectLeft[aId - 1]! <= 0) this.endProtection(bId - 1);
     if (killedA && this.protectLeft[aId - 1]! <= 0) this.sunk(aId - 1, bId, x, y, NO_WEAPON);
     if (killedB && this.protectLeft[bId - 1]! <= 0) this.sunk(bId - 1, aId, x, y, NO_WEAPON);
   }

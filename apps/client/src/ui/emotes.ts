@@ -64,8 +64,8 @@ export const EMOTE_ORDER: readonly EmoteId[] = [
 ];
 
 /** Radius of the wheel (pixels, before the UI scale) and the dead zone in its middle where nothing is picked. */
-const RING = 128;
-const DEAD_ZONE = 34;
+const RING = 152;
+const DEAD_ZONE = 38;
 
 /**
  * The emote wheel (like a chat wheel in other games): while `C` is held a wheel of all the emotes is
@@ -204,7 +204,10 @@ export class EmoteWheel {
  */
 export class EmoteBubbles {
   private readonly layer = document.getElementById('emote-layer') as HTMLElement;
-  private readonly shown = new Map<number, { el: HTMLElement; untilMs: number }>();
+  private readonly shown = new Map<
+    number,
+    { el: HTMLElement; untilMs: number; x: number; y: number; known: boolean }
+  >();
 
   /** Ship `shipId` shows emote `emoteIndex` (an index of `EMOTE_IDS`). */
   show(shipId: number, emoteIndex: number, nowMs: number): void {
@@ -217,20 +220,31 @@ export class EmoteBubbles {
     el.style.animationDuration = `${EMOTE.showSec}s`;
     el.style.display = 'none';
     this.layer.append(el);
-    this.shown.set(shipId, { el, untilMs: nowMs + EMOTE.showSec * 1000 });
+    this.shown.set(shipId, { el, untilMs: nowMs + EMOTE.showSec * 1000, x: 0, y: 0, known: false });
   }
 
   /**
-   * Places every bubble over its ship: `place(id, out)` writes the screen position (pixels) of the
-   * point above ship `id` into `out` and returns false when the ship is gone or off screen.
+   * Places every bubble over its ship: `where(id, out)` writes the world position (x, y) of ship `id`
+   * into `out` and returns false when the ship is gone (a sunk ship: the bubble stays where it was last
+   * seen, so a player can talk from their wreck); `project(x, y, out)` turns a world position into the
+   * screen position (pixels) just above it, and returns false when it is off screen.
    */
-  update(nowMs: number, place: (id: number, out: Float32Array) => boolean): void {
+  update(
+    nowMs: number,
+    where: (id: number, out: Float32Array) => boolean,
+    project: (x: number, y: number, out: Float32Array) => boolean,
+  ): void {
     for (const [id, b] of this.shown) {
       if (nowMs >= b.untilMs) {
         this.remove(id);
         continue;
       }
-      if (place(id, this.out)) {
+      if (where(id, this.out)) {
+        b.x = this.out[0]!;
+        b.y = this.out[1]!;
+        b.known = true;
+      }
+      if (b.known && project(b.x, b.y, this.out)) {
         b.el.style.display = '';
         b.el.style.left = `${this.out[0]!}px`;
         b.el.style.top = `${this.out[1]!}px`;

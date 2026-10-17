@@ -1,4 +1,5 @@
 import {
+  AdditiveBlending,
   BackSide,
   BufferAttribute,
   Box3,
@@ -90,6 +91,51 @@ export interface TurretRig {
   muzzle: number;
 }
 
+/**
+ * The look of a ship under spawn protection (it cannot be hurt): see-through, glowing cyan edges and
+ * light bands running over the hull, with a faint flicker, like a hologram. Shared by every ship.
+ */
+const hologramMaterial = new ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: /* glsl */ `
+varying vec3 vN;
+varying vec3 vView;
+varying vec3 vWorld;
+void main() {
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vWorld = w.xyz;
+  vN = normalize(mat3(modelMatrix) * normal);
+  vView = normalize(cameraPosition - w.xyz);
+  gl_Position = projectionMatrix * viewMatrix * w;
+}
+`,
+  fragmentShader: /* glsl */ `
+uniform float uTime;
+varying vec3 vN;
+varying vec3 vView;
+varying vec3 vWorld;
+void main() {
+  float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 1.5);
+  // Light bands sliding over the hull.
+  float scan = 0.5 + 0.5 * sin((vWorld.x * 0.55 + vWorld.z * 0.4) * 2.4 - uTime * 4.5);
+  float bands = smoothstep(0.4, 0.7, scan);
+  float flicker = 0.9 + 0.1 * sin(uTime * 41.0) * sin(uTime * 7.0);
+  vec3 col = mix(vec3(0.12, 0.7, 1.0), vec3(0.85, 1.0, 1.0), fres);
+  float a = (0.2 + 0.55 * fres + 0.28 * bands) * flicker;
+  gl_FragColor = vec4(col, a);
+  #include <colorspace_fragment>
+}
+`,
+  transparent: true,
+  depthWrite: false,
+  blending: AdditiveBlending,
+});
+
+/** Time for the hologram animation (call once per frame). */
+export function setHologramTime(timeSec: number): void {
+  hologramMaterial.uniforms['uTime']!.value = timeSec;
+}
+
 /** A ship's scene objects: the hull plus any number of turrets that follow the aim. */
 export class ShipModel {
   readonly root = new Group();
@@ -101,6 +147,7 @@ export class ShipModel {
   hullLength = 0;
   hullWidth = 0;
   private flashing = false;
+  private hologram = false;
   private readonly tmp = new Quaternion();
   /** The turrets' own sizes as exported (the damage upgrade grows them from here). */
   private readonly baseScale: Vector3[] = [];
@@ -158,8 +205,23 @@ export class ShipModel {
   setFlash(on: boolean): void {
     if (on === this.flashing) return;
     this.flashing = on;
+    this.applyMaterials();
+  }
+
+  /** Spawn protection: the whole ship is drawn as a hologram (it cannot be hurt). */
+  setHologram(on: boolean): void {
+    if (on === this.hologram) return;
+    this.hologram = on;
+    this.applyMaterials();
+  }
+
+  private applyMaterials(): void {
     for (let i = 0; i < this.meshes.length; i++) {
-      this.meshes[i]!.material = on ? this.flashes[i]! : this.normals[i]!;
+      this.meshes[i]!.material = this.hologram
+        ? hologramMaterial
+        : this.flashing
+          ? this.flashes[i]!
+          : this.normals[i]!;
     }
   }
 

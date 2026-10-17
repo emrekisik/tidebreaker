@@ -618,6 +618,40 @@ describe('spawn protection', () => {
     await tick(2);
     expect(room.world.protectLeft[slot]).toBe(0);
     expect(a.heard.spawns.some((x) => x.owner === slot + 1)).toBe(true);
+    // Everyone is told when it is over (the hologram goes).
+    expect(a.heard.protectEnds.some((e) => e.id === slot + 1)).toBe(true);
+  });
+
+  it('lasts while the ship does not attack, far past the old three seconds, up to the cap', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A', 'corvette');
+    const b = await join('B', 'corvette');
+    await tick(4);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    // Announced to everyone with the ship (bit 7 of the power field).
+    expect(b.heard.enters.find((e) => e.id === slot + 1)!.power & 0x80).toBe(0x80);
+    await tick(Math.ceil(5 * TICK_RATE));
+    expect(room.world.protectLeft[slot]).toBeGreaterThan(0);
+    await tick(Math.ceil((MATCH.spawnProtectSec - 5) * TICK_RATE) + 3);
+    expect(room.world.protectLeft[slot]).toBe(0);
+    expect(a.heard.protectEnds.filter((e) => e.id === slot + 1)).toHaveLength(1);
+  });
+
+  it('ends when the ship hurts another ship by ramming it, but not when it rams a protected one', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A', 'corvette');
+    const b = await join('B', 'corvette');
+    await tick(1);
+    const w = room.world;
+    const aSlot = a.heard.joined[0]!.entityId - 1;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    // B is protected too: ramming it hurts nobody.
+    w.onCollision(aSlot + 1, bSlot + 1, 100, 100, 6, 5, 5, false, false);
+    expect(w.protectLeft[aSlot]).toBeGreaterThan(0);
+    // B no longer protected: A hurt it.
+    w.protectLeft[bSlot] = 0;
+    w.onCollision(aSlot + 1, bSlot + 1, 100, 100, 6, 5, 5, false, false);
+    expect(w.protectLeft[aSlot]).toBe(0);
   });
 });
 
@@ -956,7 +990,7 @@ describe('the guns grow with the damage upgrade', () => {
     // A third player joins later and is told the level in the ENTER entry.
     const c = await join('C');
     await tick(4);
-    expect(c.heard.enters.find((e) => e.id === aSlot + 1)!.power).toBe(1);
+    expect(c.heard.enters.find((e) => e.id === aSlot + 1)!.power & 0x7f).toBe(1);
     expect(c.heard.enters.find((e) => e.id === 1)!.power).toBe(0); // a carrier
   });
 });
