@@ -2,6 +2,7 @@ import {
   BASE,
   BASE_ITEM,
   DRONE,
+  MISSILE,
   DRONE_TYPES,
   gunsCost,
   gunsDamageMul,
@@ -12,6 +13,7 @@ import type { MessageKey } from '../i18n/index.ts';
 import cashIcon from './icons/cash.svg?raw';
 import damageIcon from './icons/damage.svg?raw';
 import droneIcon from './icons/drone.svg?raw';
+import missileIcon from './icons/missile.svg?raw';
 import repairIcon from './icons/repair.svg?raw';
 
 /** The icon without its fixed pixel size, so CSS can size it. */
@@ -28,8 +30,8 @@ interface Row {
 
 /**
  * The base shop: a window that opens while the player's ship is at their own carrier, bottom left
- * above the radar. Four rows (keys 7, 8, 9 and 0, or a click): the two drone types, mending the
- * carrier, and better carrier guns. The server decides whether a purchase is allowed; this only
+ * above the radar. Five rows (keys 7, 8, 9, 0 and E, or a click): the two drone types, mending the
+ * carrier, better carrier guns, and the guided missile. The server decides whether a purchase is allowed; this only
  * shows what is possible and sends the request.
  */
 export class BaseShop {
@@ -40,6 +42,9 @@ export class BaseShop {
   private cash = 0;
   private drones = 0;
   private gunLevel = 0;
+  private missiles = 0;
+  /** The class of the player's ship (index, 0 = T1). */
+  private tier = 0;
   /** The own carrier's hull (0..1). */
   private carrierHull = 1;
 
@@ -64,6 +69,7 @@ export class BaseShop {
     });
     this.addRow('9', repairIcon, t('base.repair'), '', () => this.onBuy(1, BASE_ITEM.REPAIR));
     this.addRow('0', damageIcon, t('base.guns'), '', () => this.onBuy(2, BASE_ITEM.GUNS));
+    this.addRow('E', missileIcon, t('base.missile'), '', () => this.onBuy(2, BASE_ITEM.MISSILE));
     this.refresh();
   }
 
@@ -103,10 +109,12 @@ export class BaseShop {
   }
 
   /** The player's money, drones and the level of the team's carrier guns changed. */
-  setStats(cash: number, drones: number, gunLevel: number): void {
+  setStats(cash: number, drones: number, gunLevel: number, missiles: number, tier: number): void {
     this.cash = cash;
     this.drones = drones;
     this.gunLevel = gunLevel;
+    this.missiles = missiles;
+    this.tier = tier;
     this.refresh();
   }
 
@@ -118,7 +126,7 @@ export class BaseShop {
     this.refresh();
   }
 
-  /** Keyboard shortcut for row `i` (keys 7, 8, 9, 0 = 0..3); only works while the shop is open. */
+  /** Keyboard shortcut for row `i` (keys 7, 8, 9, 0, E = 0..4); only works while the shop is open. */
   press(i: number): void {
     const row = this.rows[i];
     if (this.visible && row && !row.button.disabled) row.button.click();
@@ -152,5 +160,14 @@ export class BaseShop {
       : `${t('base.level')} ${this.gunLevel}/${BASE.guns.maxLevel} → ${t('base.damage')} +${dmg}% · ${t('base.rate')} +${rate}%`;
     guns.price.innerHTML = maxed ? 'MAX' : `${coin}${next}`;
     guns.button.disabled = maxed || this.cash < next;
+
+    const missile = this.rows[4]!;
+    const canCarry = this.tier >= MISSILE.minTier;
+    const rackFull = this.missiles >= MISSILE.maxStock;
+    missile.desc.textContent = !canCarry
+      ? t('base.missile.tier')
+      : `${t('base.missile.desc')} · ${this.missiles}/${MISSILE.maxStock}`;
+    missile.price.innerHTML = `${coin}${MISSILE.price}`;
+    missile.button.disabled = !canCarry || rackFull || this.cash < MISSILE.price;
   }
 }

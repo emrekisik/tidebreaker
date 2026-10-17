@@ -15,6 +15,7 @@ import {
   MATCH,
   MATCH_STATE,
   MAX_PROJECTILES,
+  MISSILE,
   Mulberry32,
   NO_TEAM,
   NO_WEAPON,
@@ -65,6 +66,9 @@ import {
   turnMul,
   updateCarrier,
   updateMounts,
+  WEAPONS,
+  lockRange,
+  weaponIndex,
 } from '@tidebreaker/shared';
 import { DRONE_SLOTS, Drones } from './drones.ts';
 import { BARREL_START, CHEST_START, Pickups } from './pickups.ts';
@@ -73,6 +77,7 @@ import type {
   CollisionSink,
   Combatant,
   HitSink,
+  HomingTargets,
   IslandSink,
   Obstacles,
   ProjectileSink,
@@ -97,7 +102,9 @@ const PEACEFUL = 1e6;
  * The room (network side) feeds inputs into `in*` arrays before each tick and reads `events`,
  * `diedVictim/diedKiller`, `respawned` and `matchChanged` after it.
  */
-export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink, Obstacles {
+export class World
+  implements HitSink, ProjectileSink, CollisionSink, IslandSink, Obstacles, HomingTargets
+{
   readonly land: WorldMap;
   readonly maxPlayers: number;
   /** One past the last player slot: pirates have the slots from here up to `pirateEnd`. */
@@ -143,6 +150,13 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
   readonly pickups: Pickups;
   readonly pirates: Pirates;
   readonly drones: Drones;
+  /** Guided missiles on board, per slot (bought at the base shop). */
+  readonly missiles: Uint8Array;
+  /** The lock a player is building: entity id of the target (0 = none) and the seconds still needed. */
+  private readonly lockTarget: Uint16Array;
+  private readonly lockLeft: Float32Array;
+  /** 1 = a refused lock must still be announced (LOCK_BREAK) with the next events. */
+  private readonly lockRefused: Uint8Array;
   /** Level of each team's carrier guns (the base shop). */
   readonly baseGuns = new Uint8Array(TEAM_COUNT);
   /** Oil rigs: gauge from -1 (red) to +1 (blue) and the owning team (RIG_NO_OWNER = nobody). */
@@ -230,6 +244,10 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.savedHull = new Float32Array(n);
     this.emoteLeft = new Float32Array(n);
     this.emotePending = new Uint8Array(n);
+    this.missiles = new Uint8Array(n);
+    this.lockTarget = new Uint16Array(n);
+    this.lockLeft = new Float32Array(n);
+    this.lockRefused = new Uint8Array(n);
     this.savedShield = new Float32Array(n);
 
     // Every state gets room for the largest mount list, so a slot can change class freely.
@@ -242,6 +260,7 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       c.state.mountCooldown = new Float32Array(maxMounts);
       this.slots.push(c);
     }
+    this.projectiles.homing = this;
     this.pickups = new Pickups(this.land, seed);
     this.pirates = new Pirates(this, seed);
     this.drones = new Drones(this, seed);
@@ -392,7 +411,132 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
       return true;
     }
+    if (item === BASE_ITEM.MISSILE) {
+      // T1 and T2 ships cannot carry them; two at most.
+      if (this.tier[slot]! < MISSILE.minTier || this.missiles[slot]! >= MISSILE.maxStock) return false;
+      if (this.cash[slot]! < MISSILE.price) return false;
+      this.cash[slot] = this.cash[slot]! - MISSILE.price;
+      this.missiles[slot] = this.missiles[slot]! + 1;
+      this.statsDirty[slot] = 1;
+      return true;
+    }
     return false;
+  }
+
+  // ---- the guided missile (GAME_DESIGN.md §7.4)
+
+  /** Where entity `id` is (the guided projectiles ask this every tick). */
+  locate(id: number, out: Float32Array): boolean {
+    const slot = id - 1;
+    if (slot < CARRIER_SLOTS || slot >= this.pirateEnd || this.used[slot] === 0) return false;
+    const st = this.slots[slot]!.state;
+    if (!st.alive) return false;
+    out[0] = st.x;
+    out[1] = st.y;
+    return true;
+  }
+
+  /**
+   * True when player `slot` may keep ship `targetId` locked: an enemy ship (player or pirate, never a
+   * carrier or drone), afloat, without spawn protection, within the lock distance.
+   */
+  private lockable(slot: number, targetId: number): boolean {
+    const t = targetId - 1;
+    if (t < CARRIER_SLOTS || t >= this.pirateEnd || this.used[t] === 0) return false;
+    const target = this.slots[t]!;
+    if (!target.state.alive || this.protectLeft[t]! > 0) return false;
+    if (target.team === this.slots[slot]!.team) return false;
+    const me = this.slots[slot]!.state;
+    const dx = target.state.x - me.x;
+    const dy = target.state.y - me.y;
+    const reach = lockRange(this.tier[slot]!);
+    return dx * dx + dy * dy <= reach * reach;
+  }
+
+  /**
+   * A player starts locking a missile onto ship `targetId` (0 = cancels the lock). The missile leaves
+   * after `MISSILE.lockSec` if the lock holds. A request that is not allowed is answered with a
+   * LOCK_BREAK so the player's reticle goes away.
+   */
+  lock(slot: number, targetId: number): boolean {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
+    if (targetId === 0) {
+      this.lockTarget[slot] = 0;
+      return true;
+    }
+    const c = this.slots[slot]!;
+    if (
+      !c.state.alive ||
+      this.ghostLeft[slot]! > 0 ||
+      this.matchState !== MATCH_STATE.PLAYING ||
+      this.missiles[slot]! === 0 ||
+      !this.lockable(slot, targetId)
+    ) {
+      this.lockTarget[slot] = 0;
+      this.lockRefused[slot] = 1;
+      return false;
+    }
+    this.lockTarget[slot] = targetId;
+    this.lockLeft[slot] = MISSILE.lockSec;
+    return true;
+  }
+
+  /** Counts the locks down; a finished one launches its missile, a broken one is announced. */
+  private updateLocks(dt: number, ended: boolean): void {
+    for (let i = CARRIER_SLOTS; i < this.playerEnd; i++) {
+      if (this.lockRefused[i] === 1) {
+        this.lockRefused[i] = 0;
+        this.events.lockBreak(i + 1);
+      }
+      const target = this.lockTarget[i]!;
+      if (target === 0) continue;
+      if (
+        this.used[i] === 0 ||
+        !this.slots[i]!.state.alive ||
+        this.ghostLeft[i]! > 0 ||
+        ended ||
+        !this.lockable(i, target)
+      ) {
+        this.lockTarget[i] = 0;
+        this.events.lockBreak(i + 1);
+        continue;
+      }
+      this.lockLeft[i] = this.lockLeft[i]! - dt;
+      if (this.lockLeft[i]! <= 0) this.launchMissile(i, target);
+    }
+  }
+
+  /** The lock is complete: the missile leaves the ship, aimed at the target, and chases it. */
+  private launchMissile(slot: number, targetId: number): void {
+    const me = this.slots[slot]!;
+    const st = me.state;
+    const target = this.slots[targetId - 1]!.state;
+    const angle = Math.atan2(target.y - st.y, target.x - st.x);
+    const ahead = me.def.length * MISSILE.launchAhead;
+    const x = st.x + Math.cos(angle) * ahead;
+    const y = st.y + Math.sin(angle) * ahead;
+    const weaponIdx = weaponIndex('missile');
+    const W = WEAPONS.missile;
+    const id = this.projectiles.spawn(
+      x,
+      y,
+      angle,
+      W.projectileSpeed * W.startSpeedPct,
+      W.range,
+      W.radius,
+      W.damage,
+      slot + 1,
+      weaponIdx,
+      me.team,
+    );
+    this.projectiles.chase(id, targetId);
+    this.events.missile(id, slot + 1, targetId, x, y, angle);
+    this.lockTarget[slot] = 0;
+    this.missiles[slot] = this.missiles[slot]! - 1;
+    this.statsDirty[slot] = 1;
+    this.combatAge[slot] = 0;
+    // Firing a missile is an attack: it ends the spawn protection.
+    this.endProtection(slot);
   }
 
   /** Ends a ship's spawn protection (it attacked) and tells everyone, so the hologram goes. */
@@ -506,6 +650,8 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
     this.lives[slot] = ECONOMY.death.lives;
     this.carrierCarry[slot] = 0;
+    this.missiles[slot] = 0;
+    this.lockTarget[slot] = 0;
     this.statsDirty[slot] = 1;
   }
 
@@ -729,6 +875,9 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
       }
     }
 
+    // 5a. missile locks count down and launch
+    this.updateLocks(dt, ended);
+
     // 5b. pickups: ships that touch something take it
     this.collectPickups();
     this.pickups.step(dt, this.combatants);
@@ -948,8 +1097,10 @@ export class World implements HitSink, ProjectileSink, CollisionSink, IslandSink
     }
     if (victim >= this.pirateEnd) return this.droneSunk(victim, killerId);
     if (victim >= this.playerEnd) return this.pirateSunk(victim, killerId, weapon);
-    // The drones of a sunk ship crash with it.
+    // The drones of a sunk ship crash with it, and its missiles and lock are gone.
     this.drones.removeAllOf(victim, true);
+    this.missiles[victim] = 0;
+    this.lockTarget[victim] = 0;
     this.respawnLeft[victim] = MATCH.respawnSec;
     this.inFire[victim] = 0;
     this.deaths[victim] = this.deaths[victim]! + 1;

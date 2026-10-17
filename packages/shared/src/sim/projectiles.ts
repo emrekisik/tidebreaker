@@ -1,4 +1,6 @@
 import { WEAPONS, WEAPON_IDS } from '../config/weapons.ts';
+import type { WeaponDef } from '../config/weapons.ts';
+import { DEG2RAD, angleDiff } from '../math/angle.ts';
 import { applyDamage, HIT_KILLED, HIT_SHIELD } from './damage.ts';
 import type { ProjectileSink } from './mounts.ts';
 import { NO_TEAM } from './types.ts';
@@ -58,6 +60,12 @@ export interface HitSink {
 
 const NO_TARGETS: readonly Combatant[] = [];
 
+/** Where a guided projectile's target is right now (the server's world, or the client's view of it). */
+export interface HomingTargets {
+  /** Writes the position of entity `id` into `out[0]`, `out[1]`; false when it is gone or sunk. */
+  locate(id: number, out: Float32Array): boolean;
+}
+
 /** Struct-of-arrays projectile storage with a fixed capacity (no allocation after creation). */
 export class ProjectileSet implements ProjectileSink {
   readonly capacity: number;
@@ -80,7 +88,13 @@ export class ProjectileSet implements ProjectileSink {
   readonly power: Uint8Array;
   /** Owner team: projectiles pass through their own team. */
   readonly team: Uint8Array;
+  /** Guided shots: entity id of the ship being chased (0 = flies straight) and the turn rate (radians per second). */
+  readonly homingId: Uint16Array;
+  readonly turn: Float32Array;
   readonly active: Uint8Array;
+  /** Who tells where the chased ships are; without it guided shots fly straight. */
+  homing: HomingTargets | null = null;
+  private readonly where = new Float32Array(2);
   /** One past the highest slot index that may be active. */
   highWater = 0;
   activeCount = 0;
@@ -106,6 +120,8 @@ export class ProjectileSet implements ProjectileSink {
     this.age = new Float32Array(capacity);
     this.owner = new Uint16Array(capacity);
     this.team = new Uint8Array(capacity);
+    this.homingId = new Uint16Array(capacity);
+    this.turn = new Float32Array(capacity);
     this.active = new Uint8Array(capacity);
     this.freeSlots = new Int32Array(capacity);
     for (let i = 0; i < capacity; i++) this.freeSlots[i] = capacity - 1 - i;
@@ -146,6 +162,8 @@ export class ProjectileSet implements ProjectileSink {
     this.maxSpeed[slot] = def ? def.projectileSpeed : speed;
     this.startSpeed[slot] = speed;
     this.ramp[slot] = def ? def.accelSec : 0;
+    this.homingId[slot] = 0;
+    this.turn[slot] = def ? ((def as WeaponDef).turnRateDeg ?? 0) * DEG2RAD : 0;
     this.age[slot] = 0;
     this.owner[slot] = ownerId;
     this.team[slot] = team;
@@ -153,6 +171,11 @@ export class ProjectileSet implements ProjectileSink {
     this.activeCount++;
     if (slot >= this.highWater) this.highWater = slot + 1;
     return slot;
+  }
+
+  /** Makes a guided shot (a weapon with a turn rate) chase entity `targetId`. */
+  chase(slot: number, targetId: number): void {
+    this.homingId[slot] = targetId;
   }
 
   /** Removes one projectile (the client does this when the server reports its end). */
@@ -197,6 +220,19 @@ export class ProjectileSet implements ProjectileSink {
   ): void {
     const x0 = this.x[i]!;
     const y0 = this.y[i]!;
+    if (this.homingId[i]! !== 0 && this.homing !== null && this.homing.locate(this.homingId[i]!, this.where)) {
+      // Turn the flight direction toward the chased ship, as far as the turn rate allows.
+      const vx = this.vx[i]!;
+      const vy = this.vy[i]!;
+      const heading = Math.atan2(vy, vx);
+      const want = Math.atan2(this.where[1]! - y0, this.where[0]! - x0);
+      const limit = this.turn[i]! * dt;
+      const diff = angleDiff(want, heading);
+      const turned = heading + (diff > limit ? limit : diff < -limit ? -limit : diff);
+      const v = Math.sqrt(vx * vx + vy * vy);
+      this.vx[i] = Math.cos(turned) * v;
+      this.vy[i] = Math.sin(turned) * v;
+    }
     if (this.ramp[i]! > 0) {
       const age = this.age[i]! + dt;
       this.age[i] = age;

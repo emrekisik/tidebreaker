@@ -4,6 +4,7 @@ import {
   FX,
   MATCH_STATE,
   MAX_PROJECTILES,
+  MISSILE,
   NO_WEAPON,
   SHIPS,
   STEP_MS,
@@ -15,6 +16,7 @@ import {
   boundaryDepth,
   generateMap,
   hullDistance,
+  lockRange,
   mapHash,
 } from '@tidebreaker/shared';
 import type { Combatant, ShipId, WorldMap } from '@tidebreaker/shared';
@@ -55,6 +57,8 @@ import { LookPanel } from './ui/lookPanel.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { BaseShop } from './ui/baseShop.ts';
+import { MissileBadge, MissileLock } from './ui/missileLock.ts';
+import type { LockProjector } from './ui/missileLock.ts';
 import { WreckMarks } from './ui/wreckMarks.ts';
 import { EmoteBubbles, EmoteWheel } from './ui/emotes.ts';
 import { RigView } from './render/rigs.ts';
@@ -131,6 +135,13 @@ pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0,
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
+const missileLock = new MissileLock(
+  document.getElementById('lock-layer') as HTMLElement,
+  document.getElementById('missile-warning') as HTMLElement,
+  () => online?.net.lock(0),
+);
+(document.getElementById('missile-warning') as HTMLElement).textContent = t('missile.incoming');
+const missileBadge = new MissileBadge(document.getElementById('missile-hud') as HTMLElement);
 const baseShop = new BaseShop((item, arg) => {
   if (item === 0) online?.net.buyDrone(arg);
   else online?.net.baseBuy(arg);
@@ -187,6 +198,8 @@ window.addEventListener('keydown', (e) => {
     else if (e.code === 'KeyT') progressHud.pressTierUp();
     else if (e.code >= 'Digit7' && e.code <= 'Digit9') baseShop.press(Number(e.code.slice(5)) - 7);
     else if (e.code === 'Digit0') baseShop.press(3);
+    else if (e.code === 'KeyE') baseShop.press(4);
+    else if (e.code === 'KeyQ') pressLock();
   }
   if (e.code === 'Tab') {
     // The scoreboard replaces the browser's focus change.
@@ -251,6 +264,16 @@ const events: OnlineEvents = {
   onScore(x, y, points) {
     damageNumbers.showScore(stage.camera, x, y, points);
   },
+  onMissile(id, owner, target) {
+    if (owner === online?.myId) missileLock.launched(id, target);
+    if (target === online?.myId && owner !== online?.myId) missileLock.warn(id);
+  },
+  onMissileEnd(id) {
+    missileLock.ended(id);
+  },
+  onLockBreak() {
+    missileLock.cancel();
+  },
   onEmote(shipId, emote) {
     emoteBubbles.show(shipId, emote, performance.now());
   },
@@ -279,7 +302,8 @@ const events: OnlineEvents = {
   },
   onStats(m) {
     progressHud.update(m);
-    baseShop.setStats(m.cash, m.drones, m.baseGuns);
+    baseShop.setStats(m.cash, m.drones, m.baseGuns, m.missiles, m.tier);
+    missileBadge.set(m.missiles, m.tier >= MISSILE.minTier);
   },
   onRigs(rows) {
     rigView.set(rows);
@@ -305,6 +329,7 @@ const events: OnlineEvents = {
   },
   onJoined() {
     matchHud.respawned();
+    missileLock.reset();
   },
   onClosed() {
     matchHud.connectionLost();
@@ -424,6 +449,65 @@ function projectWreck(x: number, y: number, out: Float32Array): boolean {
   out[1] = (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight;
   return true;
 }
+const lockSpot = new Vector3();
+const lockEdge = new Vector3();
+/** Where ship `id` is on the screen (pixels) and half its size, for the lock-on reticle; false when it is off the screen. */
+const lockProjector: LockProjector = {
+  project(id, out) {
+    const e = online?.entityOf(id);
+    if (!e || !e.combatant.state.alive) return false;
+    const x = e.pose.x;
+    const y = e.pose.y;
+    lockSpot.set(x, 0.8, y).project(stage.camera);
+    if (lockSpot.z > 1 || Math.abs(lockSpot.x) > 1 || Math.abs(lockSpot.y) > 1) return false;
+    lockEdge.set(x + e.combatant.def.length * 0.5, 0.8, y).project(stage.camera);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    out[0] = (lockSpot.x * 0.5 + 0.5) * w;
+    out[1] = (-lockSpot.y * 0.5 + 0.5) * h;
+    out[2] = Math.hypot((lockEdge.x - lockSpot.x) * 0.5 * w, (lockEdge.y - lockSpot.y) * 0.5 * h);
+    return true;
+  },
+};
+const lockProbe = new Float32Array(3);
+/** The enemy ship nearest to the mouse that is on the screen and within lock range (entity id, 0 = none). */
+function pickLockTarget(me: Combatant): number {
+  if (!online) return 0;
+  const reach = lockRange(online.progress.tier);
+  const mx = (input.ndcX * 0.5 + 0.5) * window.innerWidth;
+  const my = (-input.ndcY * 0.5 + 0.5) * window.innerHeight;
+  let best = 0;
+  let bestDist = 240;
+  for (const e of online.entities) {
+    const c = e.combatant;
+    if (e === online.player || c.team === me.team || c.def.vMax === 0 || c.def.flying) continue;
+    if (!c.state.alive || Math.hypot(e.pose.x - me.state.x, e.pose.y - me.state.y) > reach) continue;
+    if (!lockProjector.project(c.id, lockProbe)) continue;
+    const d = Math.hypot(lockProbe[0]! - mx, lockProbe[1]! - my);
+    if (d < bestDist) {
+      bestDist = d;
+      best = c.id;
+    }
+  }
+  return best;
+}
+/** The lock key: starts locking a missile onto the ship under the mouse, or cancels a lock in progress. */
+function pressLock(): void {
+  if (!online || !session) return;
+  if (missileLock.locking) {
+    missileLock.cancel();
+    online.net.lock(0);
+    return;
+  }
+  const mine = online.progress;
+  if (!session.player.combatant.state.alive) return;
+  if (mine.tier < MISSILE.minTier) return missileBadge.flash(t('lock.tier'));
+  if (mine.missiles <= 0) return missileBadge.flash(t('lock.empty'));
+  const target = pickLockTarget(session.player.combatant);
+  if (target === 0) return missileBadge.flash(t('lock.none'));
+  missileLock.begin(target);
+  online.net.lock(target);
+}
 const teamNameOf = (team: number): string => (team === 0 ? 'blue' : team === 1 ? 'red' : 'pirate');
 const carriers: (Combatant | undefined)[] = [undefined, undefined];
 
@@ -480,6 +564,8 @@ function update(nowMs: number): void {
 
   const p = game.player.pose;
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
+  // (The reticles, bubbles and the wheel are projected with this frame's camera.)
+  stage.camera.updateMatrixWorld();
   stage.followSun(rig.focusX, rig.focusZ);
   // (The pickups stamp where they touch the water into the foam map, so they come before it is drawn.)
   pickups.update(timeSec, rig.focusX, rig.focusZ);
@@ -500,9 +586,12 @@ function update(nowMs: number): void {
   minimap?.update(ps, others, online?.rigState ?? null, stage.camera);
   emoteBubbles.update(nowMs, whereEmote, projectEmote);
   wreckMarks.update(nowMs, projectWreck);
+  missileLock.update(dtSec, lockProjector);
+  missileBadge.update(dtSec);
   if (emoteWheel.isOpen) {
-    // The wheel is drawn around the player's own ship.
-    emoteSpot.set(ps.x, 1, ps.y).project(stage.camera);
+    // The wheel is drawn around the player's own ship, where the camera sees it (the smoothed pose,
+    // not the 20 Hz tick state, and the camera matrices of this very frame, else it shakes).
+    emoteSpot.set(p.x, 1, p.y).project(stage.camera);
     emoteWheel.update((emoteSpot.x * 0.5 + 0.5) * window.innerWidth, (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight);
   }
   // The base shop is open while the player's ship is at its own carrier.
@@ -565,6 +654,12 @@ if (debug) {
       return online;
     },
     input,
+    /** Lock-on pieces, for checks from the console. */
+    lock: {
+      ui: missileLock,
+      project: lockProjector,
+      pick: () => (session ? pickLockTarget(session.player.combatant) : 0),
+    },
     camera: stage.camera,
     assets,
     particleKit,

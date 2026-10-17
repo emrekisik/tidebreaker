@@ -25,6 +25,7 @@ export const C2S = {
   BUY_DRONE: 0x07,
   BASE_BUY: 0x08,
   EMOTE: 0x09,
+  LOCK: 0x0a,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -69,6 +70,8 @@ export const EVENT = {
   BLAST: 8,
   EMOTE: 9,
   PROTECT_END: 10,
+  MISSILE: 11,
+  LOCK_BREAK: 12,
 } as const;
 /** Entity kinds in snapshots (§10.3). */
 export const KIND = {
@@ -106,6 +109,8 @@ export interface ClientMsg {
   aim: number;
   aimDist: number;
   clientTime: number;
+  /** Entity id a LOCK asks to lock the missile onto (0 = cancel the lock). */
+  target: number;
 }
 
 export function newClientMsg(): ClientMsg {
@@ -122,6 +127,7 @@ export function newClientMsg(): ClientMsg {
     aim: 0,
     aimDist: 0,
     clientTime: 0,
+    target: 0,
   };
 }
 
@@ -158,6 +164,15 @@ export function encodeBaseBuy(w: Writer, item: number): void {
 export function encodeEmote(w: Writer, emote: number): void {
   w.u8(C2S.EMOTE);
   w.u8(emote);
+}
+
+/**
+ * Start locking the guided missile onto ship `target` (entity id); 0 cancels. The server checks
+ * everything (stock, class, distance, enemy) and fires after `MISSILE.lockSec` if the lock holds.
+ */
+export function encodeLock(w: Writer, target: number): void {
+  w.u8(C2S.LOCK);
+  w.u16(target);
 }
 
 /** Move up one class (the server checks the money). */
@@ -222,6 +237,9 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
     case C2S.BASE_BUY:
     case C2S.EMOTE:
       out.stat = r.u8();
+      break;
+    case C2S.LOCK:
+      out.target = r.u16();
       break;
     case C2S.PING:
       out.clientTime = r.u32();
@@ -391,6 +409,8 @@ export interface StatsMsg {
   drones: number;
   /** Level of the team's carrier guns. */
   baseGuns: number;
+  /** Guided missiles on board. */
+  missiles: number;
 }
 
 export function encodeStats(w: Writer, m: StatsMsg): void {
@@ -406,6 +426,7 @@ export function encodeStats(w: Writer, m: StatsMsg): void {
   w.u8(m.lives);
   w.u8(m.drones);
   w.u8(m.baseGuns);
+  w.u8(m.missiles);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -684,6 +705,29 @@ export class EventWriter {
     this.count++;
   }
 
+  /** A guided missile leaves `owner` and chases ship `target`. */
+  missile(projId: number, owner: number, target: number, x: number, y: number, angle: number): void {
+    if (!this.room(13)) return;
+    const w = this.w;
+    w.u8(EVENT.MISSILE);
+    w.u16(projId);
+    w.u16(owner);
+    w.u16(target);
+    w.u16(qPos(x));
+    w.u16(qPos(y));
+    w.u16(qAngle16(angle));
+    this.count++;
+  }
+
+  /** The lock `owner` was building ended without a launch (target gone, too far, protected...). */
+  lockBreak(owner: number): void {
+    if (!this.room(3)) return;
+    const w = this.w;
+    w.u8(EVENT.LOCK_BREAK);
+    w.u16(owner);
+    this.count++;
+  }
+
   /** A ship's spawn protection is over (it attacked, or the time ran out). */
   protectEnd(id: number): void {
     if (!this.room(3)) return;
@@ -782,6 +826,10 @@ export interface ServerHandler {
   emote(tick: number, id: number, emote: number): void;
   /** A ship's spawn protection is over. */
   protectEnd(tick: number, id: number): void;
+  /** A guided missile left `owner` after ship `target`. */
+  missile(tick: number, projId: number, owner: number, target: number, x: number, y: number, angle: number): void;
+  /** The lock `owner` was building was lost. */
+  lockBreak(tick: number, owner: number): void;
 }
 
 const self = newSelfState();
@@ -810,6 +858,7 @@ const statsMsg: StatsMsg = {
   lives: 0,
   drones: 0,
   baseGuns: 0,
+  missiles: 0,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -904,6 +953,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.lives = r.u8();
       statsMsg.drones = r.u8();
       statsMsg.baseGuns = r.u8();
+      statsMsg.missiles = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
       return true;
@@ -1056,6 +1106,21 @@ function decodeEvents(r: Reader, h: ServerHandler): boolean {
         const x = dqPos(r.u16());
         const y = dqPos(r.u16());
         if (r.ok) h.pickup(tick, id, collector, kind, value, x, y);
+        break;
+      }
+      case EVENT.MISSILE: {
+        const id = r.u16();
+        const owner = r.u16();
+        const target = r.u16();
+        const x = dqPos(r.u16());
+        const y = dqPos(r.u16());
+        const angle = dqAngle16(r.u16());
+        if (r.ok) h.missile(tick, id, owner, target, x, y, angle);
+        break;
+      }
+      case EVENT.LOCK_BREAK: {
+        const owner = r.u16();
+        if (r.ok) h.lockBreak(tick, owner);
         break;
       }
       case EVENT.PROTECT_END: {

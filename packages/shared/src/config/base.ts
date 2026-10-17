@@ -1,6 +1,7 @@
 /**
  * The base shop (GAME_DESIGN.md §7.3): what a player can buy for the team at their own carrier, besides
- * drones. Both items work on the carrier of the buyer's team.
+ * drones. Mending and the guns work on the carrier of the buyer's team; the guided missile (see
+ * `MISSILE`) is for the buyer's own ship.
  */
 export const BASE = {
   /** Mending the carrier: each purchase gives back this share of its full hull, for this much money. */
@@ -18,7 +19,7 @@ export const BASE = {
 } as const;
 
 /** What the BASE_BUY message asks for (the wire value). */
-export const BASE_ITEM = { REPAIR: 0, GUNS: 1 } as const;
+export const BASE_ITEM = { REPAIR: 0, GUNS: 1, MISSILE: 2 } as const;
 
 /** Money for the next level of the carrier guns (Infinity at the top level). */
 export function gunsCost(level: number): number {

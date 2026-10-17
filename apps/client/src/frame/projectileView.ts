@@ -6,12 +6,14 @@ import type { ProjectileSet, ProjectileVisual } from '@tidebreaker/shared';
 const HEIGHT = 1.2;
 /** Index of the rocket mesh in the order given by createProjectileMeshes (bullet, shell, rocket). */
 const ROCKET_MESH = 2;
+/** The guided missile flies level, a little higher than the bullets. */
+const MISSILE_MESH = 3;
 
 /** Writes projectile transforms straight into the instance buffers (no allocation per frame). */
 export class ProjectileView {
   private readonly meshes: readonly InstancedMesh[];
   /** mesh index -> how much a damage level thickens the body */
-  private readonly thickenOfMesh = new Float32Array(3);
+  private readonly thickenOfMesh = new Float32Array(4);
   /** weapon index -> mesh index */
   private readonly meshOfWeapon: Uint8Array;
   private readonly counts: Int32Array;
@@ -21,7 +23,7 @@ export class ProjectileView {
   constructor(meshes: readonly InstancedMesh[], order: readonly ProjectileVisual[]) {
     this.meshes = meshes;
     this.counts = new Int32Array(meshes.length);
-    for (let m = 0; m < 3; m++) {
+    for (let m = 0; m < meshes.length; m++) {
       const v = order[m];
       this.thickenOfMesh[m] = v ? FX.power.thicken[v] : 0;
     }
@@ -98,7 +100,7 @@ export class ProjectileView {
       arr[o + 8] = -dy * thick;
       arr[o + 10] = dx * thick;
       arr[o + 12] = set.x[i]! - vx * back;
-      arr[o + 13] = HEIGHT;
+      arr[o + 13] = m === MISSILE_MESH ? FX.missileTrail.height : HEIGHT;
       arr[o + 14] = set.y[i]! - vy * back;
     }
   }

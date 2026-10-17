@@ -39,7 +39,7 @@ export class Effects {
   /** Fractional smoke-trail time per projectile slot. */
   /** Fractional smoke-trail time per projectile slot, one array per projectile layer. */
   private readonly trailCarries: Float32Array[] = new Array<Float32Array>();
-  /** weapon index -> 0 bullet, 1 shell, 2 rocket (same order as ProjectileVisual) */
+  /** weapon index -> 0 bullet, 1 shell, 2 rocket, 3 guided missile (same order as ProjectileVisual) */
   private readonly kindOfWeapon: Uint8Array;
 
   constructor(kit: ParticleKit, projectileCapacity: number, wakeMap: WakeMap) {
@@ -58,7 +58,7 @@ export class Effects {
     this.kindOfWeapon = new Uint8Array(WEAPON_IDS.length);
     for (let i = 0; i < WEAPON_IDS.length; i++) {
       const v = WEAPONS[WEAPON_IDS[i]!].visual;
-      this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : 2;
+      this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : v === 'rocket' ? 2 : 3;
     }
   }
 
@@ -171,7 +171,10 @@ export class Effects {
         0,
       );
     }
-    if (visual === 'rocket') {
+    if (visual === 'missile') {
+      this.flash(x + dx * 0.4, 1.5, y + dz * 0.4, 2.4 * ps, 0.14, C.missileHot, C.missile);
+    }
+    if (visual === 'rocket' || visual === 'missile') {
       // Backblast behind the launcher.
       for (let i = 0; i < 4; i++) {
         const sp = this.r(2, 5);
@@ -781,6 +784,7 @@ export class Effects {
   trails(set: ProjectileSet, dt: number, back: number, layer = 0): void {
     const carries = this.trailCarries[layer]!;
     const R = FX.rocketTrail;
+    const M = FX.missileTrail;
     const B = FX.bulletTrail;
     const S = FX.shellTrail;
     const N = FX.shellNose;
@@ -790,7 +794,7 @@ export class Effects {
       const w = set.weapon[i]!;
       const kind = this.kindOfWeapon[w]!;
       const ps = this.powerScale(set.power[i]!);
-      const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : R.everySec;
+      const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : kind === 3 ? M.everySec : R.everySec;
       let carry = carries[i]! + dt;
       while (carry >= every) {
         carry -= every;
@@ -885,6 +889,35 @@ export class Effects {
             0,
             C.fireHot,
           );
+        } else if (kind === 3) {
+          // Guided missile: its own hot magenta, so nobody mistakes it for a rocket. A thin violet
+          // smoke line, a bright nozzle flare and a pink glow.
+          const py = M.height;
+          this.puff.spawn(
+            px - dx * 0.6,
+            py,
+            pz - dz * 0.6,
+            vx * -0.04 + FX.wind.x * 0.3 + this.r(-0.2, 0.2),
+            this.r(0.1, 0.5),
+            vz * -0.04 + FX.wind.z * 0.3 + this.r(-0.2, 0.2),
+            M.life * this.r(0.8, 1.2),
+            M.startSize,
+            M.endSize,
+            0,
+            1.2,
+            C.missileSmoke,
+            C.missileSmokeMid,
+            0.7,
+            0,
+            0,
+          );
+          // A glowing magenta streak along the flight line (the trail you can tell from afar).
+          this.tracer.spawn(px - dx * 0.4, py, pz - dz * 0.4, vx * -0.3, 0, vz * -0.3, 0.32, 1.3, 0.3, 0, 0, C.missileHot, C.missile, 0.95, 0, 0, C.missile);
+          const nx = px - dx * 0.8;
+          const nz = pz - dz * 0.8;
+          this.fire.spawn(nx, py, nz, 0, 0, 0, 0.12, 0.8, 0.12, 0, 0, C.white, C.missile, 1, 0, 0, C.missileHot);
+          this.spark.spawn(nx, py, nz, vx * -0.5, 0, vz * -0.5, 0.14, 0.34, 0.08, 0, 0, C.missileHot, C.missile, 1, 0, 0, C.missileHot);
+          this.glow.spawn(nx, py, nz, 0, 0, 0, 0.1, 3.4, 1.2, 0, 0, C.missile, C.missileDeep, 0.55, 0, 0);
         } else {
           const u = 1 - (set.remaining[i]! + sp * back) / WEAPONS[WEAPON_IDS[w]!].range;
           const py = rocketHeight(u);

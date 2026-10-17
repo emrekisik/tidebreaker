@@ -561,10 +561,18 @@ export class AssetProvider {
     const spec = PROP_SPECS[modelKey];
     const glow = this.glowMats[team].color;
     const map = prop ? ((prop.material as MeshLambertMaterial).map ?? null) : null;
-    // Mostly its own paint, with enough of the team color to tell the sides apart: the albedo is
-    // tinted toward the team color and a faint glow of it is added.
-    const tint = new Color(0xffffff).lerp(glow, 0.42);
-    const normal = new MeshLambertMaterial({ map, color: tint, emissive: glow, emissiveIntensity: 0.14 });
+    // Mostly its own paint, with enough of the team color to tell the sides apart. The paint is
+    // brightened (it lights itself a little) and the team color is a pale tone of it: the drones sit
+    // over the sea, so what keeps them visible is being lighter than the water, not a saturated blue.
+    const pale = glow.clone().lerp(new Color(0xffffff), 0.45);
+    const tint = new Color(0xffffff).lerp(pale, 0.55);
+    const normal = new MeshLambertMaterial({
+      map,
+      color: tint,
+      emissive: 0xffffff,
+      emissiveMap: map,
+      emissiveIntensity: 0.5,
+    });
     const flash = new MeshLambertMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.7 });
     const mesh = new Mesh(prop ? prop.geometry : new BoxGeometry(1, 0.3, 0.8), normal);
     mesh.scale.setScalar(length);

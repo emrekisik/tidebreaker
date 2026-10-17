@@ -149,6 +149,7 @@ export class Room {
     lives: 0,
     drones: 0,
     baseGuns: 0,
+    missiles: 0,
   };
   private readonly anyClass: boolean;
   private readonly self = newSelfState();
@@ -393,6 +394,7 @@ export class Room {
       m.lives = w.lives[s]!;
       m.drones = w.drones.countOf[s]!;
       m.baseGuns = w.baseGuns[w.slots[s]!.team] ?? 0;
+      m.missiles = w.missiles[s]!;
       this.small.reset();
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
@@ -647,6 +649,9 @@ export class Room {
         break;
       case C2S.BASE_BUY:
         if (c.stage === Stage.Playing) this.world.buyBase(c.slot, c.msg.stat);
+        break;
+      case C2S.LOCK:
+        if (c.stage === Stage.Playing) this.world.lock(c.slot, c.msg.target);
         break;
       case C2S.EMOTE:
         if (c.stage === Stage.Playing) this.world.emote(c.slot, c.msg.stat);

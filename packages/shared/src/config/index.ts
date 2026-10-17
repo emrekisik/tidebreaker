@@ -15,3 +15,4 @@ export * from './pirates.ts';
 export * from './drones.ts';
 export * from './base.ts';
 export * from './emotes.ts';
+export * from './missiles.ts';

@@ -34,6 +34,10 @@ import {
   tierCost,
   DRONE,
   DRONE_TYPES,
+  BASE_ITEM,
+  MISSILE,
+  encodeBaseBuy,
+  encodeLock,
 } from '@tidebreaker/shared';
 import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
@@ -81,6 +85,8 @@ const LOOT_RANGE = 260;
 const FLEE_RANGE = 80;
 const HUNT_RANGE = 110;
 const FIGHT_BACK_RANGE = 45;
+/** A bot locks a guided missile onto an enemy ship this close (the missile reaches far, but a bot is no sniper). */
+const MISSILE_REACH = 120;
 /** Pickups this close to the enemy carrier are in range of its guns: not worth it. */
 const CARRIER_DANGER = 92;
 /** Tier index from which a bot goes for the enemy carrier (T3 and up). */
@@ -138,6 +144,9 @@ export class BotClient {
   /** Money and drones as the server last said (a bot buys drones while it mends at its carrier). */
   private cash = 0;
   private droneCount = 0;
+  /** Guided missiles on board, and the tick before which it does not start another lock. */
+  private missiles = 0;
+  private lockUntilTick = 0;
   private lastBuyTick = 0;
   /** Which way this bot circles around its target. */
   private readonly side = Math.random() < 0.5 ? 1 : -1;
@@ -283,6 +292,7 @@ export class BotClient {
       if (id && SHIPS[id] !== this.def) this.useShip(id);
       this.cash = m.cash;
       this.droneCount = m.drones;
+      this.missiles = m.missiles;
       if (this.opt.passive) return;
       // Spend the money (the server refuses what is not allowed). The next class comes first: small
       // upgrades are bought only while they leave most of the money for it.
@@ -310,6 +320,8 @@ export class BotClient {
     blast: () => {},
     emote: () => {},
     protectEnd: () => {},
+    missile: () => {},
+    lockBreak: () => {},
     rigs: (rows) => {
       this.rigState = rows;
     },
@@ -412,10 +424,11 @@ export class BotClient {
     else if (health > RETREAT_UNTIL) this.retreating = false;
 
     let nearest: Seen | null = null;
+    let nearestId = 0;
     let nearestD = Infinity;
     let enemyCarrier: Seen | null = null;
     let ownCarrier: Seen | null = null;
-    for (const s of this.seen.values()) {
+    for (const [id, s] of this.seen) {
       if (s.kind === KIND.CARRIER) {
         if (s.team === me.team) ownCarrier = s;
         else enemyCarrier = s;
@@ -426,9 +439,17 @@ export class BotClient {
       if (d < nearestD) {
         nearestD = d;
         nearest = s;
+        nearestId = id;
       }
     }
     const myTier = this.def.tier - 1;
+
+    // A guided missile for the nearest enemy ship that is in reach: lock on (the server fires after the lock time).
+    if (this.missiles > 0 && nearest !== null && nearestD < MISSILE_REACH && this.tick >= this.lockUntilTick) {
+      this.lockUntilTick = this.tick + Math.round(MISSILE.lockSec * 20) + 40;
+      const target = nearestId;
+      this.write(() => encodeLock(this.out, target));
+    }
 
     // A much stronger ship close by: do not fight it, fall back toward the carrier (and shoot).
     const threatened =
@@ -592,10 +613,17 @@ export class BotClient {
 
   /** At its own carrier with money to spare: buys a drone (the best one it can pay for). */
   private maybeBuyDrone(): void {
-    if (this.droneCount >= DRONE.perPlayer || this.tick - this.lastBuyTick < 40) return;
-    // Money for the next class is kept: a drone is bought only from what is left over.
+    if (this.tick - this.lastBuyTick < 40) return;
+    // Money for the next class is kept: things are bought only from what is left over.
     const saving = tierCost(this.def.tier - 1);
     const spare = this.cash - (saving === Infinity ? 0 : saving * 0.5);
+    // A ship that may carry guided missiles fills its rack first.
+    if (this.def.tier - 1 >= MISSILE.minTier && this.missiles < MISSILE.maxStock && spare >= MISSILE.price) {
+      this.lastBuyTick = this.tick;
+      this.write(() => encodeBaseBuy(this.out, BASE_ITEM.MISSILE));
+      return;
+    }
+    if (this.droneCount >= DRONE.perPlayer) return;
     for (let t = DRONE_TYPES.length - 1; t >= 0; t--) {
       if (spare >= DRONE_TYPES[t]!.price) {
         this.lastBuyTick = this.tick;

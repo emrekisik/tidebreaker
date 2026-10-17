@@ -1,5 +1,5 @@
 /** Cosmetic class of a projectile; the client picks mesh and effects from it. */
-export type ProjectileVisual = 'bullet' | 'shell' | 'rocket';
+export type ProjectileVisual = 'bullet' | 'shell' | 'rocket' | 'missile';
 
 export interface WeaponDef {
   damage: number;
@@ -18,6 +18,8 @@ export interface WeaponDef {
   /** Seconds to ease (quadratically) from the start speed to `projectileSpeed` (0 = constant speed). */
   accelSec: number;
   visual: ProjectileVisual;
+  /** Guided shots only: how fast (degrees per second) the flight direction can turn toward the target. */
+  turnRateDeg?: number;
 }
 
 /**
@@ -169,6 +171,20 @@ export const WEAPONS = {
     startSpeedPct: 0.25,
     accelSec: 0.8,
     visual: 'rocket',
+  },
+  // The guided missile (GAME_DESIGN.md §7.4): one heavy hit, steered at the locked ship with a limited
+  // turn rate, so a small ship that keeps turning can make it miss. Fired by the lock-on, not by a mount.
+  missile: {
+    damage: 80,
+    intervalSec: 3,
+    range: 280,
+    projectileSpeed: 56,
+    radius: 0.45,
+    spreadDeg: 0,
+    startSpeedPct: 0.35,
+    accelSec: 1.2,
+    visual: 'missile',
+    turnRateDeg: 95,
   },
 } as const satisfies Record<string, WeaponDef>;
 

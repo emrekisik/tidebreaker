@@ -35,6 +35,7 @@ import type {
   EnterEntry,
   ScoreEntry,
   HitSink,
+  HomingTargets,
   Obstacles,
   SelfState,
   ServerHandler,
@@ -70,6 +71,9 @@ const KILL_REWARD_MS = 400;
 const CATCH_UP_MAX = 10;
 
 type TeamName = 'blue' | 'red' | 'pirate';
+
+/** Weapon index of the guided missile. */
+const MISSILE_WEAPON = WEAPON_IDS.indexOf('missile');
 
 /** What the game tells the UI beyond the effects shared with the sandbox. */
 export interface OnlineEvents extends GameEvents {
@@ -110,6 +114,12 @@ export interface OnlineEvents extends GameEvents {
   onStats(m: StatsMsg): void;
   /** The player picked something up. */
   onPickup(kind: number, value: number, x: number, y: number): void;
+  /** A guided missile left `owner` after ship `target` (anyone's; `id` is the shot id). */
+  onMissile(id: number, owner: number, target: number): void;
+  /** A guided missile ended: it hit, ran out or was blocked (`id` is the shot id). */
+  onMissileEnd(id: number): void;
+  /** The lock the player was building was lost (the server refused or broke it). */
+  onLockBreak(): void;
   /** The player (re)spawned. */
   onJoined(team: number, shipIdx: number): void;
   /** The connection is gone (after the game started). */
@@ -160,7 +170,7 @@ export interface OnlineDeps {
  * snapshots. Shots are simulated here from the server's spawn events (nothing is predicted that
  * the server could disagree about): yours at once, the others on the delayed timeline.
  */
-export class OnlineGame implements GameSession, ServerHandler {
+export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
   readonly entities: ShipEntity[] = [];
   readonly layers: ProjectileLayer[];
   land!: WorldMap;
@@ -185,6 +195,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     lives: 3,
     drones: 0,
     baseGuns: 0,
+    missiles: 0,
   };
   readonly clock = new ServerClock();
   predictor!: Predictor;
@@ -221,6 +232,9 @@ export class OnlineGame implements GameSession, ServerHandler {
   constructor(deps: OnlineDeps) {
     this.deps = deps;
     this.shipIdx = deps.shipIdx;
+    // Guided shots chase the ships as they are shown here.
+    this.others.homing = this;
+    this.mine.homing = this;
     this.layers = [
       { set: this.others, alpha: 0 },
       { set: this.mine, alpha: 0 },
@@ -258,6 +272,15 @@ export class OnlineGame implements GameSession, ServerHandler {
 
   close(): void {
     this.net.close();
+  }
+
+  /** Where ship `id` is as shown now (the guided shots chase this); false when it is gone or sunk. */
+  locate(id: number, out: Float32Array): boolean {
+    const s = this.entityOf(id)?.combatant.state;
+    if (!s || !s.alive) return false;
+    out[0] = s.x;
+    out[1] = s.y;
+    return true;
   }
 
   // ---- fixed step: the player's own ship
@@ -510,6 +533,7 @@ export class OnlineGame implements GameSession, ServerHandler {
     p.lives = m.lives;
     p.drones = m.drones;
     p.baseGuns = m.baseGuns;
+    p.missiles = m.missiles;
     if (this.predictor) {
       this.predictor.speedLevel = m.levels[STAT.SPEED]!;
       this.predictor.turnLevel = m.levels[STAT.TURN]!;
@@ -702,6 +726,40 @@ export class OnlineGame implements GameSession, ServerHandler {
     angle: number,
     power: number,
   ): void {
+    this.spawnShot(tick, id, owner, weapon, x, y, angle, power, 0);
+  }
+
+  /** A guided missile: a shot like any other, plus the ship it chases. */
+  missile(
+    tick: number,
+    id: number,
+    owner: number,
+    target: number,
+    x: number,
+    y: number,
+    angle: number,
+  ): void {
+    this.spawnShot(tick, id, owner, MISSILE_WEAPON, x, y, angle, 0, target);
+    const events = this.deps.events;
+    if (owner === this.myId) events.onMissile(id, owner, target);
+    else this.at(tick * STEP_MS, () => events.onMissile(id, owner, target));
+  }
+
+  lockBreak(_tick: number, owner: number): void {
+    if (owner === this.myId) this.deps.events.onLockBreak();
+  }
+
+  private spawnShot(
+    tick: number,
+    id: number,
+    owner: number,
+    weapon: number,
+    x: number,
+    y: number,
+    angle: number,
+    power: number,
+    target: number,
+  ): void {
     if (id >= MAX_PROJECTILES) return;
     const def = WEAPONS[WEAPON_IDS[weapon]!];
     if (!def) return;
@@ -720,6 +778,7 @@ export class OnlineGame implements GameSession, ServerHandler {
       );
       // The damage upgrade makes the shot thicker.
       set.power[slot] = power;
+      if (target !== 0) set.chase(slot, target);
       return slot;
     };
     const mine = owner === this.myId;
@@ -759,6 +818,7 @@ export class OnlineGame implements GameSession, ServerHandler {
       if (slot >= 0) (mine ? this.mine : this.others).remove(slot);
       if (reason === END_REASON.HIT_ISLAND) events.onBlocked(x, y, weapon, power);
       else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon, power);
+      if (weapon === MISSILE_WEAPON) events.onMissileEnd(id);
     };
     if (mine) finish();
     else this.at(tick * STEP_MS, finish);

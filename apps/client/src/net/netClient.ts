@@ -7,6 +7,7 @@ import {
   encodePlay,
   encodeBaseBuy,
   encodeEmote,
+  encodeLock,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -88,6 +89,12 @@ export class NetClient {
 
   emote(index: number): void {
     encodeEmote(this.out, index);
+    this.flush();
+  }
+
+  /** Start locking the guided missile onto ship `target` (0 = cancel the lock). */
+  lock(target: number): void {
+    encodeLock(this.out, target);
     this.flush();
   }
 

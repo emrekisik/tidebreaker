@@ -1,0 +1,10 @@
+<svg viewBox="-24 -24 148 148" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+<path class="br" vector-effect="non-scaling-stroke" d="M0 26V0H26"/>
+<path class="br" vector-effect="non-scaling-stroke" d="M74 0H100V26"/>
+<path class="br" vector-effect="non-scaling-stroke" d="M100 74V100H74"/>
+<path class="br" vector-effect="non-scaling-stroke" d="M26 100H0V74"/>
+<path class="tk" vector-effect="non-scaling-stroke" d="M50 -7V-22"/>
+<path class="tk" vector-effect="non-scaling-stroke" d="M50 107V122"/>
+<path class="tk" vector-effect="non-scaling-stroke" d="M-7 50H-22"/>
+<path class="tk" vector-effect="non-scaling-stroke" d="M107 50H122"/>
+</svg>

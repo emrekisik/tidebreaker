@@ -25,6 +25,7 @@ import {
   encodeStats,
   encodeBaseBuy,
   encodeEmote,
+  encodeLock,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -77,6 +78,8 @@ function recorder(): { log: string[]; h: ServerHandler } {
     blast: (...a) => log.push(`blast ${a.join(',')}`),
     emote: (...a) => log.push(`emote ${a.join(',')}`),
     protectEnd: (...a) => log.push(`protectEnd ${a.join(',')}`),
+    missile: (...a) => log.push(`missile ${a.join(',')}`),
+    lockBreak: (...a) => log.push(`lockBreak ${a.join(',')}`),
   };
   return { log, h };
 }
@@ -180,6 +183,10 @@ describe('client messages', () => {
     encodeEmote(w, 9);
     expect(decodeClient(w.toBytes(), m)).toBe(C2S.EMOTE);
     expect(m.stat).toBe(9);
+    w.reset();
+    encodeLock(w, 1234);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.LOCK);
+    expect(m.target).toBe(1234);
   });
 
   it('INPUT is 9 bytes and round-trips', () => {
@@ -276,6 +283,7 @@ describe('server messages', () => {
       lives: 2,
       drones: 1,
       baseGuns: 3,
+      missiles: 2,
     });
     send();
     encodeRigs(w, [1, -0.5, 0], [0, 1, 255]);
@@ -292,7 +300,7 @@ describe('server messages', () => {
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
       'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
-      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1,"baseGuns":3}',
+      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1,"baseGuns":3,"missiles":2}',
       `rigs ${JSON.stringify([
         { meter: 1, owner: 0 },
         { meter: -63 / 127, owner: 1 },
@@ -398,6 +406,8 @@ describe('server messages', () => {
     ev.blast(PICKUP_ID_BASE + 9, 33.5, 44.25);
     ev.emote(5, 17);
     ev.protectEnd(7);
+    ev.missile(12, 5, 9, 100.5, 200.25, 1.5);
+    ev.lockBreak(5);
     expect(ev.finish()).toBe(true);
     const { log, h } = recorder();
     expect(decodeServer(ev.w.toBytes(), h)).toBe(true);
@@ -412,6 +422,8 @@ describe('server messages', () => {
       `blast 100,${PICKUP_ID_BASE + 9},33.5,44.25`,
       'emote 100,5,17',
       'protectEnd 100,7',
+      `missile 100,12,5,9,100.5,200.25,${dqAngle16(qAngle16(1.5))}`,
+      'lockBreak 100,5',
     ]);
   });
 

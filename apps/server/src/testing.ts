@@ -66,6 +66,8 @@ export interface Heard {
   blasts: { tick: number; id: number; x: number; y: number }[];
   emotes: { tick: number; id: number; emote: number }[];
   protectEnds: { tick: number; id: number }[];
+  missiles: { tick: number; id: number; owner: number; target: number }[];
+  lockBreaks: { tick: number; owner: number }[];
   bad: number;
 }
 
@@ -83,6 +85,8 @@ export class TestClient {
     blasts: [],
     emotes: [],
     protectEnds: [],
+    missiles: [],
+    lockBreaks: [],
     powers: [],
     rigs: [],
     rejects: [],
@@ -129,6 +133,8 @@ export class TestClient {
       blast: (tick, id, x, y) => h.blasts.push({ tick, id, x, y }),
       emote: (tick, id, emote) => h.emotes.push({ tick, id, emote }),
       protectEnd: (tick, id) => h.protectEnds.push({ tick, id }),
+      missile: (tick, id, owner, target) => h.missiles.push({ tick, id, owner, target }),
+      lockBreak: (tick, owner) => h.lockBreaks.push({ tick, owner }),
       pong: (clientTime, serverTime) => h.pongs.push({ clientTime, serverTime }),
       reject: (r) => h.rejects.push(r),
       snapshot: (tick, seq, self) => h.snapshots.push({ tick, seq, self: { ...self } }),

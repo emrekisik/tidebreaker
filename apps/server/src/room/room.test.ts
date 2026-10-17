@@ -44,7 +44,11 @@ import {
   EMOTE_IDS,
   encodeBaseBuy,
   encodeEmote,
+  encodeLock,
   encodeBuyDrone,
+  MISSILE,
+  WEAPONS,
+  lockRange,
   gunsCost,
   encodeTierUp,
   encodeUpgrade,
@@ -1860,6 +1864,178 @@ describe('base shop', () => {
     // A new round starts the level over.
     w.startRound();
     expect(w.baseGuns[TEAM_BLUE]).toBe(0);
+  });
+});
+
+describe('guided missiles', () => {
+  const buyBase = (c: TestClient, item: number): void => {
+    const w = new Writer(4);
+    encodeBaseBuy(w, item);
+    c.conn.send(w.toBytes());
+  };
+  const lock = (c: TestClient, target: number): void => {
+    const w = new Writer(4);
+    encodeLock(w, target);
+    c.conn.send(w.toBytes());
+  };
+  const byCarrier = (team: number): { x: number; y: number } => {
+    const b = MATCH.carriers[team]!;
+    return { x: b.x, y: b.y + 40 };
+  };
+  const slotOf = (c: TestClient): number => c.heard.joined[c.heard.joined.length - 1]!.entityId - 1;
+  const lastStats = (c: TestClient): { missiles: number; cash: number } =>
+    c.heard.stats[c.heard.stats.length - 1]!;
+
+  it('are bought at the own carrier by T3 and higher ships, two at most', async () => {
+    const { room, join, tick } = setup();
+    const t1 = await join('Small', 'coast_guard_boat'); // blue
+    const red = await join('Red', 'corvette');
+    const t2 = await join('Mid', 'gunboat'); // blue
+    const t3 = await join('Big', 'corvette'); // red
+    void red;
+    await tick(2);
+    const w = room.world;
+    const spot = byCarrier(TEAM_BLUE);
+    for (const c of [t1, t2]) {
+      place(room, c, spot.x, spot.y, 0);
+      w.cash[slotOf(c)] = 5000;
+      buyBase(c, BASE_ITEM.MISSILE);
+    }
+    await tick(2);
+    // T1 and T2 cannot carry any: no missile, no money taken.
+    expect(w.missiles[slotOf(t1)]).toBe(0);
+    expect(w.missiles[slotOf(t2)]).toBe(0);
+    expect(w.cash[slotOf(t1)]).toBe(5000);
+    // A T3 ship far from its carrier is refused as well.
+    place(room, t3, 600, 300, 0);
+    w.cash[slotOf(t3)] = 5000;
+    buyBase(t3, BASE_ITEM.MISSILE);
+    await tick(2);
+    expect(w.missiles[slotOf(t3)]).toBe(0);
+    // At its carrier it buys one, and a second, and no third.
+    const red0 = byCarrier(TEAM_RED);
+    place(room, t3, red0.x, red0.y, 0);
+    for (let i = 0; i < MISSILE.maxStock + 1; i++) buyBase(t3, BASE_ITEM.MISSILE);
+    await tick(2);
+    expect(w.missiles[slotOf(t3)]).toBe(MISSILE.maxStock);
+    expect(w.cash[slotOf(t3)]).toBe(5000 - MISSILE.price * MISSILE.maxStock);
+    expect(lastStats(t3).missiles).toBe(MISSILE.maxStock);
+    // Without the money nothing is bought either.
+    w.missiles[slotOf(t3)] = 0;
+    w.cash[slotOf(t3)] = MISSILE.price - 1;
+    buyBase(t3, BASE_ITEM.MISSILE);
+    await tick(2);
+    expect(w.missiles[slotOf(t3)]).toBe(0);
+  });
+
+  it('launch after the lock time, chase the locked ship and hit it; the shooter is out one missile', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Shooter', 'corvette'); // blue
+    const b = await join('Target', 'corvette'); // red
+    await tick(2);
+    const w = room.world;
+    const aSlot = slotOf(a);
+    const bSlot = slotOf(b);
+    place(room, a, 600, 600, 0);
+    place(room, b, 600, 700, Math.PI / 2);
+    w.protectLeft[aSlot] = MATCH.spawnProtectSec;
+    w.missiles[aSlot] = 2;
+    const hull = w.slots[bSlot]!.state.hull + w.slots[bSlot]!.state.shield;
+    lock(a, bSlot + 1);
+    await tick(Math.ceil(MISSILE.lockSec * TICK_RATE) - 3);
+    // Still locking: nothing has left yet.
+    expect(b.heard.missiles).toHaveLength(0);
+    await tick(6);
+    expect(b.heard.missiles).toHaveLength(1);
+    const m = b.heard.missiles[0]!;
+    expect(m.owner).toBe(aSlot + 1);
+    expect(m.target).toBe(bSlot + 1);
+    expect(w.missiles[aSlot]).toBe(1);
+    expect(lastStats(a).missiles).toBe(1);
+    // Firing is an attack: the spawn protection is over.
+    expect(w.protectLeft[aSlot]).toBe(0);
+    await tick(TICK_RATE * 6);
+    const struck = a.heard.hits.filter((h) => h.target === bSlot + 1);
+    expect(struck.length).toBeGreaterThan(0);
+    expect(struck.reduce((n, h) => n + h.damage, 0)).toBeCloseTo(WEAPONS.missile.damage, 0);
+    const st = w.slots[bSlot]!.state;
+    expect(st.hull + st.shield).toBeLessThan(hull);
+  });
+
+  it('flies after the ship when it keeps going, and the lock needs a real, visible enemy', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Shooter', 'corvette'); // blue
+    const b = await join('Target', 'corvette'); // red
+    const c = await join('Mate', 'corvette'); // blue
+    await tick(2);
+    const w = room.world;
+    const aSlot = slotOf(a);
+    const bSlot = slotOf(b);
+    place(room, a, 600, 600, 0);
+    place(room, b, 600, 680, Math.PI / 2);
+    place(room, c, 560, 600, 0);
+    w.missiles[aSlot] = 2;
+    // A teammate, a carrier, a drone slot and nobody are refused.
+    for (const target of [slotOf(c) + 1, 1, 2, w.pirateEnd + 1, 0xfff0]) {
+      lock(a, target);
+      await tick(2);
+      expect(a.heard.lockBreaks.length).toBeGreaterThan(0);
+      a.heard.lockBreaks.length = 0;
+    }
+    expect(w.missiles[aSlot]).toBe(2);
+    // The target is under spawn protection: refused.
+    w.protectLeft[bSlot] = 5;
+    lock(a, bSlot + 1);
+    await tick(2);
+    expect(a.heard.lockBreaks).toHaveLength(1);
+    a.heard.lockBreaks.length = 0;
+    w.protectLeft[bSlot] = 0;
+    // Too far away: refused.
+    place(room, b, 600 + lockRange(2) + 50, 600, 0);
+    lock(a, bSlot + 1);
+    await tick(2);
+    expect(a.heard.lockBreaks).toHaveLength(1);
+    a.heard.lockBreaks.length = 0;
+    // A lock that holds, then breaks when the target runs away out of reach.
+    place(room, b, 600, 700, 0);
+    lock(a, bSlot + 1);
+    await tick(10);
+    expect(a.heard.lockBreaks).toHaveLength(0);
+    place(room, b, 600 + lockRange(2) + 50, 600, 0);
+    await tick(2);
+    expect(a.heard.lockBreaks).toHaveLength(1);
+    await tick(TICK_RATE * 3);
+    expect(w.missiles[aSlot]).toBe(2); // nothing was fired
+    // Canceling a lock in progress stops the launch.
+    place(room, b, 600, 700, 0);
+    lock(a, bSlot + 1);
+    await tick(10);
+    lock(a, 0);
+    await tick(TICK_RATE * 3);
+    expect(w.missiles[aSlot]).toBe(2);
+  });
+
+  it('are lost with the ship when it sinks, and without a missile there is no lock', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Shooter', 'corvette');
+    const b = await join('Target', 'corvette');
+    await tick(2);
+    const w = room.world;
+    const aSlot = slotOf(a);
+    const bSlot = slotOf(b);
+    place(room, a, 600, 600, 0);
+    place(room, b, 600, 700, 0);
+    lock(a, bSlot + 1);
+    await tick(2);
+    expect(a.heard.lockBreaks).toHaveLength(1); // no missile on board
+    w.missiles[aSlot] = 2;
+    lock(a, bSlot + 1);
+    await tick(4);
+    w.onCollision(bSlot + 1, aSlot + 1, 600, 600, 5, 0, 5, false, true);
+    await tick(2);
+    expect(w.missiles[aSlot]).toBe(0);
+    await tick(TICK_RATE * 3);
+    expect(b.heard.missiles).toHaveLength(0);
   });
 });
 
