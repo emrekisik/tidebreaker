@@ -33,6 +33,8 @@ export type PickupKind = 'crate' | 'barrel' | 'chest' | 'banknote';
  * helps to tune; the pacing goal is T2 ~1.5 min, T3 ~4, T4 ~8, T5 ~15.
  */
 export const ECONOMY = {
+  /** Money the test cheat gives (see `CHEAT.MONEY`; only test servers allow it). */
+  cheatMoney: 5000,
   /** Money the move up to tier index i costs (0 = T1); it is spent, like an upgrade. */
   tierCost: [0, 70, 250, 650, 1500],
   /** Highest upgrade level per stat while at tier index i. */

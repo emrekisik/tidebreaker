@@ -9,6 +9,7 @@ import {
   encodeEmote,
   encodeLock,
   encodeLayMine,
+  encodeCheat,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -96,6 +97,12 @@ export class NetClient {
   /** Start locking the guided missile onto ship `target` (0 = cancel the lock). */
   lock(target: number): void {
     encodeLock(this.out, target);
+    this.flush();
+  }
+
+  /** Test servers: asks for the test cheat (`CHEAT.*`). */
+  cheat(code: number): void {
+    encodeCheat(this.out, code);
     this.flush();
   }
 

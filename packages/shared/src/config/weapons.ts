@@ -1,5 +1,5 @@
 /** Cosmetic class of a projectile; the client picks mesh and effects from it. */
-export type ProjectileVisual = 'bullet' | 'shell' | 'rocket' | 'missile';
+export type ProjectileVisual = 'bullet' | 'shell' | 'rocket' | 'missile' | 'heavy';
 
 export interface WeaponDef {
   damage: number;
@@ -205,8 +205,8 @@ export const WEAPONS = {
     spreadDeg: 0.4,
     startSpeedPct: 0.3,
     accelSec: 0.8,
-    visual: 'rocket',
-    size: 1.9,
+    visual: 'heavy',
+    size: 1.5,
     splash: { radius: 5, damageFactor: 0.6, edgeFactor: 0.4 },
   },
 } as const satisfies Record<string, WeaponDef>;

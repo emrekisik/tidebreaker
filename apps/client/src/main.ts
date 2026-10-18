@@ -3,6 +3,7 @@ import {
   FX,
   MATCH_STATE,
   MAX_PROJECTILES,
+  CHEAT,
   MISSILE,
   MINE,
   MINE_BLOCK,
@@ -222,6 +223,7 @@ window.addEventListener('keydown', (e) => {
     else if (e.code === 'KeyE') baseShop.press(4);
     else if (e.code === 'KeyR') baseShop.press(5);
     else if (e.code === 'KeyF') pressLayMine();
+    else if (e.code === 'F9') online.net.cheat(CHEAT.MONEY);
     else if (e.code === 'KeyQ') pressLock();
   }
   if (e.code === 'Tab') {

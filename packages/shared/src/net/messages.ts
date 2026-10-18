@@ -27,6 +27,7 @@ export const C2S = {
   EMOTE: 0x09,
   LOCK: 0x0a,
   LAY_MINE: 0x0b,
+  CHEAT: 0x0c,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -191,6 +192,15 @@ export function encodeLock(w: Writer, target: number): void {
   w.u16(target);
 }
 
+/** Test builds only: asks for a cheat (`CHEAT.*`); the server refuses it unless it is a test server. */
+export function encodeCheat(w: Writer, code: number): void {
+  w.u8(C2S.CHEAT);
+  w.u8(code);
+}
+
+/** What a CHEAT message can ask for. */
+export const CHEAT = { MONEY: 0 } as const;
+
 /** Lay a sea mine where the own ship is (the server checks stock, class, place and limits). */
 export function encodeLayMine(w: Writer): void {
   w.u8(C2S.LAY_MINE);
@@ -263,6 +273,9 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       out.target = r.u16();
       break;
     case C2S.LAY_MINE:
+      break;
+    case C2S.CHEAT:
+      out.stat = r.u8();
       break;
     case C2S.PING:
       out.clientTime = r.u32();

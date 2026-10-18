@@ -1,7 +1,7 @@
 import crosshairSvg from './icons/crosshair1.svg?raw';
 
 /** How hard a shot kicks the crosshair, by projectile visual (1 = the biggest kick). */
-export const KICK = { bullet: 0.22, shell: 0.6, rocket: 0.8, missile: 1 } as const;
+export const KICK = { bullet: 0.22, shell: 0.6, rocket: 0.8, missile: 1, heavy: 1 } as const;
 /** The kick fades away by this share per second (exponential). */
 const DECAY_PER_SEC = 9;
 /** How far (share of its size) and how much (degrees) the crosshair swells and twists at a full kick. */

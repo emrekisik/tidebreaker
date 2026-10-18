@@ -358,6 +358,12 @@ export class World
     return true;
   }
 
+  /** Test servers only (the room checks): gives the player `ECONOMY.cheatMoney`. */
+  cheatMoney(slot: number): void {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return;
+    this.addCash(slot, ECONOMY.cheatMoney);
+  }
+
   /**
    * Moves a player up one class for money (`ECONOMY.tierCost`), to the ship `choice` of the new tier's
    * options. Keeps position, speed and health share.
@@ -380,6 +386,7 @@ export class World
     c.def = SHIPS[SHIP_IDS[this.shipIdx[slot]!]!];
     c.state.mountCooldown.fill(0);
     c.state.salvoCooldown = 0;
+    c.state.salvoNext = 0;
     c.state.hull = c.def.hull * hullShare;
     c.state.shield = this.maxShieldOf(slot);
     this.spawnGen[slot] = this.spawnGen[slot]! + 1;

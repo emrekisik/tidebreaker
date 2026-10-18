@@ -1,19 +1,18 @@
 import type { InstancedMesh } from 'three';
-import { rocketHeight, rocketPitch } from './rocketArc.ts';
 import { FX, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
 import type { ProjectileSet, ProjectileVisual, WeaponDef } from '@tidebreaker/shared';
 
 const HEIGHT = 1.2;
-/** Index of the rocket mesh in the order given by createProjectileMeshes (bullet, shell, rocket). */
+/** Mesh indices in the order given by createProjectileMeshes (bullet, shell, rocket, missile, heavy rocket). */
 const ROCKET_MESH = 2;
-/** The guided missile flies level, a little higher than the bullets. */
 const MISSILE_MESH = 3;
+const HEAVY_MESH = 4;
 
 /** Writes projectile transforms straight into the instance buffers (no allocation per frame). */
 export class ProjectileView {
   private readonly meshes: readonly InstancedMesh[];
   /** mesh index -> how much a damage level thickens the body */
-  private readonly thickenOfMesh = new Float32Array(4);
+  private readonly thickenOfMesh = new Float32Array(5);
   /** weapon index -> mesh index */
   private readonly meshOfWeapon: Uint8Array;
   private readonly counts: Int32Array;
@@ -71,34 +70,6 @@ export class ProjectileView {
       const size = this.sizeOfWeapon[set.weapon[i]!]!;
       const thick = grown * size;
       const long = (1 + (grown - 1) * 0.5) * size;
-      if (m === ROCKET_MESH) {
-        // Lobbed flight: climb a little, then drop; the nose follows the arc.
-        const w = set.weapon[i]!;
-        // Remaining distance as it was `back` seconds ago, so the arc moves smoothly.
-        const u = 1 - (set.remaining[i]! + speed * back) / this.rangeOfWeapon[w]!;
-        const pitch = rocketPitch(u, this.rangeOfWeapon[w]!);
-        const cp = Math.cos(pitch);
-        const sp = Math.sin(pitch);
-        const fx = cp * dx;
-        const fy = sp;
-        const fz = cp * dy;
-        const ux = -sp * dx;
-        const uy = cp;
-        const uz = -sp * dy;
-        arr[o] = fx * long;
-        arr[o + 1] = fy * long;
-        arr[o + 2] = fz * long;
-        arr[o + 4] = ux * thick;
-        arr[o + 5] = uy * thick;
-        arr[o + 6] = uz * thick;
-        arr[o + 8] = (fy * uz - fz * uy) * thick;
-        arr[o + 9] = (fz * ux - fx * uz) * thick;
-        arr[o + 10] = (fx * uy - fy * ux) * thick;
-        arr[o + 12] = set.x[i]! - vx * back;
-        arr[o + 13] = rocketHeight(u);
-        arr[o + 14] = set.y[i]! - vy * back;
-        continue;
-      }
       // Rotation about y that turns local +x toward the velocity (sim y is world z).
       arr[o] = dx * long;
       arr[o + 2] = dy * long;
@@ -106,7 +77,15 @@ export class ProjectileView {
       arr[o + 8] = -dy * thick;
       arr[o + 10] = dx * thick;
       arr[o + 12] = set.x[i]! - vx * back;
-      arr[o + 13] = m === MISSILE_MESH ? FX.missileTrail.height : HEIGHT;
+      // (Everything flies level: rockets and missiles at their own height, no lobbed arc.)
+      arr[o + 13] =
+        m === MISSILE_MESH
+          ? FX.missileTrail.height
+          : m === HEAVY_MESH
+            ? FX.heavyRocketHeight
+            : m === ROCKET_MESH
+              ? FX.rocketHeight
+              : HEIGHT;
       arr[o + 14] = set.y[i]! - vy * back;
     }
   }

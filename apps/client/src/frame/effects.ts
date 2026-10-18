@@ -5,7 +5,6 @@ import type { WakeMap } from '../render/wakeMap.ts';
 import { WAVE_MAX } from '../render/waves.ts';
 import type { ShipEntity } from './entity.ts';
 import { ParticlePool } from './particles.ts';
-import { rocketHeight } from './rocketArc.ts';
 
 const C = FX.colors;
 
@@ -39,7 +38,7 @@ export class Effects {
   /** Fractional smoke-trail time per projectile slot. */
   /** Fractional smoke-trail time per projectile slot, one array per projectile layer. */
   private readonly trailCarries: Float32Array[] = new Array<Float32Array>();
-  /** weapon index -> 0 bullet, 1 shell, 2 rocket, 3 guided missile (same order as ProjectileVisual) */
+  /** weapon index -> 0 bullet, 1 shell, 2 rocket, 3 guided missile, 4 heavy rocket (same order as ProjectileVisual) */
   private readonly kindOfWeapon: Uint8Array;
   /** weapon index -> visual size (big weapons leave a big trail) */
   private readonly sizeOfWeapon: Float32Array;
@@ -62,7 +61,7 @@ export class Effects {
     for (let i = 0; i < WEAPON_IDS.length; i++) {
       const v = WEAPONS[WEAPON_IDS[i]!].visual;
       this.sizeOfWeapon[i] = (WEAPONS[WEAPON_IDS[i]!] as WeaponDef).size ?? 1;
-      this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : v === 'rocket' ? 2 : 3;
+      this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : v === 'rocket' ? 2 : v === 'missile' ? 3 : 4;
     }
   }
 
@@ -178,7 +177,7 @@ export class Effects {
     if (visual === 'missile') {
       this.flash(x + dx * 0.4, 1.5, y + dz * 0.4, 2.4 * ps, 0.14, C.missileHot, C.missile);
     }
-    if (visual === 'rocket' || visual === 'missile') {
+    if (visual === 'rocket' || visual === 'missile' || visual === 'heavy') {
       // Backblast behind the launcher.
       for (let i = 0; i < 4; i++) {
         const sp = this.r(2, 5);
@@ -923,8 +922,7 @@ export class Effects {
           this.spark.spawn(nx, py, nz, vx * -0.5, 0, vz * -0.5, 0.14, 0.34, 0.08, 0, 0, C.missileHot, C.missile, 1, 0, 0, C.missileHot);
           this.glow.spawn(nx, py, nz, 0, 0, 0, 0.1, 3.4, 1.2, 0, 0, C.missile, C.missileDeep, 0.55, 0, 0);
         } else {
-          const u = 1 - (set.remaining[i]! + sp * back) / WEAPONS[WEAPON_IDS[w]!].range;
-          const py = rocketHeight(u);
+          const py = kind === 4 ? FX.heavyRocketHeight : FX.rocketHeight;
           // Smoke trail.
           this.puff.spawn(
             px - dx * 0.5,

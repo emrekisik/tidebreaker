@@ -27,6 +27,7 @@ import {
   encodeEmote,
   encodeLock,
   encodeLayMine,
+  encodeCheat,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -193,6 +194,10 @@ describe('client messages', () => {
     encodeLayMine(w);
     expect(w.pos).toBe(1);
     expect(decodeClient(w.toBytes(), m)).toBe(C2S.LAY_MINE);
+    w.reset();
+    encodeCheat(w, 0);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.CHEAT);
+    expect(m.stat).toBe(0);
   });
 
   it('INPUT is 9 bytes and round-trips', () => {

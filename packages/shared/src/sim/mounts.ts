@@ -74,7 +74,12 @@ export function updateMounts(
   ship.salvoCooldown = Math.max(0, ship.salvoCooldown - dt);
   const cosH = Math.cos(ship.heading);
   const sinH = Math.sin(ship.heading);
-  for (let i = 0; i < def.mounts.length; i++) {
+  const count = def.mounts.length;
+  const start = ship.salvoNext;
+  // The mounts take their turn starting after the one that fired last: a gun that is ready every tick (a
+  // fast machine gun with the reload upgrade) would otherwise use every free slot and starve the rest.
+  for (let k = 0; k < count; k++) {
+    const i = (start + k) % count;
     const mount = def.mounts[i]!;
     const prev = ship.mountCooldown[i]!;
     const cd = Math.max(0, prev - dt);
@@ -115,6 +120,7 @@ export function updateMounts(
     // The gap between two barrels of one ship shrinks with the reload upgrade too; otherwise ships
     // with many guns would be held back by it and gain nothing.
     ship.salvoCooldown = SALVO_GAP_SEC * reload;
+    ship.salvoNext = (i + 1) % count;
     shots++;
   }
   return shots;

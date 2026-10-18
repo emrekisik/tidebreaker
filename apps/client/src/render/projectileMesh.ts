@@ -15,7 +15,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { ProjectileVisual } from '@tidebreaker/shared';
 
 /** Order of the meshes returned by `createProjectileMeshes`; ProjectileView relies on it. */
-export const VISUAL_ORDER: readonly ProjectileVisual[] = ['bullet', 'shell', 'rocket', 'missile'];
+export const VISUAL_ORDER: readonly ProjectileVisual[] = ['bullet', 'shell', 'rocket', 'missile', 'heavy'];
 
 /** Gives the geometry one flat vertex color and shifts it along the shot axis (+x). */
 function colored(geo: BufferGeometry, color: number, x = 0): BufferGeometry {
@@ -90,6 +90,19 @@ function missileGeometry(): BufferGeometry {
   ]);
 }
 
+/** The cruiser's heavy rocket: a long gunmetal body with yellow warning bands, a dark nose and big fins. */
+function heavyGeometry(): BufferGeometry {
+  return mergeGeometries([
+    colored(alongX(new CylinderGeometry(0.2, 0.2, 1.7, 10)), 0x4a5646),
+    colored(alongX(new CylinderGeometry(0.205, 0.205, 0.16, 10)), 0xe8c52b, 0.45),
+    colored(alongX(new CylinderGeometry(0.205, 0.205, 0.16, 10)), 0xe8c52b, -0.35),
+    colored(alongX(new ConeGeometry(0.2, 0.7, 10)), 0x25292b, 1.2),
+    colored(new BoxGeometry(0.62, 0.9, 0.03), 0x30363a, -0.7),
+    colored(new BoxGeometry(0.62, 0.03, 0.9), 0x30363a, -0.7),
+    colored(alongX(new CylinderGeometry(0.15, 0.19, 0.22, 10)), 0x16181a, -0.95),
+  ]);
+}
+
 /** One instanced draw call per projectile visual. Long shapes lie along +x. */
 export function createProjectileMeshes(capacity: number): InstancedMesh[] {
   const bullet = instanced(
@@ -108,5 +121,10 @@ export function createProjectileMeshes(capacity: number): InstancedMesh[] {
     new MeshLambertMaterial({ vertexColors: true, emissive: 0x3a0a32 }),
     capacity,
   );
-  return [bullet, shell, rocket, missile];
+  const heavy = instanced(
+    heavyGeometry(),
+    new MeshLambertMaterial({ vertexColors: true }),
+    capacity,
+  );
+  return [bullet, shell, rocket, missile, heavy];
 }

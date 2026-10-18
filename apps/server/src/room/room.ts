@@ -5,6 +5,7 @@ import {
   MATCH_STATE,
   NO_TEAM,
   PICKUP_ID_BASE,
+  CHEAT,
   MINE_CAPACITY,
   MINE_ID_BASE,
   PIRATE_TYPES,
@@ -688,6 +689,10 @@ export class Room {
         break;
       case C2S.BASE_BUY:
         if (c.stage === Stage.Playing) this.world.buyBase(c.slot, c.msg.stat);
+        break;
+      case C2S.CHEAT:
+        // Only where players may also pick any class (test servers, never production).
+        if (c.stage === Stage.Playing && this.anyClass && c.msg.stat === CHEAT.MONEY) this.world.cheatMoney(c.slot);
         break;
       case C2S.LAY_MINE:
         if (c.stage === Stage.Playing) this.world.layMine(c.slot);

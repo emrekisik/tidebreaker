@@ -46,6 +46,8 @@ import {
   encodeEmote,
   encodeLock,
   encodeLayMine,
+  encodeCheat,
+  CHEAT,
   MINE,
   MINE_ID_BASE,
   mineBlocked,
@@ -2390,6 +2392,23 @@ describe('sea mines', () => {
     // A new round clears them.
     w.startRound();
     expect(w.mines.countOfTeam(TEAM_BLUE)).toBe(0);
+  });
+});
+
+describe('the test money cheat', () => {
+  it('gives money on a test server and is refused on a strict one', async () => {
+    for (const anyClass of [true, false]) {
+      const { room, join, tick } = setup({ anyClass });
+      const a = await join('Tester');
+      await tick(2);
+      const slot = a.heard.joined[0]!.entityId - 1;
+      const before = room.world.cash[slot]!;
+      const w = new Writer(4);
+      encodeCheat(w, CHEAT.MONEY);
+      a.conn.send(w.toBytes());
+      await tick(2);
+      expect(room.world.cash[slot]).toBe(anyClass ? before + ECONOMY.cheatMoney : before);
+    }
   });
 });
 

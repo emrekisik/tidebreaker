@@ -14,6 +14,8 @@ export interface ShipState {
   mountCooldown: Float32Array;
   /** Seconds until any mount of this ship may fire again (sequential salvos). */
   salvoCooldown: number;
+  /** The mount that gets the first chance to fire next (the one after the last that fired), so a fast gun cannot starve the others. */
+  salvoNext: number;
   /** Sideways velocity from collisions (world units/s); fades out by itself. */
   kx: number;
   ky: number;
@@ -34,6 +36,7 @@ export function createShipState(def: ShipDef, x: number, y: number, heading: num
     alive: true,
     mountCooldown: new Float32Array(def.mounts.length),
     salvoCooldown: 0,
+    salvoNext: 0,
     kx: 0,
     ky: 0,
     spin: 0,
@@ -57,6 +60,7 @@ export function resetShipState(
   s.alive = true;
   s.mountCooldown.fill(0);
   s.salvoCooldown = 0;
+  s.salvoNext = 0;
   s.kx = 0;
   s.ky = 0;
   s.spin = 0;

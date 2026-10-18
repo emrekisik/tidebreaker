@@ -51,17 +51,20 @@ export const FX = {
     shell: { flash: 1.7, flashLife: 0.09, sparks: 7, smoke: 1.5, smokeCount: 3, smokeLife: 1.3 },
     rocket: { flash: 1.2, flashLife: 0.08, sparks: 5, smoke: 1.9, smokeCount: 4, smokeLife: 1.5 },
     missile: { flash: 1.6, flashLife: 0.1, sparks: 6, smoke: 2.2, smokeCount: 5, smokeLife: 1.6 },
+    heavy: { flash: 2.2, flashLife: 0.12, sparks: 8, smoke: 2.6, smokeCount: 6, smokeLife: 1.8 },
   },
 
   /** Smoke trail behind rockets in flight. */
   rocketTrail: { everySec: 0.02, startSize: 0.35, endSize: 1.2, life: 0.9 },
-  /**
-   * Rockets lob gently: height = start + a*u - b*u^2 over the flight fraction u (0..1), so they
-   * climb a little and then drop toward the target. Purely visual; hits stay 2D.
-   */
   /** Trail of the guided missile: a thin magenta smoke line with a bright hot nozzle. */
   missileTrail: { everySec: 0.016, startSize: 0.3, endSize: 1.0, life: 0.85, height: 1.7 },
-  rocketArc: { start: 1.1, a: 17, b: 17.8, pitchBoost: 1.6 },
+  /**
+   * Height (above the water) rockets fly at: level, like every shot, because a shot that looks like it
+   * climbs and drops would seem to hit what it flies over (hits are always 2D). The cruiser's heavy rocket and
+   * the guided missile have their own.
+   */
+  rocketHeight: 1.3,
+  heavyRocketHeight: 1.5,
 
   /** Trails behind the other projectile kinds (the rocket one is `rocketTrail`). */
   bulletTrail: { everySec: 0.02, life: 0.1, size: 0.09 },
@@ -87,11 +90,11 @@ export const FX = {
     shieldFlash: [1.1, 1.8],
   },
   /** Impact size multiplier by projectile visual (counts, sizes and speeds scale with it). */
-  impactScale: { bullet: 1, shell: 2.4, rocket: 3.4, missile: 4.6 },
+  impactScale: { bullet: 1, shell: 2.4, rocket: 3.4, missile: 4.6, heavy: 5 },
 
   /** Water splash where a shot lands. Scaled by the weapon (see splashScale). */
   splash: { foam: 3, spray: 8, life: 1.2 },
-  splashScale: { bullet: 0.45, shell: 1, rocket: 1.2, missile: 1.6 },
+  splashScale: { bullet: 0.45, shell: 1, rocket: 1.2, missile: 1.6, heavy: 1.8 },
 
   /** Damage states by remaining hull fraction. */
   damage: {
@@ -108,7 +111,7 @@ export const FX = {
    * per level (cannon shells and rockets barely, bullets are thin enough to take more), and the
    * muzzle flash, trail and impact grow by `effect` per level, and the ship's own guns by `turret`.
    */
-  power: { thicken: { bullet: 0.2, shell: 0.04, rocket: 0.04, missile: 0 }, effect: 0.14, turret: 0.08 },
+  power: { thicken: { bullet: 0.2, shell: 0.04, rocket: 0.04, missile: 0, heavy: 0.04 }, effect: 0.14, turret: 0.08 },
 
   /**
    * A ship changing class (tier up): the new hull pops in from `minScale` with an overshoot over
