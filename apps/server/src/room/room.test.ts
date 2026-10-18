@@ -45,6 +45,10 @@ import {
   encodeBaseBuy,
   encodeEmote,
   encodeLock,
+  encodeLayMine,
+  MINE,
+  MINE_ID_BASE,
+  mineBlocked,
   ANNOUNCE,
   weaponIndex,
   encodeBuyDrone,
@@ -2235,6 +2239,157 @@ describe('splash weapons', () => {
     expect(lost).toBeLessThanOrEqual(W.damage * W.splash.damageFactor + 1);
     expect(before(c)).toBe(bC); // a teammate of the shooter is spared
     void b;
+  });
+});
+
+describe('sea mines', () => {
+  const buy = (c: TestClient): void => {
+    const w = new Writer(4);
+    encodeBaseBuy(w, BASE_ITEM.MINE);
+    c.conn.send(w.toBytes());
+  };
+  const lay = (c: TestClient): void => {
+    const w = new Writer(4);
+    encodeLayMine(w);
+    c.conn.send(w.toBytes());
+  };
+  const slotOf = (c: TestClient): number => c.heard.joined[c.heard.joined.length - 1]!.entityId - 1;
+
+  it('are bought at the own carrier by T3 and higher ships, three at most', async () => {
+    const { room, join, tick } = setup();
+    const small = await join('Small', 'gunboat'); // blue
+    await join('Red', 'corvette'); // red
+    const big = await join('Big', 'corvette'); // blue
+    await tick(2);
+    const w = room.world;
+    const spot = { x: MATCH.carriers[TEAM_BLUE]!.x, y: MATCH.carriers[TEAM_BLUE]!.y + 40 };
+    place(room, small, spot.x, spot.y, 0);
+    place(room, big, spot.x + 5, spot.y, 0);
+    w.cash[slotOf(small)] = 5000;
+    w.cash[slotOf(big)] = 5000;
+    buy(small);
+    await tick(2);
+    expect(w.mineStock[slotOf(small)]).toBe(0); // T2 cannot carry mines
+    for (let i = 0; i < MINE.maxStock + 2; i++) buy(big);
+    await tick(2);
+    expect(w.mineStock[slotOf(big)]).toBe(MINE.maxStock);
+    expect(w.cash[slotOf(big)]).toBe(5000 - MINE.price * MINE.maxStock);
+    expect(big.heard.stats.at(-1)!.mines).toBe(MINE.maxStock);
+  });
+
+  it('are laid under the ship; a mine needs its lay time, a good place and the room for it', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Layer', 'corvette'); // blue
+    const b = await join('Watcher', 'corvette'); // red
+    await tick(2);
+    const w = room.world;
+    const slot = slotOf(a);
+    w.mineStock[slot] = 3;
+    place(room, a, 300, 700, 0);
+    lay(a);
+    await tick(2);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    expect(w.mineStock[slot]).toBe(2);
+    // The next one has to wait.
+    lay(a);
+    await tick(2);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    await tick(Math.ceil(MINE.layCooldownSec * TICK_RATE));
+    // Inside an oil rig's circle and near the enemy carrier it is refused.
+    place(room, a, RIGS[0]!.x + 5, RIGS[0]!.y, 0);
+    lay(a);
+    await tick(2);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    expect(mineBlocked(RIGS[0]!.x, RIGS[0]!.y, TEAM_BLUE)).not.toBe(0);
+    const enemy = MATCH.carriers[TEAM_RED]!;
+    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_BLUE)).not.toBe(0);
+    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_RED)).toBe(0);
+    // The enemy is told about the mine (a snapshot entry of kind MINE), with its team.
+    await tick(3);
+    const seen = b.heard.enters.find((e) => e.kind === KIND.MINE);
+    expect(seen?.team).toBe(TEAM_BLUE);
+    // At the player's own limit the oldest mine makes way for the new one.
+    w.mineStock[slot] = 10;
+    for (let i = 0; i < MINE.perPlayer + 1; i++) {
+      place(room, a, 300 + i * 20, 700, 0);
+      lay(a);
+      await tick(Math.ceil(MINE.layCooldownSec * TICK_RATE) + 1);
+    }
+    expect(w.mines.countOfOwner(slot)).toBe(MINE.perPlayer);
+  });
+
+  it('go off when an enemy ship touches an armed one, hurting enemies near it and nobody of the own team', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Layer', 'corvette'); // blue
+    const b = await join('Victim', 'corvette'); // red
+    const c = await join('Mate', 'corvette'); // blue
+    await tick(2);
+    const w = room.world;
+    const slot = slotOf(a);
+    w.mineStock[slot] = 1;
+    place(room, a, 300, 700, 0);
+    place(room, b, 600, 400, 0);
+    place(room, c, 303, 703, 0); // the layer's own team, right at the mine
+    lay(a);
+    await tick(2);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    const before = (x: TestClient): number => w.slots[slotOf(x)]!.state.hull + w.slots[slotOf(x)]!.state.shield;
+    // Still arming: the enemy arrives but nothing happens.
+    const bStart = before(b);
+    place(room, b, 300, 700, 0);
+    await tick(2);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    expect(before(b)).toBe(bStart);
+    // Armed: the enemy (still on top of it) sets it off.
+    await tick(Math.ceil(MINE.armSec * TICK_RATE) + 2);
+    expect(w.mines.countOfOwner(slot)).toBe(0);
+    expect(bStart - before(b)).toBeGreaterThan(MINE.blast.damage * MINE.blast.edgeFactor - 1);
+    expect(bStart - before(b)).toBeLessThanOrEqual(MINE.blast.damage + 1);
+    expect(a.heard.blasts.some((e) => e.id >= MINE_ID_BASE)).toBe(true);
+    expect(before(c)).toBe(w.slots[slotOf(c)]!.def.hull + w.maxShieldOf(slotOf(c)));
+  });
+
+  it('can be shot: a shot takes its damage off the mine, and it goes off at zero', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Layer', 'corvette'); // blue
+    const b = await join('Shooter', 'corvette'); // red
+    await tick(2);
+    const w = room.world;
+    const slot = slotOf(a);
+    w.mineStock[slot] = 1;
+    place(room, a, 300, 700, 0);
+    place(room, b, 800, 900, 0);
+    lay(a);
+    await tick(2);
+    const set = w.projectiles;
+    const bId = b.heard.joined[0]!.entityId;
+    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    await tick(10);
+    expect(w.mines.countOfOwner(slot)).toBe(1); // 10 of its 15 hit points gone
+    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    await tick(10);
+    expect(w.mines.countOfOwner(slot)).toBe(0);
+  });
+
+  it('are lost with the ship, but the mines already laid stay (up to their time)', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Layer', 'corvette');
+    await join('Other', 'corvette');
+    await tick(2);
+    const w = room.world;
+    const slot = slotOf(a);
+    w.mineStock[slot] = 2;
+    place(room, a, 300, 700, 0);
+    lay(a);
+    await tick(2);
+    w.protectLeft[slot] = 0;
+    w.onCollision(1, slot + 1, 100, 100, 5, 0, 5, false, true);
+    await tick(2);
+    expect(w.mineStock[slot]).toBe(0);
+    expect(w.mines.countOfOwner(slot)).toBe(1);
+    // A new round clears them.
+    w.startRound();
+    expect(w.mines.countOfTeam(TEAM_BLUE)).toBe(0);
   });
 });
 

@@ -16,6 +16,9 @@ import {
   MATCH_STATE,
   MAX_PROJECTILES,
   MISSILE,
+  MINE,
+  MINE_ID_BASE,
+  mineBlocked,
   Mulberry32,
   NO_TEAM,
   NO_WEAPON,
@@ -74,6 +77,7 @@ import {
   weaponIndex,
 } from '@tidebreaker/shared';
 import { DRONE_SLOTS, Drones } from './drones.ts';
+import { Mines, NO_OWNER } from './mines.ts';
 import { BARREL_START, CHEST_START, Pickups } from './pickups.ts';
 import { Pirates } from './pirates.ts';
 import type {
@@ -160,6 +164,10 @@ export class World
   private readonly splashRadius = new Float32Array(WEAPON_IDS.length);
   private readonly splashFactor = new Float32Array(WEAPON_IDS.length);
   private readonly splashEdge = new Float32Array(WEAPON_IDS.length);
+  /** The sea mines in the water, and how many each player carries and when it may lay the next. */
+  readonly mines = new Mines();
+  readonly mineStock: Uint8Array;
+  private readonly mineCooldown: Float32Array;
   /** Guided missiles on board, per slot (bought at the base shop). */
   readonly missiles: Uint8Array;
   /** The lock a player is building: entity id of the target (0 = none) and the seconds still needed. */
@@ -261,6 +269,8 @@ export class World
     this.emoteLeft = new Float32Array(n);
     this.emotePending = new Uint8Array(n);
     this.missiles = new Uint8Array(n);
+    this.mineStock = new Uint8Array(n);
+    this.mineCooldown = new Float32Array(n);
     this.tierChoice = new Uint8Array(n * TIER_OPTIONS.length);
     for (let w = 0; w < WEAPON_IDS.length; w++) {
       const splash = (WEAPONS[WEAPON_IDS[w]!] as WeaponDef).splash;
@@ -443,6 +453,15 @@ export class World
       }
       return true;
     }
+    if (item === BASE_ITEM.MINE) {
+      // T1 and T2 ships cannot carry them either; three at most.
+      if (this.tier[slot]! < MINE.minTier || this.mineStock[slot]! >= MINE.maxStock) return false;
+      if (this.cash[slot]! < MINE.price) return false;
+      this.cash[slot] = this.cash[slot]! - MINE.price;
+      this.mineStock[slot] = this.mineStock[slot]! + 1;
+      this.statsDirty[slot] = 1;
+      return true;
+    }
     if (item === BASE_ITEM.MISSILE) {
       // T1 and T2 ships cannot carry them; two at most.
       if (this.tier[slot]! < MISSILE.minTier || this.missiles[slot]! >= MISSILE.maxStock) return false;
@@ -453,6 +472,137 @@ export class World
       return true;
     }
     return false;
+  }
+
+  // ---- sea mines (GAME_DESIGN.md §7.3c)
+
+  /**
+   * A player lays a mine where their ship is. Needs: alive, a mine on board, the lay time since the
+   * last one over, a place that is allowed (`mineBlocked`) and room for the team's mines. At the
+   * player's own limit the oldest of their mines makes way.
+   */
+  layMine(slot: number): boolean {
+    if (slot < CARRIER_SLOTS || slot >= this.playerEnd || this.used[slot] === 0) return false;
+    const c = this.slots[slot]!;
+    if (!c.state.alive || this.ghostLeft[slot]! > 0 || this.matchState !== MATCH_STATE.PLAYING) return false;
+    if (this.mineStock[slot]! === 0 || this.mineCooldown[slot]! > 0) return false;
+    if (mineBlocked(c.state.x, c.state.y, c.team) !== 0) return false;
+    const mines = this.mines;
+    if (mines.countOfOwner(slot) >= MINE.perPlayer) {
+      const oldest = mines.oldestOf(slot);
+      if (oldest >= 0) mines.remove(oldest);
+    }
+    if (mines.countOfTeam(c.team) >= MINE.perTeam) return false;
+    if (mines.lay(c.state.x, c.state.y, c.team, slot) < 0) return false;
+    this.mineStock[slot] = this.mineStock[slot]! - 1;
+    this.mineCooldown[slot] = MINE.layCooldownSec;
+    this.statsDirty[slot] = 1;
+    // Laying a mine is not an attack (spawn protection stays), but it is a sign of a fight.
+    this.combatAge[slot] = Math.min(this.combatAge[slot]!, COMBAT.combatLogSec);
+    return true;
+  }
+
+  /** Mines count their timers down, and an armed one goes off when an enemy ship touches it. */
+  private updateMines(dt: number): void {
+    for (let s = CARRIER_SLOTS; s < this.playerEnd; s++) {
+      if (this.mineCooldown[s]! > 0) this.mineCooldown[s] = this.mineCooldown[s]! - dt;
+    }
+    const mines = this.mines;
+    mines.step(dt);
+    const reach = MINE.triggerRadius;
+    for (let i = 0; i < mines.active.length; i++) {
+      if (mines.active[i] === 0 || mines.arm[i]! > 0) continue;
+      const mx = mines.x[i]!;
+      const my = mines.y[i]!;
+      const team = mines.team[i]!;
+      let touched = false;
+      for (let s = CARRIER_SLOTS; s < this.pirateEnd && !touched; s++) {
+        if (this.used[s] === 0 || this.protectLeft[s]! > 0) continue;
+        const c = this.slots[s]!;
+        const st = c.state;
+        if (!st.alive || c.team === team) continue;
+        const cos = Math.cos(st.heading);
+        const sin = Math.sin(st.heading);
+        const circles = c.def.hitCircles;
+        for (let k = 0; k < circles.length; k++) {
+          const circle = circles[k]!;
+          const dx = st.x + cos * circle.offset - mx;
+          const dy = st.y + sin * circle.offset - my;
+          const d = circle.radius + reach;
+          if (dx * dx + dy * dy < d * d) {
+            touched = true;
+            break;
+          }
+        }
+      }
+      if (touched) this.detonateMine(i);
+    }
+  }
+
+  /** Shots that fly into a mine end there and take their damage off its hit points; at zero it goes off. */
+  private shootMines(dt: number): void {
+    const set = this.projectiles;
+    const mines = this.mines;
+    for (let m = 0; m < mines.active.length; m++) {
+      if (mines.active[m] === 0) continue;
+      const mx = mines.x[m]!;
+      const my = mines.y[m]!;
+      for (let i = 0; i < set.highWater; i++) {
+        if (set.active[i] === 0) continue;
+        const dx = set.vx[i]! * dt;
+        const dy = set.vy[i]! * dt;
+        const t = sweptSegmentCircle(set.x[i]!, set.y[i]!, dx, dy, mx, my, MINE.hitRadius + set.radius[i]!);
+        if (t < 0) continue;
+        this.events.projectileEnd(i, END_REASON.INTERCEPT, set.x[i]! + dx * t, set.y[i]! + dy * t);
+        mines.hp[m] = mines.hp[m]! - set.damage[i]!;
+        set.remove(i);
+        if (mines.hp[m]! <= 0) {
+          this.detonateMine(m);
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * A mine goes off: every ship of another team within the blast radius of its hull takes damage (less
+   * toward the rim; ships under spawn protection are spared). The layer is credited, if still around.
+   */
+  private detonateMine(i: number): void {
+    const mines = this.mines;
+    const B = MINE.blast;
+    const bx = mines.x[i]!;
+    const by = mines.y[i]!;
+    const team = mines.team[i]!;
+    const owner = mines.owner[i]!;
+    const credit = owner === NO_OWNER ? -1 : this.creditOf(owner);
+    mines.remove(i);
+    this.events.blast(MINE_ID_BASE + i, bx, by);
+    for (let s = CARRIER_SLOTS; s < this.pirateEnd; s++) {
+      if (this.used[s] === 0 || this.protectLeft[s]! > 0) continue;
+      const c = this.slots[s]!;
+      const st = c.state;
+      if (!st.alive || c.team === team) continue;
+      const cos = Math.cos(st.heading);
+      const sin = Math.sin(st.heading);
+      const circles = c.def.hitCircles;
+      let near = Infinity;
+      for (let k = 0; k < circles.length; k++) {
+        const circle = circles[k]!;
+        const dx = st.x + cos * circle.offset - bx;
+        const dy = st.y + sin * circle.offset - by;
+        const d = Math.sqrt(dx * dx + dy * dy) - circle.radius;
+        if (d < near) near = d;
+      }
+      if (near >= B.radius) continue;
+      const damage = B.damage * (1 - (1 - B.edgeFactor) * (Math.max(0, near) / B.radius));
+      const flags = applyDamage(st, damage);
+      this.events.shipHit(c.id, credit + 1, damage, (flags & HIT_SHIELD) !== 0, NO_WEAPON, bx, by);
+      this.noteDamage(credit, s, damage);
+      if (s < this.playerEnd) this.combatAge[s] = 0;
+      if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, NO_WEAPON);
+    }
   }
 
   // ---- the guided missile (GAME_DESIGN.md §7.4)
@@ -660,6 +810,7 @@ export class World
   /** Frees a player slot for good. */
   private release(slot: number): void {
     this.drones.removeAllOf(slot, false);
+    this.mines.orphan(slot);
     this.used[slot] = 0;
     this.ghostLeft[slot] = 0;
     this.scoresDirty = true;
@@ -694,6 +845,8 @@ export class World
     this.lives[slot] = ECONOMY.death.lives;
     this.carrierCarry[slot] = 0;
     this.missiles[slot] = 0;
+    this.mineStock[slot] = 0;
+    this.mineCooldown[slot] = 0;
     this.lockTarget[slot] = 0;
     this.tierChoice.fill(0, slot * TIER_OPTIONS.length, (slot + 1) * TIER_OPTIONS.length);
     this.statsDirty[slot] = 1;
@@ -775,6 +928,7 @@ export class World
     this.scoresDirty = true;
     this.projectiles.clear();
     this.drones.clear();
+    this.mines.clear();
     this.baseGuns.fill(0);
     for (let i = 0; i < this.slotCount; i++) this.statsDirty[i] = 1;
     for (let t = 0; t < TEAM_COUNT; t++) {
@@ -929,6 +1083,7 @@ export class World
     // 5b. pickups: ships that touch something take it
     this.collectPickups();
     this.pickups.step(dt, this.combatants);
+    this.updateMines(dt);
 
     // 5c. oil rigs: the stronger side in a rig's circle moves its gauge; owners are paid
     if (!ended) this.updateRigs(dt);
@@ -936,6 +1091,7 @@ export class World
     // 6. projectiles and hits (a shot that reaches a barrel sets it off first)
     this.shootBarrels(dt);
     this.interceptMissiles(dt);
+    this.shootMines(dt);
     this.saveProtected();
     this.projectiles.step(dt, this.combatants, this, this);
     this.restoreProtected();
@@ -1191,6 +1347,7 @@ export class World
     // The drones of a sunk ship crash with it, and its missiles and lock are gone.
     this.drones.removeAllOf(victim, true);
     this.missiles[victim] = 0;
+    this.mineStock[victim] = 0;
     this.lockTarget[victim] = 0;
     this.respawnLeft[victim] = MATCH.respawnSec;
     this.inFire[victim] = 0;

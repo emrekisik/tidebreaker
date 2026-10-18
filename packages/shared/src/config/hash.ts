@@ -11,6 +11,7 @@ import { PROTOCOL_VERSION, SNAPSHOT_EVERY, TICK_RATE } from './net.ts';
 import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
 import { SALVO_GAP_SEC, WEAPONS } from './weapons.ts';
 import { MISSILE } from './missiles.ts';
+import { MINE } from './mines.ts';
 import { MAP, WORLD_SIZE } from './world.ts';
 
 let cached = 0;
@@ -49,6 +50,7 @@ export function configHash(): number {
     EMOTE,
     EMOTE_IDS,
     MISSILE,
+    MINE,
   ]);
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {

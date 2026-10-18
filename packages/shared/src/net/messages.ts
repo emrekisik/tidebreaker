@@ -26,6 +26,7 @@ export const C2S = {
   BASE_BUY: 0x08,
   EMOTE: 0x09,
   LOCK: 0x0a,
+  LAY_MINE: 0x0b,
 } as const;
 export const S2C = {
   WELCOME: 0x81,
@@ -92,6 +93,7 @@ export const KIND = {
   SHIP: 0,
   CRATE: 4,
   BARREL: 5,
+  MINE: 8,
   CHEST: 6,
   BANKNOTE: 7,
   DRONE: 11,
@@ -189,6 +191,11 @@ export function encodeLock(w: Writer, target: number): void {
   w.u16(target);
 }
 
+/** Lay a sea mine where the own ship is (the server checks stock, class, place and limits). */
+export function encodeLayMine(w: Writer): void {
+  w.u8(C2S.LAY_MINE);
+}
+
 /** Move up one class (the server checks the money). */
 export function encodeTierUp(w: Writer, choice = 0): void {
   w.u8(C2S.TIER_UP);
@@ -254,6 +261,8 @@ export function decodeClient(data: Uint8Array, out: ClientMsg): number {
       break;
     case C2S.LOCK:
       out.target = r.u16();
+      break;
+    case C2S.LAY_MINE:
       break;
     case C2S.PING:
       out.clientTime = r.u32();
@@ -429,6 +438,8 @@ export interface StatsMsg {
   baseGuns: number;
   /** Guided missiles on board. */
   missiles: number;
+  /** Sea mines on board. */
+  mines: number;
 }
 
 export function encodeStats(w: Writer, m: StatsMsg): void {
@@ -445,6 +456,7 @@ export function encodeStats(w: Writer, m: StatsMsg): void {
   w.u8(m.drones);
   w.u8(m.baseGuns);
   w.u8(m.missiles);
+  w.u8(m.mines);
 }
 
 export function encodePong(w: Writer, clientTime: number, serverTime: number): void {
@@ -891,6 +903,7 @@ const statsMsg: StatsMsg = {
   drones: 0,
   baseGuns: 0,
   missiles: 0,
+  mines: 0,
 };
 const updateEntry: UpdateEntry = { id: 0, x: 0, y: 0, heading: 0, speed: 0, hp: 0, shield: 0 };
 
@@ -987,6 +1000,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       statsMsg.drones = r.u8();
       statsMsg.baseGuns = r.u8();
       statsMsg.missiles = r.u8();
+      statsMsg.mines = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
       h.stats(statsMsg);
       return true;

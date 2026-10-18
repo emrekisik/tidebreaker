@@ -1,6 +1,7 @@
-import { MISSILE } from '@tidebreaker/shared';
+import { MINE, MISSILE } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import lockSvg from './icons/lock.svg?raw';
+import mineIcon from './icons/mine.svg?raw';
 import missileIcon from './icons/missile.svg?raw';
 import { tone } from './sound.ts';
 
@@ -265,32 +266,42 @@ export class MissileLock {
   }
 }
 
-/** The missile stock on the screen: icon, how many are on board (of the most) and the key that locks. */
+/** The missile and mine stock on the screen: icon, how many are on board and the key that uses them. */
 export class MissileBadge {
   private readonly count = document.createElement('b');
+  private readonly mineCount = document.createElement('b');
   private readonly note = document.createElement('span');
   private noteLeft = 0;
 
   constructor(private readonly root: HTMLElement) {
+    const strip = (svg: string): string => svg.replace(/ width="\d+" height="\d+"/, '');
     const icon = document.createElement('span');
     icon.className = 'mb-ico';
-    icon.innerHTML = missileIcon.replace(/ width="\d+" height="\d+"/, '');
+    icon.innerHTML = strip(missileIcon);
     const key = document.createElement('span');
     key.className = 'mb-key';
     key.textContent = 'Q';
     this.count.className = 'mb-count';
+    const mineIc = document.createElement('span');
+    mineIc.className = 'mb-ico mine';
+    mineIc.innerHTML = strip(mineIcon);
+    const mineKey = document.createElement('span');
+    mineKey.className = 'mb-key';
+    mineKey.textContent = 'F';
+    this.mineCount.className = 'mb-count';
     this.note.className = 'mb-note';
-    root.append(icon, this.count, key, this.note);
+    root.append(icon, this.count, key, mineIc, this.mineCount, mineKey, this.note);
   }
 
-  /** Shows the stock (only for ships that may carry missiles). */
-  set(count: number, canCarry: boolean): void {
+  /** Shows the stock (only for ships that may carry missiles and mines). */
+  set(missiles: number, mines: number, canCarry: boolean): void {
     this.root.classList.toggle('hidden', !canCarry);
-    this.root.classList.toggle('empty', count === 0);
-    this.count.textContent = `${count}/${MISSILE.maxStock}`;
+    this.root.classList.toggle('empty', missiles === 0 && mines === 0);
+    this.count.textContent = `${missiles}/${MISSILE.maxStock}`;
+    this.mineCount.textContent = `${mines}/${MINE.maxStock}`;
   }
 
-  /** A short message next to the badge (why the lock did not start). */
+  /** A short message next to the badge (why the lock did not start, why no mine was laid). */
   flash(text: string): void {
     this.note.textContent = text;
     this.root.classList.add('noting');

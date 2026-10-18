@@ -19,7 +19,7 @@ export const BASE = {
 } as const;
 
 /** What the BASE_BUY message asks for (the wire value). */
-export const BASE_ITEM = { REPAIR: 0, GUNS: 1, MISSILE: 2 } as const;
+export const BASE_ITEM = { REPAIR: 0, GUNS: 1, MISSILE: 2, MINE: 3 } as const;
 
 /** Money for the next level of the carrier guns (Infinity at the top level). */
 export function gunsCost(level: number): number {

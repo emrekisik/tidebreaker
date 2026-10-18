@@ -16,3 +16,4 @@ export * from './drones.ts';
 export * from './base.ts';
 export * from './emotes.ts';
 export * from './missiles.ts';
+export * from './mines.ts';

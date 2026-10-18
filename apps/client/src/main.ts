@@ -1,10 +1,13 @@
 import {
   DRONE,
-  ECONOMY,
   FX,
   MATCH_STATE,
   MAX_PROJECTILES,
   MISSILE,
+  MINE,
+  MINE_BLOCK,
+  MINE_CAPACITY,
+  mineBlocked,
   NO_WEAPON,
   SHIPS,
   STEP_MS,
@@ -54,6 +57,7 @@ import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS, PROP_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
+import { MineView } from './frame/mineView.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { Announcer } from './ui/announcer.ts';
@@ -134,6 +138,10 @@ const matchHud = new MatchHud();
 const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 // Floating things darken the water where they touch it and leave a faint lace of foam.
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
+// The sea mines: one mesh per team, floating like everything else (and leaving a little foam).
+const mines = new MineView([assets.createMineMesh('blue', MINE_CAPACITY), assets.createMineMesh('red', MINE_CAPACITY)]);
+for (const mesh of mines.meshList) stage.scene.add(mesh);
+mines.contact = pickups.contact;
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
 const crosshair = new Crosshair();
@@ -212,6 +220,8 @@ window.addEventListener('keydown', (e) => {
     else if (e.code >= 'Digit7' && e.code <= 'Digit9') baseShop.press(Number(e.code.slice(5)) - 7);
     else if (e.code === 'Digit0') baseShop.press(3);
     else if (e.code === 'KeyE') baseShop.press(4);
+    else if (e.code === 'KeyR') baseShop.press(5);
+    else if (e.code === 'KeyF') pressLayMine();
     else if (e.code === 'KeyQ') pressLock();
   }
   if (e.code === 'Tab') {
@@ -305,8 +315,7 @@ const events: OnlineEvents = {
   onEmote(shipId, emote) {
     emoteBubbles.show(shipId, emote, performance.now());
   },
-  onBlast(x, y) {
-    const R = ECONOMY.pickups.barrel.blast.radius;
+  onBlast(x, y, R) {
     effects.blast(x, y, R);
     // The camera jolts when it goes off near the player.
     const me = session?.player;
@@ -330,8 +339,8 @@ const events: OnlineEvents = {
   },
   onStats(m) {
     progressHud.update(m);
-    baseShop.setStats(m.cash, m.drones, m.baseGuns, m.missiles, m.tier);
-    missileBadge.set(m.missiles, m.tier >= MISSILE.minTier);
+    baseShop.setStats(m.cash, m.drones, m.baseGuns, m.missiles, m.mines, m.tier);
+    missileBadge.set(m.missiles, m.mines, m.tier >= MISSILE.minTier);
   },
   onRigs(rows) {
     rigView.set(rows);
@@ -414,6 +423,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
     assets,
     bars,
     pickups,
+    mines,
     events,
     url: serverUrl,
     name,
@@ -536,6 +546,19 @@ function pressLock(): void {
   missileLock.begin(target);
   online.net.lock(target);
 }
+/** The lay key: puts a sea mine in the water where the ship is (the server has the last word on place and limits). */
+function pressLayMine(): void {
+  if (!online || !session) return;
+  const me = session.player.combatant;
+  if (!me.state.alive) return;
+  const mine = online.progress;
+  if (mine.tier < MINE.minTier) return missileBadge.flash(t('lock.tier'));
+  if (mine.mines <= 0) return missileBadge.flash(t('mine.empty'));
+  const blocked = mineBlocked(me.state.x, me.state.y, me.team);
+  if (blocked === MINE_BLOCK.RIG) return missileBadge.flash(t('mine.blockedRig'));
+  if (blocked === MINE_BLOCK.CARRIER) return missileBadge.flash(t('mine.blockedCarrier'));
+  online.net.layMine();
+}
 const teamNameOf = (team: number): string => (team === 0 ? 'blue' : team === 1 ? 'red' : 'pirate');
 const carriers: (Combatant | undefined)[] = [undefined, undefined];
 
@@ -622,6 +645,7 @@ function update(nowMs: number): void {
   emoteBubbles.update(nowMs, whereEmote, projectEmote);
   wreckMarks.update(nowMs, projectWreck);
   missileLock.update(dtSec, lockProjector);
+  mines.update(timeSec, rig.focusX, rig.focusZ);
   missileBadge.update(dtSec);
   if (emoteWheel.isOpen) {
     // The wheel is drawn around the player's own ship, where the camera sees it (the smoothed pose,

@@ -8,6 +8,7 @@ import {
   encodeBaseBuy,
   encodeEmote,
   encodeLock,
+  encodeLayMine,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -95,6 +96,12 @@ export class NetClient {
   /** Start locking the guided missile onto ship `target` (0 = cancel the lock). */
   lock(target: number): void {
     encodeLock(this.out, target);
+    this.flush();
+  }
+
+  /** Lay a sea mine where the own ship is. */
+  layMine(): void {
+    encodeLayMine(this.out);
     this.flush();
   }
 

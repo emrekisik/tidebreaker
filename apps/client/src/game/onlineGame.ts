@@ -1,11 +1,14 @@
 import type { Scene } from 'three';
 import {
   CARRIER,
+  ECONOMY,
   END_REASON,
   FX,
   KIND,
   MAX_PROJECTILES,
   PICKUP_ID_BASE,
+  MINE,
+  MINE_ID_BASE,
   PIRATE_TYPES,
   DRONE,
   DRONE_TYPES,
@@ -49,6 +52,7 @@ import type {
 } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
+import type { MineView } from '../frame/mineView.ts';
 import type { PickupView } from '../frame/pickupView.ts';
 import { ServerClock } from '../net/clock.ts';
 import { SnapshotBuffer } from '../net/interpolation.ts';
@@ -80,8 +84,8 @@ const MISSILE_WEAPON = WEAPON_IDS.indexOf('missile');
 export interface OnlineEvents extends GameEvents {
   /** The player scored `points` (a kill, an assist or a captured rig); shown at the spot. */
   onScore(x: number, y: number, points: number): void;
-  /** An explosive barrel went off here. */
-  onBlast(x: number, y: number): void;
+  /** An explosive barrel or a sea mine went off here (`radius`: how far the blast reaches). */
+  onBlast(x: number, y: number, radius: number): void;
   /** A ship shows an emote (`emote` = index of `EMOTE_IDS`). */
   onEmote(shipId: number, emote: number): void;
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
@@ -165,6 +169,7 @@ export interface OnlineDeps {
   assets: AssetProvider;
   bars: BarKit;
   pickups: PickupView;
+  mines: MineView;
   events: OnlineEvents;
   url: string;
   name: string;
@@ -203,6 +208,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     drones: 0,
     baseGuns: 0,
     missiles: 0,
+    mines: 0,
   };
   readonly clock = new ServerClock();
   predictor!: Predictor;
@@ -541,6 +547,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     p.drones = m.drones;
     p.baseGuns = m.baseGuns;
     p.missiles = m.missiles;
+    p.mines = m.mines;
     if (this.predictor) {
       this.predictor.speedLevel = m.levels[STAT.SPEED]!;
       this.predictor.turnLevel = m.levels[STAT.TURN]!;
@@ -615,6 +622,10 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
   }
 
   enter(e: EnterEntry): void {
+    if (e.id >= MINE_ID_BASE) {
+      this.deps.mines.add(e.id, e.team, e.x, e.y);
+      return;
+    }
     if (e.id >= PICKUP_ID_BASE) {
       this.deps.pickups.add(e.id, e.kind, e.shipId, e.x, e.y);
       return;
@@ -686,6 +697,10 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
   }
 
   leave(id: number): void {
+    if (id >= MINE_ID_BASE) {
+      this.deps.mines.remove(id);
+      return;
+    }
     if (id >= PICKUP_ID_BASE) {
       this.deps.pickups.remove(id);
       return;
@@ -880,8 +895,9 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     this.at(tick * STEP_MS, () => this.deps.events.onEmote(id, emote));
   }
 
-  blast(tick: number, _id: number, x: number, y: number): void {
-    this.at(tick * STEP_MS, () => this.deps.events.onBlast(x, y));
+  blast(tick: number, id: number, x: number, y: number): void {
+    const radius = id >= MINE_ID_BASE ? MINE.blast.radius : ECONOMY.pickups.barrel.blast.radius;
+    this.at(tick * STEP_MS, () => this.deps.events.onBlast(x, y, radius));
   }
 
   shipSunk(tick: number, id: number, _killer: number, x: number, y: number): void {

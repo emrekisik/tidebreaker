@@ -51,6 +51,8 @@ export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
     sink: 0.3,
     glow: 0.3,
   },
+  // The sea mine: painted in the team color where the model is light.
+  spiked_mine: { file: 'spiked_mine.glb', node: 'spiked_mine', sink: 0.25, glow: 0.3 },
   money_model: { file: 'money_model.glb', node: 'money_model', sink: 0.1, glow: 0.35 },
   fpv_drone: { file: 'fpv_drone.glb', node: 'fpv_drone', sink: 0, glow: 0.2, yaw: Math.PI / 2 },
   combat_drone: { file: 'combat_drone.glb', node: 'combat_drone', sink: 0, glow: 0.2, yaw: Math.PI / 2 },

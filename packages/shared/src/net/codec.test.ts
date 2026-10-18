@@ -26,6 +26,7 @@ import {
   encodeBaseBuy,
   encodeEmote,
   encodeLock,
+  encodeLayMine,
   encodeBuyDrone,
   encodeTierUp,
   encodeUpgrade,
@@ -188,6 +189,10 @@ describe('client messages', () => {
     encodeLock(w, 1234);
     expect(decodeClient(w.toBytes(), m)).toBe(C2S.LOCK);
     expect(m.target).toBe(1234);
+    w.reset();
+    encodeLayMine(w);
+    expect(w.pos).toBe(1);
+    expect(decodeClient(w.toBytes(), m)).toBe(C2S.LAY_MINE);
   });
 
   it('INPUT is 9 bytes and round-trips', () => {
@@ -285,6 +290,7 @@ describe('server messages', () => {
       drones: 1,
       baseGuns: 3,
       missiles: 2,
+      mines: 3,
     });
     send();
     encodeRigs(w, [1, -0.5, 0], [0, 1, 255]);
@@ -301,7 +307,7 @@ describe('server messages', () => {
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
       'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"shipId":3,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"shipId":0,"name":"Çınar"}]',
-      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1,"baseGuns":3,"missiles":2}',
+      'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1,"baseGuns":3,"missiles":2,"mines":3}',
       `rigs ${JSON.stringify([
         { meter: 1, owner: 0 },
         { meter: -63 / 127, owner: 1 },

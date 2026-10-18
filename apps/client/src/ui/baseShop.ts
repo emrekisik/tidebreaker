@@ -3,6 +3,7 @@ import {
   BASE_ITEM,
   DRONE,
   MISSILE,
+  MINE,
   DRONE_TYPES,
   gunsCost,
   gunsDamageMul,
@@ -14,6 +15,7 @@ import cashIcon from './icons/cash.svg?raw';
 import damageIcon from './icons/damage.svg?raw';
 import droneIcon from './icons/drone.svg?raw';
 import uavIcon from './icons/uav.svg?raw';
+import mineIcon from './icons/mine.svg?raw';
 import missileIcon from './icons/missile.svg?raw';
 import repairIcon from './icons/repair.svg?raw';
 
@@ -31,8 +33,8 @@ interface Row {
 
 /**
  * The base shop: a window that opens while the player's ship is at their own carrier, bottom left
- * above the radar. Five rows (keys 7, 8, 9, 0 and E, or a click): the two drone types, mending the
- * carrier, better carrier guns, and the guided missile. The server decides whether a purchase is allowed; this only
+ * above the radar. Six rows (keys 7, 8, 9, 0, E and R, or a click): the two drone types, mending the
+ * carrier, better carrier guns, the guided missile and the sea mine. The server decides whether a purchase is allowed; this only
  * shows what is possible and sends the request.
  */
 export class BaseShop {
@@ -44,6 +46,7 @@ export class BaseShop {
   private drones = 0;
   private gunLevel = 0;
   private missiles = 0;
+  private mines = 0;
   /** The class of the player's ship (index, 0 = T1). */
   private tier = 0;
   /** The own carrier's hull (0..1). */
@@ -72,6 +75,7 @@ export class BaseShop {
     this.addRow('9', repairIcon, t('base.repair'), '', () => this.onBuy(1, BASE_ITEM.REPAIR));
     this.addRow('0', damageIcon, t('base.guns'), '', () => this.onBuy(2, BASE_ITEM.GUNS));
     this.addRow('E', missileIcon, t('base.missile'), '', () => this.onBuy(2, BASE_ITEM.MISSILE));
+    this.addRow('R', mineIcon, t('base.mine'), '', () => this.onBuy(2, BASE_ITEM.MINE));
     this.refresh();
   }
 
@@ -111,11 +115,12 @@ export class BaseShop {
   }
 
   /** The player's money, drones and the level of the team's carrier guns changed. */
-  setStats(cash: number, drones: number, gunLevel: number, missiles: number, tier: number): void {
+  setStats(cash: number, drones: number, gunLevel: number, missiles: number, mines: number, tier: number): void {
     this.cash = cash;
     this.drones = drones;
     this.gunLevel = gunLevel;
     this.missiles = missiles;
+    this.mines = mines;
     this.tier = tier;
     this.refresh();
   }
@@ -128,7 +133,7 @@ export class BaseShop {
     this.refresh();
   }
 
-  /** Keyboard shortcut for row `i` (keys 7, 8, 9, 0, E = 0..4); only works while the shop is open. */
+  /** Keyboard shortcut for row `i` (keys 7, 8, 9, 0, E, R = 0..5); only works while the shop is open. */
   press(i: number): void {
     const row = this.rows[i];
     if (this.visible && row && !row.button.disabled) row.button.click();
@@ -171,5 +176,12 @@ export class BaseShop {
       : `${t('base.missile.desc')} · ${this.missiles}/${MISSILE.maxStock}`;
     missile.price.innerHTML = `${coin}${MISSILE.price}`;
     missile.button.disabled = !canCarry || rackFull || this.cash < MISSILE.price;
+
+    const mine = this.rows[5]!;
+    mine.desc.textContent = !canCarry
+      ? t('base.mine.tier')
+      : `${t('base.mine.desc')} · ${this.mines}/${MINE.maxStock}`;
+    mine.price.innerHTML = `${coin}${MINE.price}`;
+    mine.button.disabled = !canCarry || this.mines >= MINE.maxStock || this.cash < MINE.price;
   }
 }

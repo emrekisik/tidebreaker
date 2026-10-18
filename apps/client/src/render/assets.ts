@@ -12,6 +12,9 @@ import {
   FrontSide,
   Float32BufferAttribute,
   Group,
+  InstancedMesh,
+  DynamicDrawUsage,
+  SphereGeometry,
   InterleavedBufferAttribute,
   Matrix4,
   Mesh,
@@ -581,6 +584,24 @@ export class AssetProvider {
     return model;
   }
 
+  /**
+   * The instanced mesh of one team's sea mines: the mine model with its light parts painted in the
+   * team color (a plain ball when the model did not load).
+   */
+  createMineMesh(team: Team, capacity: number): InstancedMesh {
+    const prop = this.props.get('spiked_mine');
+    const map = prop ? ((prop.material as MeshLambertMaterial).map ?? null) : null;
+    const mat = new MeshLambertMaterial({ map, color: prop ? 0xffffff : 0x667788 });
+    paintLightParts(mat, this.glowMats[team].color);
+    const mesh = new InstancedMesh(prop ? prop.geometry : new SphereGeometry(0.5, 10, 8), mat, capacity);
+    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
   /** Team paint color (sRGB hex). */
   setTeamColor(team: Team, hex: number): void {
     this.style.tint[team].set(hex);
@@ -848,6 +869,34 @@ function paintDrone(mat: MeshLambertMaterial, team: Color, geometry: BufferGeome
       .replace(
         '#include <emissivemap_fragment>',
         '#include <emissivemap_fragment>\ntotalEmissiveRadiance = diffuseColor.rgb * 0.45;',
+      );
+  };
+}
+
+/**
+ * Paints the light parts of a model's texture in the team color (the dark parts stay as they are), and
+ * lights the result a little by itself: used for the sea mines, whose texture is dark with light bands.
+ */
+function paintLightParts(mat: MeshLambertMaterial, team: Color): void {
+  const paint = team.clone();
+  mat.customProgramCacheKey = () => 'light-paint';
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms['uTeam'] = { value: paint };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uTeam;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        {
+          vec3 tc = diffuseColor.rgb;
+          float lum = dot(tc, vec3(0.299, 0.587, 0.114));
+          float mask = smoothstep(0.25, 0.5, lum);
+          diffuseColor.rgb = mix(tc, uTeam * (0.55 + 0.9 * lum), mask);
+        }`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\ntotalEmissiveRadiance = diffuseColor.rgb * 0.4;',
       );
   };
 }

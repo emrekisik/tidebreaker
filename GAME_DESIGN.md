@@ -273,7 +273,7 @@ Hepsi gemiyle üstünden geçince toplanır (toplama yarıçapı ≈ gemi yarı�
 | **Hazine sandığı (chest)** | 100 para | 5 adet, kale ve hazine adalarının kıyısında (6–14 birim açıkta), 90 sn bekleme. Harita üstünde ışın işareti (sonra) |
 | **Ganimet parası (banknote)** | değişken | Batan oyuncu gemilerinden düşer (cebindeki paranın %80'i) |
 | **Ganimet sandığı (loot chest)** | korsanın türüne göre 24 / 60 / 160 para (`PirateType.loot`) | Batan **korsandan** düşer (altın sandık, büyük görünüm), 40 sn kalır, ilk ulaşan alır |
-| **Deniz mayını (mine)** [P2] | patlayınca 5 para | İç bölgede sabit mayın tarlaları, değince 40 hasar. Yok edilebilir |
+| **Deniz mayını (mine)** | (oyuncuların bıraktığı mayınlar, yerden toplanmaz) | Eski "sabit mayın tarlası" fikri yerine **oyuncunun üs mağazasından alıp bıraktığı mayın**: bkz. §7.3c |
 | **Şamandıra (power-up)** [P2] | geçici güç | Tamir (hull %40), Aşırı Yükleme (reload −%35, 10 sn), Rüzgâr Arkadan (hız +%30, 8 sn), Kalkan İncisi (kalkan tam). Harita genelinde en çok 12 adet |
 
 **Suda durma:** suya değdikleri yerde deniz koyulaşır ve ince bir köpük dantelisi oluşur (köpük haritasına her karede basılır: `FX.pickupContact`); para dışındaki tüm nesneler (sandık, varil, hazine sandığı) suya kısmen gömülü yüzer (modelin %30'u su altında), dalganın eğimine yaslanır, ağır ağır sallanır ve yavaşça döner; banknot yığınları suyun üstünde düz yatar.
@@ -326,6 +326,18 @@ Oyuncu **para ile drone satın alabilir**; drone, sahibini koruyan küçük uça
 - **Görünüm:** hedefin üstünde **kilit nişangahı**: içi boş köşe parantezleri + dışa bakan 4 çentik (`lock.svg`; çizgi kalınlığı ölçekle değişmez). Kilitlenirken yalnızca 4 köşe parantezi vardır, **amber** (#FFD166), hedef gemiden %50 büyük başlayıp 2 sn'de gemi boyuna küçülür, hafif yanıp söner ve 0,5 sn'de bir bip çalar. Kilit tamamlanınca küçük bir "punch" yapar, **neon kırmızıya** (#FF3366) döner, 4 çentik görünür, uzun tiz bir onay sesi çalar. Füze uçtuğu sürece kırmızı nişangah hedefin üstünde kalır; füze bitince büyüyerek solar, kilit bozulursa solarak kaybolur. Her iki durumda altında küçük durum yazısı (KİLİTLENİYOR / KİLİTLENDİ) vardır. Füzenin gövdesi açık gri, burnu ve kanatçıkları **magenta**; izi de normal roketlerden (gri duman, turuncu alev) ayırt edilsin diye **magenta**dır. Füzenin kendisine geldiği oyuncuya ekranda **"FÜZE GELİYOR!"** uyarısı ve alarm bip'i çıkar.
 - **Sesler:** tarayıcının ses motoruyla üretilen basit tonlar (`ui/sound.ts`); ses dosyası yoktur (Faz 7'de gerçek sesler gelince değişir).
 - **Botlar:** T3+ botlar mağazada rafı doldurur (sınıf parası ayrıldıktan sonra artan parayla), 120 birim içindeki en yakın düşmana kilitlenir.
+
+### 7.3c Deniz mayını
+T3 ve üstü gemilerin üs mağazasından aldığı, suya bırakıp düşmanı beklettiği yüzen mayın (`config/mines.ts`, model `spiked_mine.glb`).
+
+- **Satın alma:** üs mağazasında (tuş **R**) 60 para (`MINE.price`), gemide en çok **3** mayın (`maxStock`); T1 ve T2 alamaz (`MINE.minTier` = 2); gemi batınca raftaki mayınlar gider, yeni turda sıfırlanır. Sol üstteki HUD panelinde füze sayacının yanında mayın simgesi, `adet/3` ve **F** tuşu görünür.
+- **Bırakma (tuş F):** mayın geminin bulunduğu yere bırakılır; iki bırakma arası 1,5 sn (`layCooldownSec`). Bırakılan mayın **1,5 sn silahlanır** (o sürede bir şey yapmaz), 90 sn sonra kendiliğinden kaybolur, yeni tur başlayınca silinir. Oyuncunun suda en çok **4**, takımın en çok **12** mayını olur; oyuncu limitine gelince **en eski mayını** silinip yenisi konur, takım limiti dolunca bırakılmaz. Mayını bırakan batsa ya da çıksa da mayınları durur (çıkarsa kimseye ödül yazılmaz).
+- **Yasak yerler** (`mineBlocked`, istemci de aynı kuralı sorar ve ekranda neden olduğunu yazar): **petrol kuyusu çemberlerinin içi** (çember + 10 birim) ve **düşman uçak gemisinin 120 birim çevresi**. Amaç: kuyu kampı ve doğuş kampı yapılmasın.
+- **Patlama:** silahlanmış mayın, **düşman** bir geminin gövdesi 2,6 birim (`triggerRadius`) yakınına gelince patlar; yarıçap **9 birim**, hasar **70** (kenarda %35'i; `MINE.blast`). Yalnızca mayını bırakanın **düşmanlarına** (oyuncu ve korsan) hasar verir: kendi takımına, drone'lara ve uçak gemilerine zarar vermez; doğuş korumalı gemiler korunur. Hasar ve öldürme bırakana yazılır (varilden farkı: dost ateşi yok).
+- **Vurulabilir:** mayının **15 canı** vardır (`hp`, vuruş dairesi 1,4); **her iki takımın** mermisi, topu ve roketi ona çarparsa mermi biter ve hasar mayının canından düşer, can bitince mayın patlar. Menzilden vuran patlama yarıçapının dışında kalır, yani mayın uzaktan savaşı değil **yakın takibi** cezalandırır; bırakanın takımı da kendi mayınını vurup takipçinin yanında patlatabilir.
+- **Ağ:** mayınlar durağan varlıklardır (ENTER `kind` 8, kimlik `MINE_ID_BASE` = 3000 + yuva, `team` = bırakan takım; `LEAVE` ile kalkar); patlama `BLAST` olayıyla gelir (kimlik mayın aralığındaysa istemci mayın yarıçapını çizer). `LAY_MINE` (C2S 0x0B) yük taşımaz. Sunucuda en çok 24 yuva, her biri sabit; yük varil kadar küçüktür.
+- **Görünüm:** model takım rengine boyanır (açık kısımları takım renginde, dikenler koyu) ve kendi kendini biraz aydınlatır; dalgayla sallanıp yatar, suya değdiği yerde köpük bırakır. **Radarda görünmez.**
+- **Botlar:** T3+ botlar mağazada mayın alır; yaralı geri çekilirken ya da tehdit altında, düşman 60 birim yakındaysa mayın bırakır.
 
 ### 7.4 Oyuncu öldürme
 §6.4'teki formüller. Ayrıca batan geminin ganimeti herkes tarafından toplanabilir (intikam ve geri dönüş mekaniği).
@@ -454,6 +466,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x05 | `TIER_UP` | `u8 choiceIndex`: yeni sınıfın seçenekleri arasından (`TIER_OPTIONS[tier + 1]`) hangi gemi; seçenek yoksa istek reddedilir (T2 ve T5'te 0/1, diğerlerinde 0). Sunucu parayı doğrular, sınıf bedelini (`ECONOMY.tierCost`) düşer; gemi aynı yerde yeni sınıfa geçer |
 | 0x06 | `PING` | `u32 clientTimeMs` |
 | 0x09 | `EMOTE` | `u8 emote` (`EMOTE_IDS` indeksi): oyuncu gemisinin üstünde bir konuşma balonu gösterir; sunucu geçerli kimliği denetler, `EMOTE.cooldownSec` (0,8 sn) içinde gelenlerden yalnızca sonuncusunu süre dolunca iletir |
+| 0x0B | `LAY_MINE` | (yük yok): oyuncu bulunduğu yere deniz mayını bırakır; sunucu rafı, sınıfı, bekleme süresini, yeri (`mineBlocked`) ve limitleri denetler, sonuç ENTER ile görünür |
 | 0x0A | `LOCK` | `u16 targetId` (varlık kimliği; 0 = kilidi iptal et): güdümlü füze kilidi; sunucu füzeyi, sınıfı, düşmanlığı, menzili ve korumayı denetler ve 2 sn sonra ateşler. Reddedilirse `LOCK_BREAK` döner |
 | 0x08 | `BASE_BUY` | `u8 item` (`BASE_ITEM`: 0 uçak gemisi onarımı, 1 savunma silahları, 2 güdümlü füze): üs mağazası; sunucu para, yakınlık ve uçak gemisinin durumunu doğrular |
 | 0x07 | `BUY_DRONE` | `u8 droneType` (`DRONE_TYPES` indeksi): sunucu parayı, uçak gemisine yakınlığı ve oyuncu başına sınırı doğrular |
@@ -473,7 +486,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x85 | `YOU_DIED` | `u16 killerId, u8 nameLen, killerName, u8 respawnSec` |
 | 0x86 | `PONG` | `u32 clientTimeMs, u32 serverTimeMs` |
 | 0x87 | `REJECT` | `u8 reason (VERSION, ROOM_FULL, BAD_NAME, RATE, BANNED)` |
-| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[6] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp), u8 lives, u8 drones, u8 baseGuns, u8 missiles`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
+| 0x88 | `STATS` | Kendi durumun değişince: `u32 score, u32 cash, u8 tier, u8 shipId, u8[6] statLevels, u16 maxHull, u16 maxShield, u8 flags (bit0 = canTierUp), u8 lives, u8 drones, u8 baseGuns, u8 missiles, u8 mines`. Değişince gönderilir; `shipId` sınıf atlamada istemcinin modeli değiştirmesi içindir (batık gemi respawn'a kadar eski modelde kalır) |
 | 0x89 | `NOTICE` | Dünya duyurusu: `u8 noticeId, params` (boss doğdu, vb.) |
 
 **El sıkışma:** `HELLO` → `WELCOME` (ya da `REJECT`) → oyuncu isim girince `PLAY` → `JOINED` → `SNAPSHOT`'lar. Öldükten sonra bağlantı açık kalır ve oyuncu `respawnSec` sonra kendi uçak gemisinde otomatik yeniden doğar (`JOINED` tekrar gelir); sınıf değiştirmek için yeniden `PLAY` gönderilir. İstemci `WELCOME`'daki `configHash` kendisininkiyle eşleşmiyorsa bağlanmaz ("oyun sürümü uyuşmuyor").
@@ -493,7 +506,7 @@ ENTER[]:  u16 id, u8 kind, u8 shipId, u8 team, x u16, y u16, heading u8, u8 hp%,
 UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        // 10 bayt
 ```
 - **Kuantizasyon:** konum `u16 = round(x × 16)` (çözünürlük 1/16 birim, harita ≤ 4095 birim), heading `u8 = round(θ/2π × 256)`. Maks. hata < 1/32 birim (test edilir).
-- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan (ENTER'da `shipId` = korsan türü, `team` = 2, `name` = tür adı: `skiff`/`raider`/`corsair`; istemci çevirir), 2 tüccar, 3 ~~kale topu~~ (iptal), 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 mayın, 9 power-up, **10 uçak gemisi**, **11 drone** (ENTER'da `shipId` = `DRONE_TYPES` indeksi, `team` = sahibinin takımı).
+- **Varlık türleri (`kind`):** 0 oyuncu gemisi, 1 korsan (ENTER'da `shipId` = korsan türü, `team` = 2, `name` = tür adı: `skiff`/`raider`/`corsair`; istemci çevirir), 2 tüccar, 3 ~~kale topu~~ (iptal), 4 sandık, 5 varil, 6 hazine sandığı, 7 banknote, 8 **mayın** (kimlik 3000 + yuva, `team` = bırakan takım; §7.3c), 9 power-up, **10 uçak gemisi**, **11 drone** (ENTER'da `shipId` = `DRONE_TYPES` indeksi, `team` = sahibinin takımı).
 - **Mermiler snapshot'ta yoktur** (§10.4).
 - Statik varlıklar (adalar) hiç gönderilmez (seed'den üretilir).
 - Sandık/varil gibi hareketsiz varlıklar için `UPDATE` gönderilmez, sadece `ENTER`/`LEAVE`. Toplanabilirlerin `id`'si `1000 + slot` (gemiler `1 + slot`); `ENTER`'daki `shipId` alanı toplanabilirde **görünüm sınıfı**dır (banknot yığını boyutu 0–3, diğerleri bölge 0–2). Bir toplanabilir toplanınca `PICKUP` olayı (id, toplayan, tür, değer, konum) ve `LEAVE` gelir.
@@ -505,7 +518,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | Olay | Alanlar |
 |---|---|
 | `PROJECTILE_SPAWN` | `u16 projId, u16 ownerId, u8 weaponId, x u16, y u16, angle u16, u8 power` (`power` = atanın hasar yükseltmesi seviyesi, mermi kalınlığı için; doğuş tick'i mesaj başlığındaki `tick`) |
-| `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED, INTERCEPT = 3: bir mermi güdümlü füzeye çarptı ya da füze vurulup düştü), x u16, y u16` |
+| `PROJECTILE_END` | `u16 projId, u8 reason (HIT_SHIP, HIT_ISLAND, EXPIRED, INTERCEPT = 3: bir mermi güdümlü füzeye ya da mayına çarptı, ya da füze vurulup düştü), x u16, y u16` |
 | `SHIP_HIT` | `u16 targetId, u16 attackerId, u8 dmgQuantized, u8 flags (bit0 shieldHit), u8 weaponId, x u16, y u16` (efektler ve hasar sayıları için) |
 | `SHIP_SUNK` | `u16 id, u16 killerId, x u16, y u16` |
 | `POWER` | `u16 shipId, u8 level`: bir oyuncunun hasar yükseltmesi değişti (silahları büyür). Yeni girenler seviyeyi `ENTER`'dan öğrenir |
@@ -514,7 +527,7 @@ UPDATE[]: u16 id, u16 x, u16 y, u8 heading, i8 speed, u8 hp%, u8 shield%        
 | `LOCK_BREAK` (12) | `u16 ownerId`: o oyuncunun kurduğu kilit füze çıkmadan bitti (hedef gitti, menzil, koruma ya da istek reddedildi) |
 | `PROTECT_END` (10) | `u16 shipId`: gemi saldırdı ya da süre doldu, spawn koruması bitti (hologram kalkar) |
 | `EMOTE` (9) | `u16 shipId, u8 emote`: bir gemi emote gösterdi (herkese gider, gönderen dahil). Balon `EMOTE.showSec` (3,5 sn) görünür |
-| `BLAST` (8) | `u16 pickupId, u16 x, u16 y`: bir patlayıcı varil patladı (ateş topu ve şok halkası). Varilin hasarı ayrıca her etkilenen gemi için `SHIP_HIT` (silah = `NO_WEAPON`) olarak gelir; varil `LEAVE` ile kalkar |
+| `BLAST` (8) | `u16 pickupId, u16 x, u16 y`: bir patlayıcı varil ya da deniz mayını patladı (kimlik `MINE_ID_BASE`'den büyükse mayın) (ateş topu ve şok halkası). Varilin hasarı ayrıca her etkilenen gemi için `SHIP_HIT` (silah = `NO_WEAPON`) olarak gelir; varil `LEAVE` ile kalkar |
 | `RIGS` (S2C 0x8E, ayrı mesaj) | `u8 count`, her kuyu için `i8 ibre×127, u8 sahip (255 = yok)`; değişince (en çok 2 Hz) ve yeni girene |
 | `PICKUP` | `u16 entityId, u16 byId, u8 kind, u16 value, x u16, y u16` (toplayan oyuncuda "+değer" yazısı çıkar) |
 | `EXPLOSION` | `x u16, y u16, u8 size` |
@@ -695,7 +708,7 @@ Balonlar ve çark DOM'dadır (`#emote-layer`, `#emote-wheel`), gemilerin ekran k
 
 ### 12.8 Girdi
 - Klavye + fare: pointer lock gerekmez. Nişan, ekran koordinatından zemin düzlemine ışın ile hesaplanır, `u16 aim` (açı) ve `u8 aimDist` (uzaklık) olarak gönderilir. Gövdeye yayılmış topların mermileri imleç noktasında **kesişir** (paralel gitmez); `aimDist` en az `MOUNT_CONVERGE_MIN` alınır.
-- **Q** = güdümlü füze kilidi (imlecin altındaki en yakın düşman gemisi; tekrar basmak iptal eder), bkz. §7.3b. Üs mağazasında **E** füze alır.
+- **Q** = güdümlü füze kilidi (imlecin altındaki en yakın düşman gemisi; tekrar basmak iptal eder), bkz. §7.3b. Üs mağazasında **E** füze alır, **R** mayın alır, **F** mayın bırakır.
 - **Fare imleci:** denizin üstünde sistem imleci gizlenir; yerine `crosshair1.svg` (beyaz halka ve dört çentik, hafif koyu gölgeli, 44 px) fare konumunda çizilen bir öğedir (`ui/crosshair.ts`). Oyuncunun kendi gemisinin her atışı imleci **tepki verdirir**: şişer ve hafifçe döner, sonra yerine oturur. Mermi hafif (`KICK.bullet` 0,22, hızlı atışta birikir), top mermisi 0,6, roket 0,8, güdümlü füze 1 (en sert); tepki saniyede %9'a düşerek söner. Paneller üstündeyken ve menüde imleç normaldir.
 - **Dil:** başlangıç menüsünün altında **Türkçe / English** düğmeleri vardır; seçim `localStorage`'da saklanır ve sayfa yeniden yüklenir (tüm metinler `i18n/tr.json` ve `en.json`'dan gelir). Seçim yoksa tarayıcı dili kullanılır.
 - Sekme görünmezse girdi gönderimi `setInterval` ile devam eder (AFK kuralı geçerli).

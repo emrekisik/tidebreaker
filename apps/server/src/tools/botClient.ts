@@ -38,6 +38,9 @@ import {
   MISSILE,
   encodeBaseBuy,
   encodeLock,
+  encodeLayMine,
+  MINE,
+  mineBlocked,
   TIER_OPTIONS,
 } from '@tidebreaker/shared';
 import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
@@ -86,6 +89,8 @@ const LOOT_RANGE = 260;
 const FLEE_RANGE = 80;
 const HUNT_RANGE = 110;
 const FIGHT_BACK_RANGE = 45;
+/** A retreating bot lays a mine when an enemy is this close. */
+const MINE_LAY_RANGE = 60;
 /** A bot locks a guided missile onto an enemy ship this close (the missile reaches far, but a bot is no sniper). */
 const MISSILE_REACH = 120;
 /** Pickups this close to the enemy carrier are in range of its guns: not worth it. */
@@ -148,6 +153,9 @@ export class BotClient {
   /** Guided missiles on board, and the tick before which it does not start another lock. */
   private missiles = 0;
   private lockUntilTick = 0;
+  /** Sea mines on board, and the tick before which it lays no other. */
+  private mines = 0;
+  private layUntilTick = 0;
   private lastBuyTick = 0;
   /** Which way this bot circles around its target. */
   private readonly side = Math.random() < 0.5 ? 1 : -1;
@@ -294,6 +302,7 @@ export class BotClient {
       this.cash = m.cash;
       this.droneCount = m.drones;
       this.missiles = m.missiles;
+      this.mines = m.mines;
       if (this.opt.passive) return;
       // Spend the money (the server refuses what is not allowed). The next class comes first: small
       // upgrades are bought only while they leave most of the money for it.
@@ -454,6 +463,19 @@ export class BotClient {
       this.lockUntilTick = this.tick + Math.round(MISSILE.lockSec * 20) + 40;
       const target = nearestId;
       this.write(() => encodeLock(this.out, target));
+    }
+
+    // Running from a ship that is close behind: a mine in its way.
+    if (
+      this.mines > 0 &&
+      (this.retreating || this.mode === 'threat') &&
+      nearest !== null &&
+      nearestD < MINE_LAY_RANGE &&
+      this.tick >= this.layUntilTick &&
+      mineBlocked(me.x, me.y, me.team) === 0
+    ) {
+      this.layUntilTick = this.tick + Math.round((MINE.layCooldownSec + 1) * 20);
+      this.write(() => encodeLayMine(this.out));
     }
 
     // A much stronger ship close by: do not fight it, fall back toward the carrier (and shoot).
@@ -626,6 +648,12 @@ export class BotClient {
     if (this.def.tier - 1 >= MISSILE.minTier && this.missiles < MISSILE.maxStock && spare >= MISSILE.price) {
       this.lastBuyTick = this.tick;
       this.write(() => encodeBaseBuy(this.out, BASE_ITEM.MISSILE));
+      return;
+    }
+    // ...then its mines.
+    if (this.def.tier - 1 >= MINE.minTier && this.mines < MINE.maxStock && spare >= MINE.price) {
+      this.lastBuyTick = this.tick;
+      this.write(() => encodeBaseBuy(this.out, BASE_ITEM.MINE));
       return;
     }
     if (this.droneCount >= DRONE.perPlayer) return;

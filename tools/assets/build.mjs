@@ -35,6 +35,7 @@ const TEXTURE_PX = {
   'island_tropical.glb': 1024,
   // Small props and drones: seen from far above, many at once.
   'red_oil_barrel.glb': 512,
+  'spiked_mine.glb': 512,
   'wooden_create_loot.glb': 512,
   'pirate_golden_treasure_chest.glb': 512,
   'money_model.glb': 512,
@@ -45,6 +46,7 @@ const TEXTURE_PX = {
 // generated sources have 10-20 thousand each).
 const TARGET_TRIS = {
   'red_oil_barrel.glb': 1800,
+  'spiked_mine.glb': 1800,
   'wooden_create_loot.glb': 1800,
   'pirate_golden_treasure_chest.glb': 2000,
   'money_model.glb': 1500,

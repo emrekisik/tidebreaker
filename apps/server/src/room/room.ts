@@ -5,6 +5,8 @@ import {
   MATCH_STATE,
   NO_TEAM,
   PICKUP_ID_BASE,
+  MINE_CAPACITY,
+  MINE_ID_BASE,
   PIRATE_TYPES,
   PROTOCOL_VERSION,
   REJECT_REASON,
@@ -111,8 +113,8 @@ class Client {
     slots: number,
     now: number,
   ) {
-    this.known = new Uint8Array(slots + PICKUP_CAPACITY);
-    this.knownGen = new Uint16Array(slots + PICKUP_CAPACITY);
+    this.known = new Uint8Array(slots + PICKUP_CAPACITY + MINE_CAPACITY);
+    this.knownGen = new Uint16Array(slots + PICKUP_CAPACITY + MINE_CAPACITY);
     this.connectedAt = now;
     this.lastMsgAt = now;
     this.tokensAt = now;
@@ -150,6 +152,7 @@ export class Room {
     drones: 0,
     baseGuns: 0,
     missiles: 0,
+    mines: 0,
   };
   private readonly anyClass: boolean;
   private readonly self = newSelfState();
@@ -396,6 +399,7 @@ export class Room {
       m.drones = w.drones.countOf[s]!;
       m.baseGuns = w.baseGuns[w.slots[s]!.team] ?? 0;
       m.missiles = w.missiles[s]!;
+      m.mines = w.mineStock[s]!;
       this.small.reset();
       encodeStats(this.small, m);
       this.send(c, this.small.toBytes());
@@ -516,6 +520,7 @@ export class Room {
         }
       }
       this.snapshotPickups(c, sb);
+      this.snapshotMines(c, sb);
       const me = w.slots[c.slot]!.state;
       const self = this.self;
       self.x = me.x;
@@ -562,6 +567,39 @@ export class Room {
         c.knownGen[at] = p.gen[i]!;
       } else if (!present && c.known[at] === 1) {
         sb.leave(PICKUP_ID_BASE + i);
+        c.known[at] = 0;
+      }
+    }
+  }
+
+  /** Mines are static too: told once when they are laid, and again when gone. */
+  private snapshotMines(c: Client, sb: SnapshotBuilder): void {
+    const m = this.world.mines;
+    const e = this.enter;
+    for (let i = 0; i < MINE_CAPACITY; i++) {
+      const at = this.world.slotCount + PICKUP_CAPACITY + i;
+      const present = m.active[i] === 1;
+      if (present && c.known[at] === 1 && c.knownGen[at] !== m.gen[i]) {
+        sb.leave(MINE_ID_BASE + i);
+        c.known[at] = 0;
+      }
+      if (present && c.known[at] === 0) {
+        e.id = MINE_ID_BASE + i;
+        e.kind = KIND.MINE;
+        e.shipId = 0;
+        e.team = m.team[i]!;
+        e.x = m.x[i]!;
+        e.y = m.y[i]!;
+        e.heading = 0;
+        e.hp = 1;
+        e.shield = 1;
+        e.power = 0;
+        e.name = '';
+        sb.enter(e);
+        c.known[at] = 1;
+        c.knownGen[at] = m.gen[i]!;
+      } else if (!present && c.known[at] === 1) {
+        sb.leave(MINE_ID_BASE + i);
         c.known[at] = 0;
       }
     }
@@ -650,6 +688,9 @@ export class Room {
         break;
       case C2S.BASE_BUY:
         if (c.stage === Stage.Playing) this.world.buyBase(c.slot, c.msg.stat);
+        break;
+      case C2S.LAY_MINE:
+        if (c.stage === Stage.Playing) this.world.layMine(c.slot);
         break;
       case C2S.LOCK:
         if (c.stage === Stage.Playing) this.world.lock(c.slot, c.msg.target);

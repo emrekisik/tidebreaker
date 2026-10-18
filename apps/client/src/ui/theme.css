@@ -1416,6 +1416,10 @@ svg.ico,
 #missile-hud.empty .mb-ico {
   opacity: 0.45;
 }
+#missile-hud .mb-ico.mine {
+  color: #ffb067;
+  margin-left: 6px;
+}
 #missile-hud .mb-key {
   width: 17px;
   height: 17px;
