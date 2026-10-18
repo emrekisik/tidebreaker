@@ -1539,3 +1539,62 @@ svg.ico,
 #p-tier.choosing {
   cursor: default;
 }
+
+/* ---- sound settings: mute, volume, style (on the menu and in a corner of the match) ---- */
+#menu-sound,
+#sound-ctl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#menu-sound {
+  justify-content: center;
+  margin-top: 12px;
+}
+#sound-ctl {
+  zoom: var(--ui-scale, 1);
+  top: 232px;
+  left: 30px;
+  padding: 5px 9px;
+  pointer-events: auto;
+  --panel: rgba(13, 32, 50, 0.62);
+}
+#sound-ctl.hidden {
+  display: none;
+}
+.ss-mute,
+.ss-style {
+  font: inherit;
+  color: #cfdae6;
+  cursor: pointer;
+  background: rgba(10, 26, 42, 0.8);
+  border: 1px solid var(--line);
+}
+.ss-mute {
+  width: 28px;
+  height: 26px;
+  padding: 3px;
+}
+.ss-mute svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ss-mute.off {
+  color: #ff8a8a;
+}
+.ss-style {
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ss-style:hover,
+.ss-mute:hover {
+  border-color: #6dff9a;
+}
+.ss-volume {
+  width: 84px;
+  accent-color: #6dff9a;
+}

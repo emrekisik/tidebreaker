@@ -3,7 +3,7 @@ import { t } from '../i18n/index.ts';
 import lockSvg from './icons/lock.svg?raw';
 import mineIcon from './icons/mine.svg?raw';
 import missileIcon from './icons/missile.svg?raw';
-import { tone } from './sound.ts';
+import { audio } from '../audio/engine.ts';
 
 /** Where a ship is on the screen: center in pixels and half its size, for the reticle. */
 export interface LockProjector {
@@ -142,7 +142,7 @@ export class MissileLock {
     }
     if (r.phase === 'locking') {
       // (The server was quicker than the clock here: the lock is complete now.)
-      tone(1900, 0.5, 0.05, 'square');
+      audio.play('lock_done', { own: true });
       r.time = 0;
     }
     r.phase = 'flight';
@@ -217,7 +217,7 @@ export class MissileLock {
         scale = START_SCALE + (1 - START_SCALE) * p;
         alpha = 0.7 + 0.3 * Math.abs(Math.sin(r.time * Math.PI * 4));
         while (r.beeps * BEEP_EVERY <= r.time && r.beeps * BEEP_EVERY < MISSILE.lockSec) {
-          tone(1250, 0.07, 0.04, 'square');
+          audio.play('lock_beep', { own: true });
           r.beeps++;
         }
         if (r.time >= MISSILE.lockSec) {
@@ -225,7 +225,7 @@ export class MissileLock {
           r.time = 0;
           r.el.classList.add('red');
           r.text.textContent = t('lock.locked');
-          tone(1900, 0.5, 0.05, 'square');
+          audio.play('lock_done', { own: true });
         }
       } else if (r.phase === 'locked' || r.phase === 'flight') {
         // The punch when the lock is complete: a quick bounce, then it sits on the ship.
@@ -261,7 +261,7 @@ export class MissileLock {
     this.warnBeepLeft -= dtSec;
     if (this.warnBeepLeft <= 0) {
       this.warnBeepLeft = 0.45;
-      tone(880, 0.12, 0.05, 'sawtooth');
+      audio.play('missile_warning', { own: true });
     }
   }
 }
@@ -303,6 +303,7 @@ export class MissileBadge {
 
   /** A short message next to the badge (why the lock did not start, why no mine was laid). */
   flash(text: string): void {
+    audio.play('ui_deny', { own: true });
     this.note.textContent = text;
     this.root.classList.add('noting');
     this.noteLeft = 1.6;

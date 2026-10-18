@@ -58,10 +58,13 @@ import { DebugHud } from './ui/debugHud.ts';
 import { Hud } from './ui/hud.ts';
 import { MODEL_SPECS, PROP_SPECS } from './render/modelSpecs.ts';
 import { LookPanel } from './ui/lookPanel.ts';
+import { audio } from './audio/engine.ts';
+import { sfx } from './audio/gameSounds.ts';
 import { MineView } from './frame/mineView.ts';
 import { PickupView } from './frame/pickupView.ts';
 import { makePickupMeshes } from './render/pickupMeshes.ts';
 import { Announcer } from './ui/announcer.ts';
+import { SoundSettings } from './ui/soundSettings.ts';
 import { BaseShop } from './ui/baseShop.ts';
 import { MissileBadge, MissileLock } from './ui/missileLock.ts';
 import { Crosshair, KICK } from './ui/crosshair.ts';
@@ -155,6 +158,13 @@ document.addEventListener('mouseleave', () => {
   overSea = false;
 });
 const announcer = new Announcer(document.getElementById('announce') as HTMLElement);
+// Sound: the browser only allows audio after the player did something, so the first click or key opens it.
+for (const type of ['pointerdown', 'keydown'] as const) {
+  window.addEventListener(type, () => audio.unlock(), { capture: true });
+}
+new SoundSettings(document.getElementById('menu-sound') as HTMLElement);
+const soundCtl = document.getElementById('sound-ctl') as HTMLElement;
+new SoundSettings(soundCtl);
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const missileLock = new MissileLock(
   document.getElementById('lock-layer') as HTMLElement,
@@ -233,6 +243,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyC' && !e.repeat && online && (e.target as HTMLElement).tagName !== 'INPUT') {
     emoteWheel.press();
+    sfx.click();
   }
   if (e.code === 'KeyM' && !e.repeat && minimap && (e.target as HTMLElement).tagName !== 'INPUT') {
     minimap.toggle();
@@ -248,18 +259,24 @@ window.addEventListener('blur', () => scoreboard.hold(false));
 
 // ---- effects shared by the sandbox and online matches
 
+/** The match is over (so its end sounds once). */
+let matchEnded = false;
+
 const events: OnlineEvents = {
   onShot(x, y, angle, weaponIdx, power = 0, own = false) {
     const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
     effects.muzzle(x, y, angle, visual, power);
     // The player's own shots kick the crosshair, the heavier the shot the harder.
     if (own) crosshair.shot(KICK[visual]);
+    sfx.shot(weaponIdx, x, y, own);
   },
   onHit(x, y, damage, shieldHit, killed, target, weaponIdx, showNumber = true, power = 0) {
     if (showNumber && damage > 0) damageNumbers.show(stage.camera, x, y, damage, shieldHit);
     // (A barrel blast hurts without a weapon: its own effect is played by onBlast.)
     if (weaponIdx === NO_WEAPON) return;
     effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+    // (A ship that goes down is heard in onSunk.)
+    if (!killed) sfx.hit(x, y, damage, shieldHit, showNumber);
     if (killed) {
       const c = target.combatant;
       effects.explode(c.state.x, c.state.y, c.def.length);
@@ -267,16 +284,20 @@ const events: OnlineEvents = {
   },
   onMiss(x, y, weaponIdx, power = 0) {
     effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+    sfx.splash(x, y, weaponIdx);
   },
   onBlocked(x, y, weaponIdx, power = 0) {
     effects.blocked(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+    sfx.blocked(x, y);
   },
   onIslandHit(x, y, impact, ship) {
     effects.shore(x, y, impact);
+    sfx.shore(x, y, impact);
     if (ship === session?.player) rig.shake(Math.min(0.8, impact * 0.05));
   },
   onCollision(x, y, impact, a, b, damageA, damageB, killedA, killedB) {
     effects.collision(x, y, impact);
+    sfx.collision(x, y, impact, a === session?.player || b === session?.player);
     if (damageA > 0) damageNumbers.show(stage.camera, a.pose.x, a.pose.y, damageA, false);
     if (damageB > 0) damageNumbers.show(stage.camera, b.pose.x, b.pose.y, damageB, false);
     if (killedA) effects.explode(a.combatant.state.x, a.combatant.state.y, a.combatant.def.length);
@@ -287,10 +308,13 @@ const events: OnlineEvents = {
   },
   onUpgrade(x, y, length) {
     effects.upgrade(x, y, length);
+    const me = session?.player;
+    sfx.tierUp(x, y, me !== undefined && Math.hypot(me.pose.x - x, me.pose.y - y) < 6);
     damageNumbers.showArrows(stage.camera, x, y);
   },
   onScore(x, y, points) {
     damageNumbers.showScore(stage.camera, x, y, points);
+    sfx.scored();
   },
   onMissile(id, owner, target) {
     if (owner === online?.myId) missileLock.launched(id, target);
@@ -299,14 +323,17 @@ const events: OnlineEvents = {
   onSplash(x, y, radius) {
     // The area of a splash weapon: a small fireball and shock ring over the area it hurts.
     effects.blast(x, y, radius * 1.6);
+    sfx.blast(x, y, radius * 2.4);
   },
   onAnnounce(kind, arg, team, name) {
     announcer.show(kind, arg, team, name);
+    sfx.announce(kind, team === online?.myTeam);
   },
   onIntercept(x, y, weaponIdx, missile) {
     // A shot hit the missile: sparks; a destroyed missile also goes off in a small fireball.
     effects.impact(x, y, false, WEAPONS[WEAPON_IDS[weaponIdx]!].visual);
     if (missile) effects.blast(x, y, 4);
+    sfx.intercept(x, y, missile);
   },
   onMissileEnd(id) {
     missileLock.ended(id);
@@ -316,9 +343,12 @@ const events: OnlineEvents = {
   },
   onEmote(shipId, emote) {
     emoteBubbles.show(shipId, emote, performance.now());
+    const at = online?.entityOf(shipId);
+    if (at) sfx.emote(at.pose.x, at.pose.y, shipId === online?.myId);
   },
   onBlast(x, y, R) {
     effects.blast(x, y, R);
+    sfx.blast(x, y, R);
     // The camera jolts when it goes off near the player.
     const me = session?.player;
     if (me) {
@@ -329,18 +359,23 @@ const events: OnlineEvents = {
   onSunk(entity, x, y, name) {
     if (name) wreckMarks.add(x, y, name, teamNameOf(entity.combatant.team), performance.now());
     effects.explode(x, y, entity.combatant.def.length);
+    sfx.sunk(x, y, entity.combatant.def.length, entity.combatant.def.flying === true);
   },
   onDied(killerId, killerName, respawnSec) {
     // Carriers are entities 1 and 2.
     matchHud.died(killerId <= 2 ? t('death.byCarrier') : killerName, respawnSec);
     rig.shake(0.9);
+    sfx.died();
   },
   onMatch(state, winner, restartSec) {
     matchHud.setMatch(state, winner, restartSec);
+    if (state === MATCH_STATE.ENDED && !matchEnded) sfx.matchEnded(winner === online?.myTeam);
+    matchEnded = state === MATCH_STATE.ENDED;
     scoreboard.pin(state === MATCH_STATE.ENDED);
   },
   onStats(m) {
     progressHud.update(m);
+    sfx.stats(m);
     baseShop.setStats(m.cash, m.drones, m.baseGuns, m.missiles, m.mines, m.tier);
     missileBadge.set(m.missiles, m.mines, m.tier >= MISSILE.minTier);
   },
@@ -351,6 +386,7 @@ const events: OnlineEvents = {
   onPickup(kind, value, x, y) {
     damageNumbers.showGain(stage.camera, x, y, value);
     damageNumbers.flyCash(stage.camera, x, y, value);
+    sfx.pickup();
   },
   onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
     const me = online?.myId ?? 0;
@@ -369,6 +405,9 @@ const events: OnlineEvents = {
   onJoined() {
     matchHud.respawned();
     missileLock.reset();
+    sfx.appeared();
+    audio.startAmbient();
+    soundCtl.classList.remove('hidden');
   },
   onClosed() {
     matchHud.connectionLost();
@@ -391,6 +430,8 @@ new LookPanel(document.getElementById('look') as HTMLElement, (look) => {
 });
 
 function startOffline(): void {
+  audio.startAmbient();
+  soundCtl.classList.remove('hidden');
   // The practice map comes from a seed (`?seed=<n>` picks another one).
   const seedParam = Number(params.get('seed'));
   const seed =
@@ -623,6 +664,8 @@ function update(nowMs: number): void {
   effects.update(dtSec);
 
   const p = game.player.pose;
+  audio.setListener(p.x, p.y);
+  audio.setEngine(Math.abs(ps.speed) / game.player.combatant.def.vMax, ps.alive);
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
   // (The reticles, bubbles and the wheel are projected with this frame's camera.)
   stage.camera.updateMatrixWorld();
@@ -715,6 +758,7 @@ if (debug) {
       return online;
     },
     input,
+    audio,
     /** Lock-on pieces, for checks from the console. */
     lock: {
       ui: missileLock,

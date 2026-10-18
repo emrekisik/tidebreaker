@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sound test (dev tool)</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 20px 24px 60px;
+        background: #0d2032;
+        color: #d8e6f2;
+        font:
+          14px system-ui,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+      }
+      p {
+        margin: 0 0 14px;
+        color: #8fa3b5;
+        max-width: 760px;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        margin: 14px 0 22px;
+        padding: 10px 12px;
+        background: #12304a;
+        border: 1px solid #28506f;
+      }
+      h2 {
+        margin: 22px 0 8px;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6dff9a;
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button {
+        font: inherit;
+        color: #e8f1f8;
+        padding: 7px 12px;
+        cursor: pointer;
+        background: #1b4466;
+        border: 1px solid #3a6d94;
+      }
+      button:hover {
+        border-color: #6dff9a;
+      }
+      button.on {
+        background: #2a7a4d;
+      }
+      code {
+        color: #9fd0ff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tidebreaker sound test</h1>
+    <p>
+      Every sound of the game, played on its own. Click a button to hear it. Switch between the two styles
+      (arcade and realistic) and tell which sounds to change. The names in <code>code</code> are the sound ids (for
+      replacing one with a file in <code>public/sounds/manifest.json</code>).
+    </p>
+    <div class="bar" id="bar"></div>
+    <div id="list"></div>
+    <script type="module" src="/src/dev/soundTest.ts"></script>
+  </body>
+</html>

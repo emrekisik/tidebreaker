@@ -14,6 +14,7 @@ Only CC0 or commercially usable licenses. Never use Starblast assets, names or U
 | Font: Oxanium (500, 700; latin, latin-ext) | npm `@fontsource/oxanium` (Oxanium by Severin Meyer) | Severin Meyer | SIL Open Font License 1.1 | all UI text (bundled with the client) | |
 | UI icons: `apps/client/src/ui/icons/*.svg` (shield, ammunition, damage, speed, agility, repair, cash) | supplied by the project owner; source and license **TODO** | **TODO** | **TODO** | upgrade tiles, money | |
 | Class cards: `apps/client/public/icons/ships/card/*.png` (top-down ship pictures) | supplied by the project owner; source and license **TODO** | **TODO** | **TODO** | the "class upgrade" card | Originals in the repo root folder `ship-topdown/` (not committed). |
+| Game sounds | Synthesized in code (Web Audio, `apps/client/src/audio/`), written for this project; no sound files, no third-party material | n/a | n/a | all sound effects, the sea ambience and the engine hum | A recorded sound can replace any of them through `public/sounds/manifest.json`; list such files here with source and license. |
 
 ## Model pipeline
 
