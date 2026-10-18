@@ -1,4 +1,4 @@
-import { audio } from '../audio/engine.ts';
+import { CONTINUOUS, audio } from '../audio/engine.ts';
 import type { SoundId } from '../audio/engine.ts';
 import { SOUNDS } from '../audio/recipes.ts';
 
@@ -70,3 +70,16 @@ for (const id of Object.keys(SOUNDS) as SoundId[]) {
   const b = button(`${def.label}  [${id}]`, () => audio.play(id, { own: true, size: 1 }));
   grid.append(b);
 }
+
+// Which sounds a file replaces (known once the audio is unlocked and the files are read): shown with a mark.
+function markFiles(): void {
+  for (const b of list.querySelectorAll('button')) {
+    const id = /\[(\w+)\]$/.exec(b.textContent ?? '')?.[1];
+    if (id && audio.usingFile(id)) b.classList.add('file');
+  }
+}
+setInterval(markFiles, 1000);
+
+const note = document.createElement('p');
+note.textContent = `Sounds that run all the time can be replaced by files too (ids: ${CONTINUOUS.join(', ')}). Sounds that a file replaces are marked green.`;
+list.append(note);

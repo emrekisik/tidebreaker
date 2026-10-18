@@ -6,14 +6,18 @@ const SPEAKER_ON =
 const SPEAKER_OFF =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
 
+const WAVES =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 9c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0M2 16c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/></svg>';
+
 /**
- * The sound settings: a mute button, the volume, and the sound style (arcade or real). The same control
+ * The sound settings: a mute button, the volume, the sound style (arcade or real) and a switch for the sea and engine sounds. The same control
  * is used on the menu and in a corner of the match; they follow each other through the engine.
  */
 export class SoundSettings {
   private readonly mute = document.createElement('button');
   private readonly volume = document.createElement('input');
   private readonly style = document.createElement('button');
+  private readonly sea = document.createElement('button');
 
   constructor(root: HTMLElement) {
     this.mute.type = 'button';
@@ -25,7 +29,10 @@ export class SoundSettings {
     this.volume.title = t('sound.volume');
     this.style.type = 'button';
     this.style.className = 'ss-style';
-    root.append(this.mute, this.volume, this.style);
+    this.sea.type = 'button';
+    this.sea.className = 'ss-sea';
+    this.sea.innerHTML = WAVES;
+    root.append(this.mute, this.volume, this.style, this.sea);
     // Mouse clicks must not reach the game (they would fire the guns), and typing must not steer.
     root.addEventListener('pointerdown', (e) => e.stopPropagation());
     root.addEventListener('keydown', (e) => e.stopPropagation());
@@ -47,6 +54,11 @@ export class SoundSettings {
       audio.play('cannon', { own: true, gain: 0.8 });
       this.style.blur();
     });
+    this.sea.addEventListener('click', () => {
+      audio.unlock();
+      audio.setAmbient(!audio.ambientOn);
+      this.sea.blur();
+    });
     audio.subscribe(() => this.refresh());
     this.refresh();
   }
@@ -58,5 +70,7 @@ export class SoundSettings {
     this.volume.value = String(Math.round(audio.volume * 100));
     this.style.textContent = t(audio.style === 'arcade' ? 'sound.style.arcade' : 'sound.style.real');
     this.style.title = t('sound.style');
+    this.sea.title = t('sound.ambient');
+    this.sea.classList.toggle('off', !audio.ambientOn);
   }
 }

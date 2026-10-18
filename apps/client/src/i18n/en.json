@@ -91,6 +91,7 @@
   "sound.style": "Sound style",
   "sound.style.arcade": "Arcade",
   "sound.style.real": "Realistic",
+  "sound.ambient": "Sea and engine sound on / off",
   "drone.count": "Drones",
   "drone.full": "FULL",
   "drone.fpv_drone": "FPV drone",

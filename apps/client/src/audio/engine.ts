@@ -15,6 +15,9 @@ const BUS_LEVEL: Record<Bus, number> = { weapon: 0.95, impact: 1, ui: 1.5, ambie
 /** At most this many sounds play at once. */
 const MAX_VOICES = 36;
 
+/** The two sounds that run all the time; a file can replace them too (`ambient_sea` loops, `engine` loops and speeds up). */
+export const CONTINUOUS = ['ambient_sea', 'engine'] as const;
+
 export interface PlayOpts {
   /** World position of the sound (it gets quieter and moves to the side with the distance). */
   x?: number;
@@ -33,7 +36,19 @@ interface Settings {
   volume: number;
   muted: boolean;
   style: Style;
+  /** The sea and the engine (the sounds that run all the time). */
+  ambient: boolean;
 }
+
+/** A sound file that replaces a synthesized sound: one or several takes (one is picked at random). */
+interface FileSound {
+  buffers: AudioBuffer[];
+  gain: number;
+  pitch: number;
+}
+
+/** What `manifest.json` may hold per sound id: a file, a list of files, or an object with the extras. */
+type ManifestEntry = string | string[] | { file?: string; files?: string[]; gain?: number; pitch?: number };
 
 /**
  * The game's sound: one Web Audio context, a mix of four groups (weapons, impacts, interface,
@@ -48,16 +63,16 @@ class AudioEngine {
   private buses: Record<Bus, GainNode> | null = null;
   private reverb: GainNode | null = null;
   private noise: AudioBuffer | null = null;
-  private readonly files = new Map<string, AudioBuffer>();
+  private readonly files = new Map<string, FileSound>();
   private readonly playing = new Map<string, number>();
   private voices = 0;
   private listenerX = 0;
   private listenerY = 0;
-  private settings: Settings = { volume: 0.7, muted: false, style: 'arcade' };
+  private settings: Settings = { volume: 0.7, muted: false, style: 'real', ambient: true };
   private readonly listeners: (() => void)[] = [];
   private ambient: { stop: () => void } | null = null;
-  private engineHum: { set: (speed: number, on: boolean) => void } | null = null;
-  private wantAmbient = false;
+  private engineHum: { set: (speed: number, on: boolean) => void; stop: () => void } | null = null;
+  private inMatch = false;
   private lastEngine = { speed: 0, on: false };
 
   constructor() {
@@ -68,7 +83,8 @@ class AudioEngine {
         this.settings = {
           volume: typeof s.volume === 'number' ? Math.max(0, Math.min(1, s.volume)) : 0.7,
           muted: s.muted === true,
-          style: s.style === 'real' ? 'real' : 'arcade',
+          style: s.style === 'arcade' ? 'arcade' : 'real',
+          ambient: s.ambient !== false,
         };
       }
     } catch {
@@ -85,6 +101,9 @@ class AudioEngine {
   get style(): Style {
     return this.settings.style;
   }
+  get ambientOn(): boolean {
+    return this.settings.ambient;
+  }
 
   setVolume(v: number): void {
     this.settings.volume = Math.max(0, Math.min(1, v));
@@ -97,6 +116,16 @@ class AudioEngine {
   setStyle(s: Style): void {
     this.settings.style = s;
     this.apply();
+  }
+  setAmbient(on: boolean): void {
+    this.settings.ambient = on;
+    this.apply();
+    this.syncContinuous();
+  }
+
+  /** True when a sound file replaces this sound (after the files were read). */
+  usingFile(id: string): boolean {
+    return this.files.has(id);
   }
 
   /** Called when a setting changes (the settings panels keep themselves up to date with it). */
@@ -150,8 +179,12 @@ class AudioEngine {
       this.noise = this.makeNoise(ac, 2);
       this.reverb = this.makeReverb(ac, master);
       this.apply();
-      void this.loadFiles();
-      if (this.wantAmbient) this.startAmbient();
+      void this.loadFiles().then(() => {
+        // Files that replace the sea or the engine take over from the synthesized ones.
+        this.stopContinuous();
+        this.syncContinuous();
+      });
+      this.syncContinuous();
     } catch {
       this.ac = null;
     }
@@ -181,7 +214,10 @@ class AudioEngine {
     return send;
   }
 
-  /** Sound files that replace synthesized sounds: `public/sounds/manifest.json` = { "<id>": "<file>" }. */
+  /**
+   * Sound files that replace synthesized sounds: `public/sounds/manifest.json` maps a sound id to a file, a
+   * list of files (one is picked at random each time) or `{ "files": [...], "gain": 0.8, "pitch": 1 }`.
+   */
   private async loadFiles(): Promise<void> {
     const ac = this.ac;
     if (!ac) return;
@@ -189,15 +225,23 @@ class AudioEngine {
       const base = `${import.meta.env.BASE_URL}sounds/`;
       const res = await fetch(`${base}manifest.json`);
       if (!res.ok) return;
-      const manifest = (await res.json()) as Record<string, string>;
-      for (const [id, file] of Object.entries(manifest)) {
-        if (!(id in SOUNDS) || typeof file !== 'string') continue;
-        try {
-          const data = await (await fetch(base + file)).arrayBuffer();
-          this.files.set(id, await ac.decodeAudioData(data));
-        } catch {
-          // A file that is missing or cannot be read: the synthesized sound stays.
+      const manifest = (await res.json()) as Record<string, ManifestEntry>;
+      for (const [id, entry] of Object.entries(manifest)) {
+        if (!(id in SOUNDS) && !(CONTINUOUS as readonly string[]).includes(id)) continue;
+        const list =
+          typeof entry === 'string' ? [entry] : Array.isArray(entry) ? entry : (entry.files ?? (entry.file ? [entry.file] : []));
+        const buffers: AudioBuffer[] = [];
+        for (const file of list) {
+          try {
+            const data = await (await fetch(base + file)).arrayBuffer();
+            buffers.push(await ac.decodeAudioData(data));
+          } catch {
+            // A file that is missing or cannot be read: the others (or the synthesized sound) stay.
+          }
         }
+        if (buffers.length === 0) continue;
+        const extra = typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+        this.files.set(id, { buffers, gain: extra.gain ?? 1, pitch: extra.pitch ?? 1 });
       }
     } catch {
       // No manifest: everything is synthesized.
@@ -216,7 +260,8 @@ class AudioEngine {
     const buses = this.buses;
     if (!ac || !buses || !this.noise || this.settings.muted || this.settings.volume <= 0) return;
     const def = SOUNDS[id] as { bus: Bus; max: number; trim?: number; run: (g: Gen) => number };
-    let level = (opts.gain ?? 1) * (def.trim ?? 1);
+    const file = this.files.get(id);
+    let level = (opts.gain ?? 1) * (file ? file.gain : (def.trim ?? 1));
     let pan = 0;
     if (!opts.own && opts.x !== undefined && opts.y !== undefined) {
       const d = Math.hypot(opts.x - this.listenerX, opts.y - this.listenerY);
@@ -240,15 +285,14 @@ class AudioEngine {
     }
     tail.connect(buses[def.bus]);
 
-    const file = this.files.get(id);
     let dur: number;
     if (file) {
       const src = ac.createBufferSource();
-      src.buffer = file;
-      src.playbackRate.value = (opts.pitch ?? 1) * (0.95 + Math.random() * 0.1);
+      src.buffer = file.buffers[Math.floor(Math.random() * file.buffers.length)]!;
+      src.playbackRate.value = (opts.pitch ?? 1) * file.pitch * (0.96 + Math.random() * 0.08);
       src.connect(out);
       src.start(t0);
-      dur = file.duration;
+      dur = src.buffer.duration / src.playbackRate.value;
     } else {
       const wet = this.settings.style === 'real' ? this.reverb : null;
       const pitch = (opts.pitch ?? 1) * (0.94 + Math.random() * 0.12);
@@ -267,67 +311,91 @@ class AudioEngine {
     );
   }
 
-  // ---- continuous sounds
+  // ---- continuous sounds (the sea and the engine)
 
-  /** The sea: a soft wash of filtered noise that slowly swells. Call when a match starts. */
+  /** A match is on: the sea and the engine run (if the player has them on). */
   startAmbient(): void {
-    this.wantAmbient = true;
+    this.inMatch = true;
+    this.syncContinuous();
+  }
+
+  stopAmbient(): void {
+    this.inMatch = false;
+    this.syncContinuous();
+  }
+
+  /** Starts or stops the continuous sounds so they match "in a match" and the player's setting. */
+  private syncContinuous(): void {
+    const want = this.inMatch && this.settings.ambient && this.ac !== null && this.buses !== null;
+    if (want && !this.ambient) this.startSea();
+    if (want && !this.engineHum) this.startEngine();
+    if (!want) this.stopContinuous();
+  }
+
+  private stopContinuous(): void {
+    this.ambient?.stop();
+    this.ambient = null;
+    this.engineHum?.stop();
+    this.engineHum = null;
+  }
+
+  /**
+   * The sea: very soft, low, slowly swelling noise (or the `ambient_sea` file, looped). Deliberately
+   * quiet: it is only there so that silence between shots does not feel dead.
+   */
+  private startSea(): void {
     const ac = this.ac;
     const buses = this.buses;
-    if (!ac || !buses || !this.noise || this.ambient) return;
+    if (!ac || !buses || !this.noise) return;
+    const file = this.files.get('ambient_sea');
     const src = ac.createBufferSource();
-    src.buffer = this.noise;
-    src.loop = true;
-    const low = ac.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 420;
-    const band = ac.createBiquadFilter();
-    band.type = 'bandpass';
-    band.frequency.value = 800;
-    band.Q.value = 0.6;
     const gain = ac.createGain();
     gain.gain.value = 0.0001;
-    gain.gain.setTargetAtTime(0.28, ac.currentTime, 1.5);
-    src.connect(low);
-    src.connect(band);
-    low.connect(gain);
-    band.connect(gain);
+    const stops: (() => void)[] = [];
+    if (file) {
+      src.buffer = file.buffers[0]!;
+      src.loop = true;
+      src.playbackRate.value = file.pitch;
+      src.connect(gain);
+      gain.gain.setTargetAtTime(0.5 * file.gain, ac.currentTime, 2);
+    } else {
+      src.buffer = this.noise;
+      src.loop = true;
+      const low = ac.createBiquadFilter();
+      low.type = 'lowpass';
+      low.frequency.value = 260;
+      src.connect(low);
+      low.connect(gain);
+      gain.gain.setTargetAtTime(0.05, ac.currentTime, 2);
+      // The swell: a very slow oscillator moves the filter and the level (waves rolling in and out).
+      const lfo = ac.createOscillator();
+      lfo.frequency.value = 0.08;
+      const depth = ac.createGain();
+      depth.gain.value = 90;
+      lfo.connect(depth);
+      depth.connect(low.frequency);
+      const lfo2 = ac.createOscillator();
+      lfo2.frequency.value = 0.05;
+      const depth2 = ac.createGain();
+      depth2.gain.value = 0.02;
+      lfo2.connect(depth2);
+      depth2.connect(gain.gain);
+      lfo.start();
+      lfo2.start();
+      stops.push(() => lfo.stop(), () => lfo2.stop());
+    }
     gain.connect(buses.ambient);
-    // The swell: two slow oscillators move the filters (waves rolling in and out).
-    const lfoA = ac.createOscillator();
-    lfoA.frequency.value = 0.11;
-    const depthA = ac.createGain();
-    depthA.gain.value = 160;
-    lfoA.connect(depthA);
-    depthA.connect(low.frequency);
-    const lfoB = ac.createOscillator();
-    lfoB.frequency.value = 0.067;
-    const depthB = ac.createGain();
-    depthB.gain.value = 0.12;
-    lfoB.connect(depthB);
-    depthB.connect(gain.gain);
     src.start();
-    lfoA.start();
-    lfoB.start();
     this.ambient = {
       stop: () => {
         gain.gain.setTargetAtTime(0.0001, ac.currentTime, 0.3);
         setTimeout(() => {
           src.stop();
-          lfoA.stop();
-          lfoB.stop();
+          for (const s of stops) s();
           gain.disconnect();
         }, 1500);
       },
     };
-    this.startEngine();
-  }
-
-  stopAmbient(): void {
-    this.wantAmbient = false;
-    this.ambient?.stop();
-    this.ambient = null;
-    this.engineHum?.set(0, false);
   }
 
   /** The own ship's engine: a low hum that rises with the speed (0..1). Call every frame. */
@@ -340,39 +408,73 @@ class AudioEngine {
   private startEngine(): void {
     const ac = this.ac;
     const buses = this.buses;
-    if (!ac || !buses || this.engineHum) return;
-    const saw = ac.createOscillator();
-    saw.type = 'sawtooth';
-    saw.frequency.value = 48;
-    const sq = ac.createOscillator();
-    sq.type = 'square';
-    sq.frequency.value = 72;
-    const low = ac.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 180;
+    if (!ac || !buses) return;
+    const file = this.files.get('engine');
     const gain = ac.createGain();
     gain.gain.value = 0.0001;
-    saw.connect(low);
-    sq.connect(low);
-    low.connect(gain);
     gain.connect(buses.ambient);
-    saw.start();
-    sq.start();
     let last = -1;
-    this.engineHum = {
-      set: (speed, on) => {
-        // (Only touches the audio graph when the value moved a little.)
-        const s = on ? Math.max(0, Math.min(1, speed)) : -0.5;
-        if (Math.abs(s - last) < 0.02) return;
-        last = s;
-        const t = ac.currentTime;
-        const level = on ? 0.03 + 0.1 * Math.pow(s, 0.8) : 0.0001;
-        gain.gain.setTargetAtTime(level, t, 0.15);
-        saw.frequency.setTargetAtTime(46 + 40 * s, t, 0.2);
-        sq.frequency.setTargetAtTime(69 + 60 * s, t, 0.2);
-        low.frequency.setTargetAtTime(150 + 260 * s, t, 0.2);
-      },
-    };
+    if (file) {
+      const src = ac.createBufferSource();
+      src.buffer = file.buffers[0]!;
+      src.loop = true;
+      src.connect(gain);
+      src.start();
+      this.engineHum = {
+        set: (speed, on) => {
+          const s = on ? Math.max(0, Math.min(1, speed)) : -0.5;
+          if (Math.abs(s - last) < 0.02) return;
+          last = s;
+          const t = ac.currentTime;
+          gain.gain.setTargetAtTime(on ? file.gain * (0.35 + 0.65 * s) : 0.0001, t, 0.2);
+          src.playbackRate.setTargetAtTime(file.pitch * (0.8 + 0.6 * Math.max(0, s)), t, 0.3);
+        },
+        stop: () => {
+          gain.gain.setTargetAtTime(0.0001, ac.currentTime, 0.2);
+          setTimeout(() => {
+            src.stop();
+            gain.disconnect();
+          }, 800);
+        },
+      };
+    } else {
+      const saw = ac.createOscillator();
+      saw.type = 'sawtooth';
+      saw.frequency.value = 46;
+      const sq = ac.createOscillator();
+      sq.type = 'square';
+      sq.frequency.value = 69;
+      const low = ac.createBiquadFilter();
+      low.type = 'lowpass';
+      low.frequency.value = 130;
+      saw.connect(low);
+      sq.connect(low);
+      low.connect(gain);
+      saw.start();
+      sq.start();
+      this.engineHum = {
+        set: (speed, on) => {
+          // (Only touches the audio graph when the value moved a little.)
+          const s = on ? Math.max(0, Math.min(1, speed)) : -0.5;
+          if (Math.abs(s - last) < 0.02) return;
+          last = s;
+          const t = ac.currentTime;
+          // Quiet: a low rumble you feel more than hear.
+          gain.gain.setTargetAtTime(on ? 0.012 + 0.04 * Math.pow(s, 0.8) : 0.0001, t, 0.2);
+          saw.frequency.setTargetAtTime(44 + 34 * s, t, 0.3);
+          sq.frequency.setTargetAtTime(66 + 50 * s, t, 0.3);
+          low.frequency.setTargetAtTime(110 + 160 * s, t, 0.3);
+        },
+        stop: () => {
+          gain.gain.setTargetAtTime(0.0001, ac.currentTime, 0.2);
+          setTimeout(() => {
+            saw.stop();
+            sq.stop();
+            gain.disconnect();
+          }, 800);
+        },
+      };
+    }
     this.engineHum.set(this.lastEngine.speed, this.lastEngine.on);
   }
 }

@@ -1598,3 +1598,24 @@ svg.ico,
   width: 84px;
   accent-color: #6dff9a;
 }
+.ss-sea {
+  width: 28px;
+  height: 26px;
+  padding: 3px;
+  color: #8fd0ff;
+  cursor: pointer;
+  background: rgba(10, 26, 42, 0.8);
+  border: 1px solid var(--line);
+}
+.ss-sea svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ss-sea.off {
+  color: #6b7d8c;
+  opacity: 0.7;
+}
+.ss-sea:hover {
+  border-color: #6dff9a;
+}

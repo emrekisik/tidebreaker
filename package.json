@@ -8,8 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "predev": "node tools/assets/build.mjs --if-needed",
-    "prebuild": "node tools/assets/build.mjs --if-needed",
+    "predev": "node tools/assets/build.mjs --if-needed && node tools/sounds/manifest.mjs",
+    "prebuild": "node tools/assets/build.mjs --if-needed && node tools/sounds/manifest.mjs",
     "dev": "concurrently -n server,client,bots -c blue,green,yellow \"pnpm --filter @tidebreaker/server dev\" \"pnpm --filter @tidebreaker/client dev\" \"pnpm bots\"",
     "dev:solo": "concurrently -n server,client -c blue,green \"pnpm --filter @tidebreaker/server dev\" \"pnpm --filter @tidebreaker/client dev\"",
     "bots": "pnpm --filter @tidebreaker/server exec tsx src/tools/bots.ts",
@@ -24,7 +24,8 @@
     "assets:build": "node tools/assets/build.mjs",
     "assets:footprint": "node tools/assets/footprint.mjs",
     "icons": "node tools/assets/icon-saver.mjs",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "sounds": "node tools/sounds/manifest.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
