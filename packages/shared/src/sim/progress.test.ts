@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ECONOMY, TIER_SHIPS } from '../config/economy.ts';
+import { ECONOMY, TIER_OPTIONS } from '../config/economy.ts';
 import { SHIPS } from '../config/ships.ts';
 import {
   canTierUp,
@@ -47,11 +47,13 @@ describe('upgrade costs and effects', () => {
 
 describe('tiers', () => {
   it('the ladder is in tier order and every step costs more money', () => {
-    TIER_SHIPS.forEach((id, i) => expect(SHIPS[id].tier).toBe(i + 1));
+    TIER_OPTIONS.forEach((ids, i) => ids.forEach((id) => expect(SHIPS[id].tier).toBe(i + 1)));
+    // Only T2 and T5 offer a choice.
+    expect(TIER_OPTIONS.map((ids) => ids.length)).toEqual([1, 2, 1, 1, 2]);
     for (let t = 1; t < ECONOMY.tierCost.length; t++) {
       expect(ECONOMY.tierCost[t]).toBeGreaterThan(ECONOMY.tierCost[t - 1]!);
     }
-    expect(tierOf(SHIPS.cruiser)).toBe(3);
+    expect(tierOf(SHIPS.cruiser)).toBe(4);
   });
 
   it('allows moving up only with enough money and never past T5', () => {

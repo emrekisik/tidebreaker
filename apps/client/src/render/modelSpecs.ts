@@ -117,11 +117,9 @@ export const MODEL_SPECS: Readonly<Record<string, ModelSpec>> = {
     length: 16.5,
     draft: -0.1,
     aimNodes: [
-      'cruiser.FrontTurret.1',
-      'cruiser.FrontTurret.2',
+      // (The twin front guns and the second launcher are decoration: the sniper rocket and the machine gun fire.)
       'cruiser.TopMachineGun',
       'cruiser.TopLauncher.01',
-      'cruiser.TopLauncher.002',
     ],
   },
   battleship: {

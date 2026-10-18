@@ -370,6 +370,8 @@ export interface ScoreEntry {
   score: number;
   /** Tier index, 0 = T1. */
   tier: number;
+  /** Index into SHIP_IDS of the ship (its class and branch). */
+  shipId: number;
   name: string;
 }
 
@@ -389,6 +391,7 @@ export function writeScore(
   deaths: number,
   score: number,
   tier: number,
+  shipId: number,
   name: string,
 ): void {
   w.u16(id);
@@ -397,6 +400,7 @@ export function writeScore(
   w.u16(deaths);
   w.u32(score);
   w.u8(tier);
+  w.u8(shipId);
   w.string(name, NAME_MAX_BYTES);
 }
 
@@ -952,7 +956,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
     case S2C.SCORES: {
       const count = r.u8();
       // Each row is at least 13 bytes, so a lying count is caught before anything is allocated.
-      if (!r.ok || r.remaining < count * 13) return false;
+      if (!r.ok || r.remaining < count * 14) return false;
       const rows: ScoreEntry[] = [];
       for (let i = 0; i < count && r.ok; i++) {
         rows.push({
@@ -962,6 +966,7 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
           deaths: r.u16(),
           score: r.u32(),
           tier: r.u8(),
+          shipId: r.u8(),
           name: r.string(NAME_MAX_BYTES),
         });
       }

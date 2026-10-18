@@ -38,6 +38,7 @@ import {
   MISSILE,
   encodeBaseBuy,
   encodeLock,
+  TIER_OPTIONS,
 } from '@tidebreaker/shared';
 import type { RigState, ServerHandler, ShipId, WorldMap } from '@tidebreaker/shared';
 
@@ -299,7 +300,10 @@ export class BotClient {
       if (m.canTierUp && this.tierUps < 8) {
         this.tierUps++;
         this.say('happy', 0.6);
-        this.write(() => encodeTierUp(this.out, 0));
+        // (Where a class offers a choice of ships, a bot picks one at random.)
+        const choices = TIER_OPTIONS[m.tier + 1]?.length ?? 1;
+        const pick = Math.floor(Math.random() * choices);
+        this.write(() => encodeTierUp(this.out, pick));
         return;
       }
       const saving = tierCost(m.tier);

@@ -160,7 +160,7 @@ const baseShop = new BaseShop((item, arg) => {
 });
 const progressHud = new ProgressHud(
   (stat) => online?.net.upgrade(stat),
-  () => online?.net.tierUp(),
+  (choice) => online?.net.tierUp(choice),
 );
 const rigView = new RigView(stage.scene, assets.prop('oil_rig'));
 const rigHud = new RigHud();
@@ -207,7 +207,8 @@ window.addEventListener('keydown', (e) => {
   if (online && !e.repeat && (e.target as HTMLElement).tagName !== 'INPUT') {
     if (e.code >= 'Digit1' && e.code <= 'Digit6')
       progressHud.pressStat(Number(e.code.slice(5)) - 1);
-    else if (e.code === 'KeyT') progressHud.pressTierUp();
+    else if (e.code === 'KeyT') progressHud.pressTierUp(0);
+    else if (e.code === 'KeyY') progressHud.pressTierUp(1);
     else if (e.code >= 'Digit7' && e.code <= 'Digit9') baseShop.press(Number(e.code.slice(5)) - 7);
     else if (e.code === 'Digit0') baseShop.press(3);
     else if (e.code === 'KeyE') baseShop.press(4);
@@ -282,6 +283,10 @@ const events: OnlineEvents = {
   onMissile(id, owner, target) {
     if (owner === online?.myId) missileLock.launched(id, target);
     if (target === online?.myId && owner !== online?.myId) missileLock.warn(id);
+  },
+  onSplash(x, y, radius) {
+    // The area of a splash weapon: a small fireball and shock ring over the area it hurts.
+    effects.blast(x, y, radius * 1.6);
   },
   onAnnounce(kind, arg, team, name) {
     announcer.show(kind, arg, team, name);

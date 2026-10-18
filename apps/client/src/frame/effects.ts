@@ -1,5 +1,5 @@
 import { FX, Mulberry32, TRAINING, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
-import type { ProjectileSet, ProjectileVisual } from '@tidebreaker/shared';
+import type { ProjectileSet, ProjectileVisual, WeaponDef } from '@tidebreaker/shared';
 import type { ParticleKit } from '../render/particleKit.ts';
 import type { WakeMap } from '../render/wakeMap.ts';
 import { WAVE_MAX } from '../render/waves.ts';
@@ -41,6 +41,8 @@ export class Effects {
   private readonly trailCarries: Float32Array[] = new Array<Float32Array>();
   /** weapon index -> 0 bullet, 1 shell, 2 rocket, 3 guided missile (same order as ProjectileVisual) */
   private readonly kindOfWeapon: Uint8Array;
+  /** weapon index -> visual size (big weapons leave a big trail) */
+  private readonly sizeOfWeapon: Float32Array;
 
   constructor(kit: ParticleKit, projectileCapacity: number, wakeMap: WakeMap) {
     this.wakeMap = wakeMap;
@@ -56,8 +58,10 @@ export class Effects {
       new Float32Array(projectileCapacity),
     );
     this.kindOfWeapon = new Uint8Array(WEAPON_IDS.length);
+    this.sizeOfWeapon = new Float32Array(WEAPON_IDS.length);
     for (let i = 0; i < WEAPON_IDS.length; i++) {
       const v = WEAPONS[WEAPON_IDS[i]!].visual;
+      this.sizeOfWeapon[i] = (WEAPONS[WEAPON_IDS[i]!] as WeaponDef).size ?? 1;
       this.kindOfWeapon[i] = v === 'bullet' ? 0 : v === 'shell' ? 1 : v === 'rocket' ? 2 : 3;
     }
   }
@@ -793,7 +797,7 @@ export class Effects {
       if (set.active[i] === 0) continue;
       const w = set.weapon[i]!;
       const kind = this.kindOfWeapon[w]!;
-      const ps = this.powerScale(set.power[i]!);
+      const ps = this.powerScale(set.power[i]!) * this.sizeOfWeapon[w]!;
       const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : kind === 3 ? M.everySec : R.everySec;
       let carry = carries[i]! + dt;
       while (carry >= every) {

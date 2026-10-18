@@ -1,4 +1,4 @@
-import { STAT, STAT_COUNT, TIER_SHIPS, statCap, statCost, tierCost } from '@tidebreaker/shared';
+import { STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
@@ -22,6 +22,9 @@ const TILES: readonly { stat: number; name: MessageKey; color: string; icon: str
   { stat: STAT.TURN, name: 'stat.turn', color: 'var(--c-turn)', icon: agilityIcon },
   { stat: STAT.REGEN, name: 'stat.regen', color: 'var(--c-repair)', icon: repairIcon },
 ];
+
+/** Keys of the cards when a class offers a choice of ships. */
+const TIER_KEYS = ['T', 'Y'];
 
 const ARROW_UP =
   '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.8 2.6 10.2c-.6.7-.1 1.5.7 1.5h3.4v2.4c0 .5.4.9.8.9h5c.5 0 .8-.4.8-.9v-2.4h3.4c.9 0 1.3-.8.7-1.5z"/></svg>';
@@ -60,13 +63,15 @@ export class ProgressHud {
   private readonly pips: HTMLElement[][] = [];
   private readonly costNums: HTMLElement[] = [];
   private cardFor = '';
+  /** How many ships the offered class has to choose from. */
+  private options = 1;
   private visible = false;
   private offered = false;
   private last: StatsMsg | null = null;
 
   constructor(
     private readonly onUpgrade: (stat: number) => void,
-    private readonly onTierUp: () => void,
+    private readonly onTierUp: (choice: number) => void,
   ) {
     (document.getElementById('hud-cash-ico') as HTMLElement).innerHTML = ico(cashIcon);
 
@@ -111,8 +116,9 @@ export class ProgressHud {
 
     for (const target of [this.tierBtn, this.cards]) {
       target.addEventListener('pointerdown', (e) => e.stopPropagation());
-      target.addEventListener('click', () => this.onTierUp());
     }
+    // (With a choice of ships the cards are the buttons; the gold bar only asks to choose.)
+    this.tierBtn.addEventListener('click', () => this.pressTierUp(0, true));
     const arrowLeft = el('span', 'ico');
     arrowLeft.innerHTML = ARROW_UP;
     const arrowRight = el('span', 'ico');
@@ -130,24 +136,31 @@ export class ProgressHud {
     this.root.classList.toggle('hidden', !(this.visible && this.offered));
   }
 
-  /** The card of the next class (its top-down picture and name). */
-  private showCard(shipId: string): void {
-    if (shipId === this.cardFor) return;
-    this.cardFor = shipId;
-    const card = el('div', 'up-card panel');
-    const img = document.createElement('img');
-    img.alt = '';
-    img.src = `${import.meta.env.BASE_URL}icons/ships/card/${shipId}.png`;
-    const pic = el('div', 'uc-img');
-    pic.append(img);
-    const name = el('div', 'uc-name');
-    // ("T3 Corvette" -> "Corvette": the class number is not needed on the card.)
-    name.append(
-      el('span', 'uc-key', 'T'),
-      el('span', '', t(`ship.${shipId}` as MessageKey).replace(/^T\d\s*/, '')),
-    );
-    card.append(pic, name);
-    this.cards.replaceChildren(card);
+  /** The cards of the next class: one per ship to choose from (top-down picture, name, and for a choice the key and a line about it). */
+  private showCards(ids: readonly string[]): void {
+    const key = ids.join(',');
+    if (key === this.cardFor) return;
+    this.cardFor = key;
+    const choose = ids.length > 1;
+    const cards = ids.map((shipId, i) => {
+      const card = el('div', 'up-card panel');
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = `${import.meta.env.BASE_URL}icons/ships/card/${shipId}.png`;
+      const pic = el('div', 'uc-img');
+      pic.append(img);
+      const name = el('div', 'uc-name');
+      // ("T3 Corvette" -> "Corvette": the class number is not needed on the card.)
+      name.append(
+        el('span', 'uc-key', TIER_KEYS[i]),
+        el('span', '', t(`ship.${shipId}` as MessageKey).replace(/^T\d\s*/, '')),
+      );
+      card.append(pic, name);
+      if (choose) card.append(el('div', 'uc-role', t(`ship.role.${shipId}` as MessageKey)));
+      card.addEventListener('click', () => this.onTierUp(i));
+      return card;
+    });
+    this.cards.replaceChildren(...cards);
   }
 
   /** The player's own progress changed. */
@@ -186,10 +199,14 @@ export class ProgressHud {
     this.upgrades.classList.toggle('compact', compact);
     this.root.classList.toggle('compact', compact);
 
-    const nextShip = TIER_SHIPS[m.tier + 1];
-    this.offered = m.canTierUp && nextShip !== undefined;
-    if (nextShip) this.showCard(nextShip);
-    (this.tierBtn.querySelector('.ti-text') as HTMLElement).textContent = t('progress.tierUp');
+    const next = TIER_OPTIONS[m.tier + 1];
+    this.offered = m.canTierUp && next !== undefined;
+    this.options = next?.length ?? 1;
+    if (next) this.showCards(next);
+    (this.tierBtn.querySelector('.ti-text') as HTMLElement).textContent = t(
+      this.options > 1 ? 'progress.choose' : 'progress.tierUp',
+    );
+    this.tierBtn.classList.toggle('choosing', this.options > 1);
     this.refreshOffer();
     this.last = m;
   }
@@ -199,7 +216,13 @@ export class ProgressHud {
     if (this.buttons[i] && !this.buttons[i]!.disabled) this.onUpgrade(TILES[i]!.stat);
   }
 
-  pressTierUp(): void {
-    if (this.last?.canTierUp) this.onTierUp();
+  /**
+   * Moves up to ship `choice` of the offered class (keys T and Y, or a click on its card). The gold bar
+   * (`fromBar`) only works when there is nothing to choose.
+   */
+  pressTierUp(choice: number, fromBar = false): void {
+    if (!this.last?.canTierUp || choice >= this.options) return;
+    if (fromBar && this.options > 1) return;
+    this.onTierUp(choice);
   }
 }

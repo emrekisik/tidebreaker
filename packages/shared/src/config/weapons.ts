@@ -18,6 +18,14 @@ export interface WeaponDef {
   /** Seconds to ease (quadratically) from the start speed to `projectileSpeed` (0 = constant speed). */
   accelSec: number;
   visual: ProjectileVisual;
+  /** Visual size of the projectile and its trail (default 1). */
+  size?: number;
+  /**
+   * Area damage where the shot ends (it hits a ship, lands in the water or hits land): ships of other
+   * teams within `radius` of the point take `damageFactor` of the damage, less toward the rim
+   * (`edgeFactor` of that at the edge). The ship that was hit takes the full damage only.
+   */
+  splash?: { radius: number; damageFactor: number; edgeFactor: number };
   /** Guided shots only: how fast (degrees per second) the flight direction can turn toward the target. */
   turnRateDeg?: number;
 }
@@ -185,6 +193,21 @@ export const WEAPONS = {
     accelSec: 1.2,
     visual: 'missile',
     turnRateDeg: 95,
+  },
+  // The cruiser's sniper rocket: one big, fast, accurate shot with a very long reload and a range that
+  // needs the camera zoomed out. A near miss still hurts (splash).
+  cruiser_rocket: {
+    damage: 260,
+    intervalSec: 6,
+    range: 150,
+    projectileSpeed: 90,
+    radius: 0.5,
+    spreadDeg: 0.4,
+    startSpeedPct: 0.3,
+    accelSec: 0.8,
+    visual: 'rocket',
+    size: 1.9,
+    splash: { radius: 5, damageFactor: 0.6, edgeFactor: 0.4 },
   },
 } as const satisfies Record<string, WeaponDef>;
 

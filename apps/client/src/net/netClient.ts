@@ -108,8 +108,9 @@ export class NetClient {
     this.flush();
   }
 
-  tierUp(): void {
-    encodeTierUp(this.out, 0);
+  /** Moves up a class; `choice` picks the ship when the class offers more than one. */
+  tierUp(choice = 0): void {
+    encodeTierUp(this.out, choice);
     this.flush();
   }
 

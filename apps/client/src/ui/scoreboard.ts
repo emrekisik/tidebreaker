@@ -1,4 +1,4 @@
-import { TEAM_BLUE, TEAM_RED, TIER_SHIPS } from '@tidebreaker/shared';
+import { SHIP_IDS, TEAM_BLUE, TEAM_RED } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 
@@ -72,7 +72,7 @@ export class Scoreboard {
   private nameCell(r: ScoreEntry): HTMLElement {
     const el = document.createElement('span');
     el.className = 'sb-name';
-    const ship = TIER_SHIPS[Math.min(r.tier, TIER_SHIPS.length - 1)]!;
+    const ship = SHIP_IDS[r.shipId] ?? SHIP_IDS[0]!;
     const icon = document.createElement('img');
     icon.className = 'sb-ship';
     icon.alt = `T${r.tier + 1}`;

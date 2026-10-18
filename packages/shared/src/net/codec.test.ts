@@ -268,8 +268,8 @@ describe('server messages', () => {
     encodeKill(w, 1, 4, 1, 0, NO_WEAPON, 'Carrier', 'Veli');
     send();
     const at = beginScores(w);
-    writeScore(w, 3, 0, 5, 2, 1200, 2, 'Ali');
-    writeScore(w, 9, 1, 0, 7, 0, 0, 'Çınar');
+    writeScore(w, 3, 0, 5, 2, 1200, 2, 3, 'Ali');
+    writeScore(w, 9, 1, 0, 7, 0, 0, 0, 'Çınar');
     finishScores(w, at, 2);
     send();
     encodeStats(w, {
@@ -300,7 +300,7 @@ describe('server messages', () => {
       'youDied 4,Aaa,5',
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',
-      'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"name":"Çınar"}]',
+      'scores [{"id":3,"team":0,"kills":5,"deaths":2,"score":1200,"tier":2,"shipId":3,"name":"Ali"},{"id":9,"team":1,"kills":0,"deaths":7,"score":0,"tier":0,"shipId":0,"name":"Çınar"}]',
       'stats {"score":1234,"cash":56,"tier":2,"shipId":3,"levels":[1,2,3,0,4,5],"maxHull":320,"maxShield":177,"canTierUp":true,"lives":2,"drones":1,"baseGuns":3,"missiles":2}',
       `rigs ${JSON.stringify([
         { meter: 1, owner: 0 },
@@ -316,7 +316,7 @@ describe('server messages', () => {
     const { log, h } = recorder();
     const w = new Writer(64);
     const at = beginScores(w);
-    writeScore(w, 3, 0, 5, 2, 10, 0, 'Ali');
+    writeScore(w, 3, 0, 5, 2, 10, 0, 0, 'Ali');
     finishScores(w, at, 200);
     expect(decodeServer(w.toBytes(), h)).toBe(false);
     expect(log).toEqual([]);

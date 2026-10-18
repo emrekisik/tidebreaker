@@ -43,6 +43,7 @@ import type {
   RigState,
   StatsMsg,
   UpdateEntry,
+  WeaponDef,
   WelcomeMsg,
   WorldMap,
 } from '@tidebreaker/shared';
@@ -118,6 +119,8 @@ export interface OnlineEvents extends GameEvents {
   onMissile(id: number, owner: number, target: number): void;
   /** A guided missile ended: it hit, ran out or was blocked (`id` is the shot id). */
   onMissileEnd(id: number): void;
+  /** A splash weapon went off here (`radius` is the area it hurts). */
+  onSplash(x: number, y: number, radius: number): void;
   /** Something the whole room should know (`ANNOUNCE.*`); `name` is the player behind it, if any. */
   onAnnounce(kind: number, arg: number, team: number, name: string): void;
   /** A shot met a guided missile at this spot (`missile`: it was the missile that was shot down). */
@@ -831,6 +834,8 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       else if (reason === END_REASON.EXPIRED) events.onMiss(x, y, weapon, power);
       else if (reason === END_REASON.INTERCEPT) events.onIntercept(x, y, weapon, weapon === MISSILE_WEAPON);
       if (weapon === MISSILE_WEAPON) events.onMissileEnd(id);
+      const splash = (WEAPONS[WEAPON_IDS[weapon]!] as WeaponDef).splash;
+      if (splash) events.onSplash(x, y, splash.radius);
     };
     if (mine) finish();
     else this.at(tick * STEP_MS, finish);

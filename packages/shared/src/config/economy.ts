@@ -5,14 +5,23 @@ import type { ShipId } from './ships.ts';
 export const STAT = { SPEED: 0, RELOAD: 1, TURN: 2, SHIELD: 3, REGEN: 4, DAMAGE: 5 } as const;
 export const STAT_COUNT = 6;
 
-/** The class ladder a player climbs, T1 to T5 (the other models are side branches for later). */
-export const TIER_SHIPS: readonly ShipId[] = [
-  'coast_guard_boat',
-  'gunboat',
-  'corvette',
-  'frigate',
-  'heavy_frigate',
+/**
+ * The class ladder a player climbs, T1 to T5: for each tier, the ships to choose from (the first one
+ * is also what a bot or an unspecified request gets). T2 and T5 offer a choice.
+ */
+export const TIER_OPTIONS: readonly (readonly ShipId[])[] = [
+  ['coast_guard_boat'],
+  ['gunboat', 'landing_craft'],
+  ['corvette'],
+  ['frigate'],
+  ['heavy_frigate', 'cruiser'],
 ];
+
+/** The ship of tier index `tier` for option `choice` (the first when the choice does not exist). */
+export function tierShip(tier: number, choice = 0): ShipId {
+  const options = TIER_OPTIONS[tier] ?? TIER_OPTIONS[0]!;
+  return options[choice] ?? options[0]!;
+}
 
 /** Pickup kinds (their `KIND` values in snapshots are in net/messages.ts). */
 export type PickupKind = 'crate' | 'barrel' | 'chest' | 'banknote';

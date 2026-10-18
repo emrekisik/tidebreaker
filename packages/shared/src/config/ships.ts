@@ -36,6 +36,8 @@ export interface ShipDef {
   mounts: readonly MountDef[];
   /** Drones: flies over land and never collides with ships. */
   flying?: boolean;
+  /** How much faster than other ships of its class this one takes an oil rig (multiplies its capture power; default 1). */
+  captureMul?: number;
 }
 
 /** Movement model constants (GAME_DESIGN.md §5.2). */
@@ -108,11 +110,13 @@ export const SHIPS = {
     id: 'landing_craft',
     tier: 2,
     modelKey: 'landing_craft',
-    hull: 220,
-    shield: 70,
-    vMax: 12,
-    turnRateDeg: 85,
+    hull: 240,
+    shield: 110,
+    vMax: 14.5,
+    turnRateDeg: 80,
     length: 8,
+    // The troops it carries take an oil rig faster.
+    captureMul: 1.5,
     hitCircles: [
       { offset: -2.74, radius: 1.14 },
       { offset: -0.91, radius: 1.14 },
@@ -176,12 +180,12 @@ export const SHIPS = {
   },
   cruiser: {
     id: 'cruiser',
-    tier: 4,
+    tier: 5,
     modelKey: 'cruiser',
-    hull: 560,
-    shield: 220,
-    vMax: 12,
-    turnRateDeg: 70,
+    hull: 700,
+    shield: 300,
+    vMax: 10,
+    turnRateDeg: 55,
     length: 16.5,
     hitCircles: [
       { offset: -6.91, radius: 1.23 },
@@ -192,12 +196,11 @@ export const SHIPS = {
       { offset: 4.61, radius: 1.23 },
       { offset: 6.91, radius: 1.23 },
     ],
+    // The sniper: one big slow rocket from the launcher and a machine gun to keep small ships off.
+    // (The twin front guns and the second launcher of the model stay as decoration.)
     mounts: [
-      turret('front_1', 5.47, -0.6, 0.68, 'cannon_t4'),
-      turret('front_2', 5.48, 0.6, 0.68, 'cannon_t4'),
       turret('mg', 1.45, 0, 0.15, 'machine_gun'),
-      turret('launcher_1', -1.47, -0.08, 0.14, 'rocket'),
-      turret('launcher_2', -1.07, 0.07, 0.14, 'rocket'),
+      turret('launcher_1', -1.47, -0.08, 0.14, 'cruiser_rocket'),
     ],
   },
   heavy_frigate: {

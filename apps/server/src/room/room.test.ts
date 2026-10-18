@@ -724,7 +724,7 @@ describe('combat-log protection', () => {
 function request(c: TestClient, kind: 'upgrade' | 'tier', stat = 0): void {
   const w = new Writer(8);
   if (kind === 'upgrade') encodeUpgrade(w, stat);
-  else encodeTierUp(w, 0);
+  else encodeTierUp(w, stat);
   c.conn.send(w.toBytes());
 }
 
@@ -2111,6 +2111,130 @@ describe('announcements', () => {
     await tick(2);
     expect(got.some((n) => n.kind === ANNOUNCE.RIG_LOST && n.arg === 0 && n.team === TEAM_BLUE)).toBe(true);
     expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_RED)).toBe(true);
+  });
+});
+
+describe('class choices (T2 and T5)', () => {
+  it('lets the player pick the ship of a class that offers a choice, and refuses a choice that is not there', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Pilot');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    w.cash[slot] = 10000;
+    request(a, 'tier', 5); // there is no fifth option
+    await tick(2);
+    expect(w.tier[slot]).toBe(0);
+    expect(w.cash[slot]).toBe(10000);
+    request(a, 'tier', 1); // landing craft
+    await tick(2);
+    expect(w.tier[slot]).toBe(1);
+    expect(SHIP_IDS[w.shipIdx[slot]!]).toBe('landing_craft');
+    // T3 has one ship: whatever the choice, it is the corvette (a choice of 0 is what old clients send).
+    request(a, 'tier', 0);
+    await tick(2);
+    expect(SHIP_IDS[w.shipIdx[slot]!]).toBe('corvette');
+    // Losing the last life drops back to T2 on the ship that was chosen there.
+    w.lives[slot] = 1;
+    w.protectLeft[slot] = 0;
+    w.onCollision(1, slot + 1, 100, 100, 5, 0, 5, false, true);
+    await tick(2);
+    expect(w.tier[slot]).toBe(1);
+    expect(SHIP_IDS[w.shipIdx[slot]!]).toBe('landing_craft');
+    // The scoreboard shows the branch.
+    await tick(TICK_RATE + 2);
+    const row = a.heard.scores.at(-1)!.find((r) => r.id === slot + 1)!;
+    expect(SHIP_IDS[row.shipId]).toBe('landing_craft');
+  });
+
+  it('T5 offers the battleship or the cruiser', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('Pilot');
+    await tick(2);
+    const w = room.world;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    w.tier[slot] = 3;
+    w.cash[slot] = 5000;
+    request(a, 'tier', 1);
+    await tick(2);
+    expect(w.tier[slot]).toBe(4);
+    expect(SHIP_IDS[w.shipIdx[slot]!]).toBe('cruiser');
+    expect(SHIPS.cruiser.mounts.map((m) => m.weapon)).toEqual(['machine_gun', 'cruiser_rocket']);
+  });
+
+  it('the landing craft takes an oil rig faster than the hovercraft', async () => {
+    const meterAfter = async (ship: 'gunboat' | 'landing_craft'): Promise<number> => {
+      const { room, join, tick } = setup();
+      const a = await join('Capturer', ship);
+      await tick(2);
+      const rig = RIGS[0]!;
+      place(room, a, rig.x + 15, rig.y, 0);
+      await tick(20);
+      return Math.abs(room.world.rigMeter[0]!);
+    };
+    const slow = await meterAfter('gunboat');
+    const fast = await meterAfter('landing_craft');
+    expect(slow).toBeGreaterThan(0);
+    expect(fast / slow).toBeCloseTo(SHIPS.landing_craft.captureMul!, 1);
+  });
+});
+
+describe('splash weapons', () => {
+  it('hurt the ships next to the one that was hit (enemies only), less toward the rim', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Sniper', 'cruiser'); // blue
+    const b = await join('Target', 'corvette'); // red
+    const c = await join('Next', 'corvette'); // blue? (alternates)
+    const d = await join('Far', 'corvette'); // red
+    void c;
+    await tick(2);
+    const w = room.world;
+    const aId = a.heard.joined[0]!.entityId;
+    const bSlot = b.heard.joined[0]!.entityId - 1;
+    const dSlot = d.heard.joined[0]!.entityId - 1;
+    place(room, a, 300, 300, 0);
+    place(room, b, 400, 1000, 0);
+    place(room, d, 400, 1008, 0); // 8 units from the target's center: the rim of the splash and beyond
+    const near = w.slots[bSlot]!;
+    const rim = w.slots[dSlot]!;
+    const hullB = near.state.hull + near.state.shield;
+    const hullD = rim.state.hull + rim.state.shield;
+    // A rocket of the cruiser's team flies at the target.
+    const W = WEAPONS.cruiser_rocket;
+    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_BLUE);
+    await tick(15);
+    const took = (slot: { state: { hull: number; shield: number } }): number => slot.state.hull + slot.state.shield;
+    expect(hullB - took(near)).toBeGreaterThan(W.damage - 1); // the full hit (and no more)
+    expect(hullB - took(near)).toBeLessThan(W.damage + 1);
+    // The one 8 units away is outside the splash radius (5, plus its own size): untouched.
+    expect(took(rim)).toBeGreaterThanOrEqual(hullD);
+  });
+
+  it('a ship right next to the impact takes a share of the damage, and the own team none', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('Sniper', 'cruiser'); // blue
+    const b = await join('Target', 'corvette'); // red
+    const c = await join('Mate', 'corvette'); // blue
+    const d = await join('Beside', 'corvette'); // red
+    await tick(2);
+    const w = room.world;
+    const aId = a.heard.joined[0]!.entityId;
+    const slotOf = (x: TestClient): number => x.heard.joined[0]!.entityId - 1;
+    place(room, a, 300, 300, 0);
+    place(room, b, 400, 1000, 0);
+    place(room, d, 400, 1003, 0);
+    place(room, c, 400, 997, 0);
+    const before = (x: TestClient): number => w.slots[slotOf(x)]!.state.hull + w.slots[slotOf(x)]!.state.shield;
+    const bD = before(d);
+    const bC = before(c);
+    const W = WEAPONS.cruiser_rocket;
+    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_BLUE);
+    await tick(15);
+    const lost = bD - (w.slots[slotOf(d)]!.state.hull + w.slots[slotOf(d)]!.state.shield);
+    expect(lost).toBeGreaterThan(W.damage * W.splash.damageFactor * W.splash.edgeFactor - 1);
+    expect(lost).toBeLessThanOrEqual(W.damage * W.splash.damageFactor + 1);
+    expect(before(c)).toBe(bC); // a teammate of the shooter is spared
+    void b;
   });
 });
 

@@ -35,7 +35,9 @@ import {
   TEAM_BLUE,
   TEAM_COUNT,
   TEAM_RED,
-  TIER_SHIPS,
+  TIER_OPTIONS,
+  tierShip,
+  WEAPON_IDS,
   applyDamage,
   applyWorldBounds,
   canTierUp,
@@ -75,6 +77,7 @@ import { DRONE_SLOTS, Drones } from './drones.ts';
 import { BARREL_START, CHEST_START, Pickups } from './pickups.ts';
 import { Pirates } from './pirates.ts';
 import type {
+  WeaponDef,
   CollisionSink,
   Combatant,
   HitSink,
@@ -151,6 +154,12 @@ export class World
   readonly pickups: Pickups;
   readonly pirates: Pirates;
   readonly drones: Drones;
+  /** The option each player chose at every tier (index into `TIER_OPTIONS[tier]`), kept for demotions. */
+  private readonly tierChoice: Uint8Array;
+  /** Splash damage of each weapon by index (radius 0 = none), see `WeaponDef.splash`. */
+  private readonly splashRadius = new Float32Array(WEAPON_IDS.length);
+  private readonly splashFactor = new Float32Array(WEAPON_IDS.length);
+  private readonly splashEdge = new Float32Array(WEAPON_IDS.length);
   /** Guided missiles on board, per slot (bought at the base shop). */
   readonly missiles: Uint8Array;
   /** The lock a player is building: entity id of the target (0 = none) and the seconds still needed. */
@@ -252,6 +261,14 @@ export class World
     this.emoteLeft = new Float32Array(n);
     this.emotePending = new Uint8Array(n);
     this.missiles = new Uint8Array(n);
+    this.tierChoice = new Uint8Array(n * TIER_OPTIONS.length);
+    for (let w = 0; w < WEAPON_IDS.length; w++) {
+      const splash = (WEAPONS[WEAPON_IDS[w]!] as WeaponDef).splash;
+      if (!splash) continue;
+      this.splashRadius[w] = splash.radius;
+      this.splashFactor[w] = splash.damageFactor;
+      this.splashEdge[w] = splash.edgeFactor;
+    }
     this.lockTarget = new Uint16Array(n);
     this.lockLeft = new Float32Array(n);
     this.lockRefused = new Uint8Array(n);
@@ -331,19 +348,25 @@ export class World
     return true;
   }
 
-  /** Moves a player up one class for money (`ECONOMY.tierCost`). Keeps position, speed and health share. */
-  tierUp(slot: number): boolean {
+  /**
+   * Moves a player up one class for money (`ECONOMY.tierCost`), to the ship `choice` of the new tier's
+   * options. Keeps position, speed and health share.
+   */
+  tierUp(slot: number, choice = 0): boolean {
     if (slot < CARRIER_SLOTS || this.used[slot] === 0) return false;
     const c = this.slots[slot]!;
     if (!c.state.alive || this.ghostLeft[slot]! > 0) return false;
     if (!canTierUp(this.tier[slot]!, this.cash[slot]!)) return false;
+    const options = TIER_OPTIONS[this.tier[slot]! + 1]!;
+    if (!(choice >= 0 && choice < options.length)) return false;
     this.cash[slot] = this.cash[slot]! - tierCost(this.tier[slot]!);
     const hullShare = c.state.hull / c.def.hull;
     this.tier[slot] = this.tier[slot]! + 1;
     // Upgrades belong to the ship class: a new class starts without them.
     this.levels.fill(0, slot * STAT_COUNT, (slot + 1) * STAT_COUNT);
     this.lives[slot] = ECONOMY.death.lives;
-    this.shipIdx[slot] = SHIP_IDS.indexOf(TIER_SHIPS[this.tier[slot]!]!);
+    this.tierChoice[slot * TIER_OPTIONS.length + this.tier[slot]!] = choice;
+    this.shipIdx[slot] = SHIP_IDS.indexOf(tierShip(this.tier[slot]!, choice));
     c.def = SHIPS[SHIP_IDS[this.shipIdx[slot]!]!];
     c.state.mountCooldown.fill(0);
     c.state.salvoCooldown = 0;
@@ -672,6 +695,7 @@ export class World
     this.carrierCarry[slot] = 0;
     this.missiles[slot] = 0;
     this.lockTarget[slot] = 0;
+    this.tierChoice.fill(0, slot * TIER_OPTIONS.length, (slot + 1) * TIER_OPTIONS.length);
     this.statsDirty[slot] = 1;
   }
 
@@ -1052,6 +1076,7 @@ export class World
   ): void {
     this.events.projectileEnd(slot, END_REASON.HIT_SHIP, x, y);
     const target = targetId - 1;
+    if (this.splashRadius[weaponIdx]! > 0) this.splash(x, y, weaponIdx, ownerId, target);
     if (this.protectLeft[target]! > 0) {
       // Absorbed by the spawn protection: sparks on the shield, no damage.
       this.events.shipHit(targetId, ownerId, 0, true, weaponIdx, x, y);
@@ -1071,12 +1096,53 @@ export class World
     return slot >= this.pirateEnd ? this.drones.owner[slot - this.pirateEnd]! : slot;
   }
 
-  onExpire(x: number, y: number, _weaponIdx: number, slot: number): void {
+  onExpire(x: number, y: number, weaponIdx: number, slot: number): void {
     this.events.projectileEnd(slot, END_REASON.EXPIRED, x, y);
+    if (this.splashRadius[weaponIdx]! > 0) this.splash(x, y, weaponIdx, this.projectiles.owner[slot]!, -1);
   }
 
-  onBlocked(x: number, y: number, _weaponIdx: number, slot: number): void {
+  onBlocked(x: number, y: number, weaponIdx: number, slot: number): void {
     this.events.projectileEnd(slot, END_REASON.HIT_ISLAND, x, y);
+    if (this.splashRadius[weaponIdx]! > 0) this.splash(x, y, weaponIdx, this.projectiles.owner[slot]!, -1);
+  }
+
+  /**
+   * Area damage where a splash weapon ends (`WeaponDef.splash`): ships of other teams near (x, y) take a
+   * share of the damage, less toward the rim. `except` is the slot that was hit directly (it already took
+   * the full damage). Ships under spawn protection are spared.
+   */
+  private splash(x: number, y: number, weaponIdx: number, ownerId: number, except: number): void {
+    const radius = this.splashRadius[weaponIdx]!;
+    const edge = this.splashEdge[weaponIdx]!;
+    const damage = WEAPONS[WEAPON_IDS[weaponIdx]!].damage * this.splashFactor[weaponIdx]!;
+    const owner = ownerId - 1;
+    const team = this.slots[owner]!.team;
+    const credit = this.creditOf(owner);
+    for (let s = CARRIER_SLOTS; s < this.pirateEnd; s++) {
+      if (s === except || this.used[s] === 0 || this.protectLeft[s]! > 0) continue;
+      const c = this.slots[s]!;
+      const st = c.state;
+      if (!st.alive || c.team === team) continue;
+      const cos = Math.cos(st.heading);
+      const sin = Math.sin(st.heading);
+      const circles = c.def.hitCircles;
+      let near = Infinity;
+      for (let k = 0; k < circles.length; k++) {
+        const circle = circles[k]!;
+        const dx = st.x + cos * circle.offset - x;
+        const dy = st.y + sin * circle.offset - y;
+        const d = Math.sqrt(dx * dx + dy * dy) - circle.radius;
+        if (d < near) near = d;
+      }
+      if (near >= radius) continue;
+      const hurt = damage * (1 - (1 - edge) * (Math.max(0, near) / radius));
+      const flags = applyDamage(st, hurt);
+      this.events.shipHit(c.id, ownerId, hurt, (flags & HIT_SHIELD) !== 0, weaponIdx, x, y);
+      this.noteDamage(credit, s, hurt);
+      if (s < this.playerEnd) this.combatAge[s] = 0;
+      if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, weaponIdx);
+    }
   }
 
   onCollision(
@@ -1287,7 +1353,9 @@ export class World
     const before = this.tier[victim]!;
     const tier = Math.max(0, before - D.tierLoss);
     this.tier[victim] = tier;
-    this.shipIdx[victim] = SHIP_IDS.indexOf(TIER_SHIPS[tier]!);
+    this.shipIdx[victim] = SHIP_IDS.indexOf(
+      tierShip(tier, this.tierChoice[victim * TIER_OPTIONS.length + tier]!),
+    );
     // The lower class has its own upgrades: they start from nothing. (A T1 ship stays T1 and
     // keeps what it bought.)
     if (tier !== before) this.levels.fill(0, victim * STAT_COUNT, (victim + 1) * STAT_COUNT);
@@ -1461,7 +1529,7 @@ export class World
         const dx = c.state.x - rig.x;
         const dy = c.state.y - rig.y;
         if (dx * dx + dy * dy > r2) continue;
-        const power = 1 + this.tier[s]! * RIG.powerPerTier;
+        const power = (1 + this.tier[s]! * RIG.powerPerTier) * (c.def.captureMul ?? 1);
         if (c.team === TEAM_BLUE) blue += power;
         else red += power;
       }

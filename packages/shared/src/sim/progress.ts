@@ -1,4 +1,4 @@
-import { ECONOMY, TIER_SHIPS } from '../config/economy.ts';
+import { ECONOMY, TIER_OPTIONS } from '../config/economy.ts';
 import { PIRATE } from '../config/pirates.ts';
 import type { ShipDef } from '../config/ships.ts';
 
@@ -22,7 +22,7 @@ export const shieldMul = (level: number): number => 1 + ECONOMY.perLevel.shield 
 
 /** Tier index (0 = T1) of a ship class. */
 export function tierOf(def: ShipDef): number {
-  return Math.max(0, Math.min(TIER_SHIPS.length - 1, def.tier - 1));
+  return Math.max(0, Math.min(TIER_OPTIONS.length - 1, def.tier - 1));
 }
 
 /** Money the move up from tier index `tier` costs (Infinity at the top class). */
@@ -32,7 +32,7 @@ export function tierCost(tier: number): number {
 
 /** True when `cash` pays for moving up from tier index `tier`. */
 export function canTierUp(tier: number, cash: number): boolean {
-  return tier < TIER_SHIPS.length - 1 && cash >= tierCost(tier);
+  return tier < TIER_OPTIONS.length - 1 && cash >= tierCost(tier);
 }
 
 /**

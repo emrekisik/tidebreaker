@@ -361,6 +361,7 @@ export class Room {
         w.deaths[s]!,
         w.score[s]!,
         w.tier[s]!,
+        w.shipIdx[s]!,
         this.names[s] ?? '',
       );
       n++;
@@ -642,7 +643,7 @@ export class Room {
         if (c.stage === Stage.Playing) this.world.upgrade(c.slot, c.msg.stat);
         break;
       case C2S.TIER_UP:
-        if (c.stage === Stage.Playing) this.world.tierUp(c.slot);
+        if (c.stage === Stage.Playing) this.world.tierUp(c.slot, c.msg.shipId);
         break;
       case C2S.BUY_DRONE:
         if (c.stage === Stage.Playing) this.world.buyDrone(c.slot, c.msg.stat);

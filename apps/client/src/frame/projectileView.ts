@@ -1,7 +1,7 @@
 import type { InstancedMesh } from 'three';
 import { rocketHeight, rocketPitch } from './rocketArc.ts';
 import { FX, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
-import type { ProjectileSet, ProjectileVisual } from '@tidebreaker/shared';
+import type { ProjectileSet, ProjectileVisual, WeaponDef } from '@tidebreaker/shared';
 
 const HEIGHT = 1.2;
 /** Index of the rocket mesh in the order given by createProjectileMeshes (bullet, shell, rocket). */
@@ -17,6 +17,8 @@ export class ProjectileView {
   /** weapon index -> mesh index */
   private readonly meshOfWeapon: Uint8Array;
   private readonly counts: Int32Array;
+  /** weapon index -> visual size (1 = normal) */
+  private readonly sizeOfWeapon: Float32Array;
   /** weapon index -> max range, to turn the remaining distance into a flight fraction */
   private readonly rangeOfWeapon: Float32Array;
 
@@ -29,8 +31,10 @@ export class ProjectileView {
     }
     this.meshOfWeapon = new Uint8Array(WEAPON_IDS.length);
     this.rangeOfWeapon = new Float32Array(WEAPON_IDS.length);
+    this.sizeOfWeapon = new Float32Array(WEAPON_IDS.length);
     for (let w = 0; w < WEAPON_IDS.length; w++) {
       this.rangeOfWeapon[w] = WEAPONS[WEAPON_IDS[w]!].range;
+      this.sizeOfWeapon[w] = (WEAPONS[WEAPON_IDS[w]!] as WeaponDef).size ?? 1;
       this.meshOfWeapon[w] = Math.max(0, order.indexOf(WEAPONS[WEAPON_IDS[w]!].visual));
     }
   }
@@ -63,8 +67,10 @@ export class ProjectileView {
       const dx = vx / speed;
       const dy = vy / speed;
       // Shots of a ship with the damage upgrade are thicker (and a little longer).
-      const thick = 1 + this.thickenOfMesh[m]! * set.power[i]!;
-      const long = 1 + (thick - 1) * 0.5;
+      const grown = 1 + this.thickenOfMesh[m]! * set.power[i]!;
+      const size = this.sizeOfWeapon[set.weapon[i]!]!;
+      const thick = grown * size;
+      const long = (1 + (grown - 1) * 0.5) * size;
       if (m === ROCKET_MESH) {
         // Lobbed flight: climb a little, then drop; the nose follows the arc.
         const w = set.weapon[i]!;
