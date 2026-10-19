@@ -23,18 +23,17 @@ const MAP = {
   hit1: ['hit_hull_1', { gain: 0.7 }],
   hit2: ['hit_hull_2', { gain: 0.7 }],
   hit3: ['hit_hull_3', { gain: 0.7 }],
-  'hit-machinegun1': ['hit_hull_4', { gain: 0.7 }],
+  // (rare: gameSounds.ts plays it for one bullet hit in a few)
+  'hit-machinegun1': ['hit_hull_mg', { gain: 0.7 }],
   'missile-hit1': ['hit_missile', { gain: 0.85 }],
   // (the blasts of barrels and mines: the hit sounds of shells and missiles, three takes)
   'missile-hit1>': ['explosion_1', { gain: 0.8 }],
   'cannonhit1>': ['explosion_2', { gain: 0.8 }],
   'cannonhit2>': ['explosion_3', { gain: 0.8 }],
   destruction: ['sink', { gain: 0.75 }],
-  missile1: ['rocket_launch_1', { gain: 0.75 }],
-  missile2: ['rocket_launch_2', { gain: 0.75 }],
-  // (the guided missile gets the same two takes, a little lower)
-  'missile1>': ['missile_launch_1', { gain: 0.7, pitch: 0.92 }],
-  'missile2>': ['missile_launch_2', { gain: 0.7, pitch: 0.92 }],
+  missile2: ['rocket_launch', { gain: 0.75 }],
+  // (the guided missile gets the same take, a little lower)
+  'missile2>': ['missile_launch', { gain: 0.7, pitch: 0.92 }],
   'missile-long-range': ['heavy_launch', { gain: 0.75 }],
   'ship-collision1': ['bump_1', { gain: 0.85 }],
   'ship-collision2': ['bump_2', { gain: 0.85 }],

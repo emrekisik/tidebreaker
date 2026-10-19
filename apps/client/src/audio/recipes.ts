@@ -125,6 +125,21 @@ export const SOUNDS = {
       return g.noise(0.14, 0.4, { type: 'lowpass', f0: 2400, f1: 400, wet: 0.1 });
     },
   },
+  hit_hull_mg: {
+    bus: 'impact',
+    max: 5,
+    label: 'Machine gun burst hits a hull (rare variant)',
+    group: 'Impacts',
+    run: (g) => {
+      if (g.arcade) {
+        g.tone('square', 240, 100, 0.09, 0.18);
+        return g.noise(0.09, 0.3, { type: 'bandpass', f0: 1300, f1: 600 });
+      }
+      g.tone('sine', 150, 70, 0.14, 0.4);
+      g.tone('sine', 1900, 1700, 0.12, 0.06);
+      return g.noise(0.14, 0.4, { type: 'lowpass', f0: 2400, f1: 400, wet: 0.1 });
+    },
+  },
   hit_cannon: {
     bus: 'impact',
     max: 4,

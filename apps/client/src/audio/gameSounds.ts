@@ -21,8 +21,11 @@ const SHOT: Readonly<Record<string, readonly [SoundId, number, number]>> = {
   cruiser_rocket: ['heavy_launch', 1, 1.1],
 };
 
+/** The chance that a bullet hit plays the rare hit sound. */
+const RARE_HIT = 0.12;
+
 /** How loud a shot falling into the water is, by the weapon's visual. */
-const SPLASH_GAIN = { bullet: 0.45, shell: 1, rocket: 1.2, missile: 1.3, heavy: 1.5 } as const;
+const SPLASH_GAIN = { shell: 1, rocket: 1.2, missile: 1.3, heavy: 1.5 } as const;
 
 /**
  * The sounds of the game events, in one place: the UI layer calls these with what the game told it
@@ -38,13 +41,16 @@ export const sfx = {
   hit(x: number, y: number, damage: number, involvesPlayer: boolean, weaponIdx: number): void {
     const gain = Math.max(0.5, Math.min(1.3, 0.5 + damage / 40)) * (involvesPlayer ? 1.25 : 1);
     const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
-    const id = visual === 'bullet' ? 'hit_hull' : visual === 'shell' ? 'hit_cannon' : 'hit_missile';
+    // (One bullet hit in a few has its own recorded sound, so the often-heard hit does not wear out.)
+    const id = visual === 'bullet' ? (Math.random() < RARE_HIT ? 'hit_hull_mg' : 'hit_hull') : visual === 'shell' ? 'hit_cannon' : 'hit_missile';
     audio.play(id, { x, y, gain });
   },
 
   splash(x: number, y: number, weaponIdx: number): void {
     const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
-    audio.play(visual === 'bullet' || visual === 'shell' ? 'splash' : 'splash_big', { x, y, gain: SPLASH_GAIN[visual] });
+    // (Bullets falling into the water are silent.)
+    if (visual === 'bullet') return;
+    audio.play(visual === 'shell' ? 'splash' : 'splash_big', { x, y, gain: SPLASH_GAIN[visual] });
   },
 
   blocked(x: number, y: number): void {

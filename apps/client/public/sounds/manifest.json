@@ -37,8 +37,13 @@
     "files": [
       "hit_hull_1.ogg",
       "hit_hull_2.ogg",
-      "hit_hull_3.ogg",
-      "hit_hull_4.ogg"
+      "hit_hull_3.ogg"
+    ],
+    "gain": 0.7
+  },
+  "hit_hull_mg": {
+    "files": [
+      "hit_hull_mg.ogg"
     ],
     "gain": 0.7
   },
@@ -50,16 +55,14 @@
   },
   "missile_launch": {
     "files": [
-      "missile_launch_1.ogg",
-      "missile_launch_2.ogg"
+      "missile_launch.ogg"
     ],
     "gain": 0.7,
     "pitch": 0.92
   },
   "rocket_launch": {
     "files": [
-      "rocket_launch_1.ogg",
-      "rocket_launch_2.ogg"
+      "rocket_launch.ogg"
     ],
     "gain": 0.75
   },
