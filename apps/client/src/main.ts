@@ -276,7 +276,7 @@ const events: OnlineEvents = {
     if (weaponIdx === NO_WEAPON) return;
     effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
     // (A ship that goes down is heard in onSunk.)
-    if (!killed) sfx.hit(x, y, damage, shieldHit, showNumber);
+    if (!killed) sfx.hit(x, y, damage, shieldHit, showNumber, weaponIdx);
     if (killed) {
       const c = target.combatant;
       effects.explode(c.state.x, c.state.y, c.def.length);

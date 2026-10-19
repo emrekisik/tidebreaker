@@ -14,6 +14,10 @@ file stay synthesized. Files whose names match no sound are reported. For a quie
 `manifest.json` by hand: `"cannon": { "files": ["cannon_1.ogg"], "gain": 0.7, "pitch": 1.1 }` (the script keeps
 those extras).
 
+Recorded effects can also be dropped into the repo-root `sfx/` folder and imported in one go with
+`node tools/sounds/import.mjs` (it maps each source file to a sound id, cuts silence, converts to mono Vorbis, peaks at
+-3 dB and rewrites `manifest.json` with the per-sound gain/pitch listed in that script). Edit its `MAP` to add files.
+
 ## What the files should be
 
 - `.ogg` (or `.mp3`), mono is fine, 44.1 kHz, trimmed so the sound starts at once (no silence before it), peak around

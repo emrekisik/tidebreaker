@@ -125,6 +125,32 @@ export const SOUNDS = {
       return g.noise(0.14, 0.4, { type: 'lowpass', f0: 2400, f1: 400, wet: 0.1 });
     },
   },
+  hit_cannon: {
+    bus: 'impact',
+    max: 4,
+    label: 'Shell hits a hull',
+    group: 'Impacts',
+    run: (g) => {
+      if (g.arcade) {
+        g.tone('square', 180, 70, 0.12, 0.2);
+        return g.noise(0.14, 0.34, { type: 'bandpass', f0: 1000, f1: 450 });
+      }
+      g.tone('sine', 110, 50, 0.22, 0.5);
+      g.tone('sine', 1400, 1100, 0.14, 0.06);
+      return g.noise(0.22, 0.45, { type: 'lowpass', f0: 2000, f1: 300, wet: 0.2 });
+    },
+  },
+  hit_missile: {
+    bus: 'impact',
+    max: 3,
+    label: 'Rocket or missile hits a hull',
+    group: 'Impacts',
+    run: (g) => {
+      g.tone('sine', 100, 34, 0.4, 0.6, { wet: 0.2 });
+      if (g.arcade) g.tone('square', 260, 80, 0.12, 0.14);
+      return g.noise(0.4, 0.55, { type: 'lowpass', f0: 2600, f1: 140, wet: 0.2 });
+    },
+  },
   hit_shield: {
     bus: 'impact',
     max: 5,
@@ -157,6 +183,17 @@ export const SOUNDS = {
     run: (g) => {
       if (g.arcade) g.tone('sine', 650, 200, 0.13, 0.18, { at: 0.02 });
       return g.noise(g.pick(0.35, 0.55), 0.35, { type: 'bandpass', f0: 1500, f1: 350, q: 0.7, attack: 0.01, wet: 0.2 });
+    },
+  },
+  splash_big: {
+    bus: 'impact',
+    max: 3,
+    label: 'Rocket or missile falls into the water',
+    group: 'Impacts',
+    run: (g) => {
+      if (g.arcade) g.tone('sine', 520, 140, 0.2, 0.22, { at: 0.02 });
+      g.tone('sine', 90, 45, 0.3, 0.3);
+      return g.noise(g.pick(0.55, 0.8), 0.45, { type: 'bandpass', f0: 1200, f1: 250, q: 0.7, attack: 0.012, wet: 0.3 });
     },
   },
   intercept: {

@@ -35,14 +35,16 @@ export const sfx = {
     audio.play(entry[0], { x, y, own, pitch: entry[1], gain: entry[2] * (own ? 0.9 : 1) });
   },
 
-  hit(x: number, y: number, damage: number, shield: boolean, involvesPlayer: boolean): void {
+  hit(x: number, y: number, damage: number, shield: boolean, involvesPlayer: boolean, weaponIdx: number): void {
     const gain = Math.max(0.5, Math.min(1.3, 0.5 + damage / 40)) * (involvesPlayer ? 1.25 : 1);
-    audio.play(shield ? 'hit_shield' : 'hit_hull', { x, y, gain });
+    const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
+    const id = shield ? 'hit_shield' : visual === 'bullet' ? 'hit_hull' : visual === 'shell' ? 'hit_cannon' : 'hit_missile';
+    audio.play(id, { x, y, gain });
   },
 
   splash(x: number, y: number, weaponIdx: number): void {
     const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
-    audio.play('splash', { x, y, gain: SPLASH_GAIN[visual] });
+    audio.play(visual === 'bullet' || visual === 'shell' ? 'splash' : 'splash_big', { x, y, gain: SPLASH_GAIN[visual] });
   },
 
   blocked(x: number, y: number): void {

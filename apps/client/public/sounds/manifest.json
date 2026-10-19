@@ -1,1 +1,76 @@
-{}
+{
+  "bump": {
+    "files": [
+      "bump_1.ogg",
+      "bump_2.ogg"
+    ],
+    "gain": 0.85
+  },
+  "cannon": {
+    "files": [
+      "cannon.ogg"
+    ],
+    "gain": 0.85
+  },
+  "heavy_launch": {
+    "files": [
+      "heavy_launch.ogg"
+    ],
+    "gain": 0.75
+  },
+  "hit_cannon": {
+    "files": [
+      "hit_cannon_1.ogg",
+      "hit_cannon_2.ogg"
+    ],
+    "gain": 0.8
+  },
+  "hit_hull": {
+    "files": [
+      "hit_hull_1.ogg",
+      "hit_hull_2.ogg",
+      "hit_hull_3.ogg",
+      "hit_hull_4.ogg"
+    ],
+    "gain": 0.7
+  },
+  "hit_missile": {
+    "files": [
+      "hit_missile.ogg"
+    ],
+    "gain": 0.85
+  },
+  "missile_launch": {
+    "files": [
+      "missile_launch_1.ogg",
+      "missile_launch_2.ogg"
+    ],
+    "gain": 0.7,
+    "pitch": 0.92
+  },
+  "rocket_launch": {
+    "files": [
+      "rocket_launch_1.ogg",
+      "rocket_launch_2.ogg"
+    ],
+    "gain": 0.75
+  },
+  "sink": {
+    "files": [
+      "sink.ogg"
+    ],
+    "gain": 0.75
+  },
+  "splash": {
+    "files": [
+      "splash.ogg"
+    ],
+    "gain": 0.8
+  },
+  "splash_big": {
+    "files": [
+      "splash_big.ogg"
+    ],
+    "gain": 0.8
+  }
+}
