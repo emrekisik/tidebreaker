@@ -12,6 +12,14 @@
     ],
     "gain": 0.85
   },
+  "explosion": {
+    "files": [
+      "explosion_1.ogg",
+      "explosion_2.ogg",
+      "explosion_3.ogg"
+    ],
+    "gain": 0.8
+  },
   "heavy_launch": {
     "files": [
       "heavy_launch.ogg"

@@ -25,6 +25,10 @@ const MAP = {
   hit3: ['hit_hull_3', { gain: 0.7 }],
   'hit-machinegun1': ['hit_hull_4', { gain: 0.7 }],
   'missile-hit1': ['hit_missile', { gain: 0.85 }],
+  // (the blasts of barrels and mines: the hit sounds of shells and missiles, three takes)
+  'missile-hit1>': ['explosion_1', { gain: 0.8 }],
+  'cannonhit1>': ['explosion_2', { gain: 0.8 }],
+  'cannonhit2>': ['explosion_3', { gain: 0.8 }],
   destruction: ['sink', { gain: 0.75 }],
   missile1: ['rocket_launch_1', { gain: 0.75 }],
   missile2: ['rocket_launch_2', { gain: 0.75 }],

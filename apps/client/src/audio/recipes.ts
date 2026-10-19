@@ -151,20 +151,6 @@ export const SOUNDS = {
       return g.noise(0.4, 0.55, { type: 'lowpass', f0: 2600, f1: 140, wet: 0.2 });
     },
   },
-  hit_shield: {
-    bus: 'impact',
-    max: 5,
-    label: 'Shot hits a shield',
-    group: 'Impacts',
-    run: (g) => {
-      if (g.arcade) {
-        g.tone('sine', 1500, 800, 0.18, 0.2);
-        return g.tone('triangle', 2300, 1500, 0.14, 0.1, { at: 0.01 });
-      }
-      g.noise(0.1, 0.3, { type: 'highpass', f0: 4200 });
-      return g.tone('sine', 2300, 1700, 0.16, 0.13);
-    },
-  },
   hit_rock: {
     bus: 'impact',
     max: 3,

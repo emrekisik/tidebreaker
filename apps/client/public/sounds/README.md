@@ -36,7 +36,6 @@ Weapons | `heavy_launch` | Cruiser heavy rocket launch | big heavy missile launc
 Weapons | `missile_launch` | Guided missile launch | guided missile launch, hiss and whoosh
 Weapons | `mine_lay` | Laying a mine | small splash/thunk of something dropped in water
 Impacts | `hit_hull` | Shot hits a hull | bullet/shell hitting metal hull
-Impacts | `hit_shield` | Shot hits a shield | energy shield hit / zap
 Impacts | `hit_rock` | Shot hits land | hit on rock/land, dull
 Impacts | `splash` | Shot falls into the water | shell falling in the water, splash
 Impacts | `intercept` | Shot hits a missile or mine | metal ping/spark of a small hit

@@ -35,10 +35,10 @@ export const sfx = {
     audio.play(entry[0], { x, y, own, pitch: entry[1], gain: entry[2] * (own ? 0.9 : 1) });
   },
 
-  hit(x: number, y: number, damage: number, shield: boolean, involvesPlayer: boolean, weaponIdx: number): void {
+  hit(x: number, y: number, damage: number, involvesPlayer: boolean, weaponIdx: number): void {
     const gain = Math.max(0.5, Math.min(1.3, 0.5 + damage / 40)) * (involvesPlayer ? 1.25 : 1);
     const visual = WEAPONS[WEAPON_IDS[weaponIdx]!].visual;
-    const id = shield ? 'hit_shield' : visual === 'bullet' ? 'hit_hull' : visual === 'shell' ? 'hit_cannon' : 'hit_missile';
+    const id = visual === 'bullet' ? 'hit_hull' : visual === 'shell' ? 'hit_cannon' : 'hit_missile';
     audio.play(id, { x, y, gain });
   },
 
@@ -61,7 +61,9 @@ export const sfx = {
 
   /** A barrel or mine blast (`radius` 15 is a barrel), or a splash weapon's. */
   blast(x: number, y: number, radius: number): void {
-    audio.play('explosion', { x, y, size: Math.max(0.5, Math.min(1.5, radius / 15)) });
+    const size = Math.max(0.5, Math.min(1.5, radius / 15));
+    // (A recorded blast has no size: a bigger one is lower and louder.)
+    audio.play('explosion', { x, y, size, pitch: 1.3 - 0.3 * size, gain: 0.7 + 0.3 * size });
   },
 
   intercept(x: number, y: number, missile: boolean): void {
