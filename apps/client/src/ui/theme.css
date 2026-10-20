@@ -203,8 +203,7 @@ svg.ico,
   display: flex;
 }
 #hud-rank .rank-badge {
-  height: 28px;
-  width: auto;
+  height: 21px;
   margin: 0;
 }
 .hud-standing-info {
@@ -1666,19 +1665,20 @@ svg.ico,
 
 /* ---- ranks: the insignia beside a name (ui/rankBadge.ts) ---- */
 .rank-badge {
-  height: 24px;
-  width: auto;
+  /* Pixel art (21 x 21): shown at 21 px or a whole multiple, never smoothed. */
+  height: 21px;
+  width: 21px;
+  image-rendering: pixelated;
   vertical-align: middle;
-  margin-right: 7px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+  margin-right: 6px;
 }
 .feed-row .rank-badge,
 .wreck-mark .wm-name .rank-badge {
-  height: 18px;
+  height: 21px;
   margin-right: 5px;
 }
 .sb-name .rank-badge {
-  height: 22px;
+  height: 21px;
 }
 /* The top rank glows. */
 .rank-top {
@@ -1693,7 +1693,7 @@ svg.ico,
   }
 }
 .ann-rank .rank-badge {
-  height: 24px;
+  height: 21px;
 }
 .ann-rank {
   animation: rank-pop 0.5s ease-out;
@@ -1758,7 +1758,7 @@ svg.ico,
   align-items: center;
 }
 .np-rank .rank-badge {
-  height: 1.75em;
+  height: 21px;
   margin: 0;
 }
 
@@ -1774,8 +1774,8 @@ svg.ico,
 }
 .ru-badge {
   position: relative;
-  height: 52px;
-  width: auto;
+  height: 63px;
+  width: 63px;
   margin: 0;
   animation: ru-pop 3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   filter: drop-shadow(0 0 9px rgba(255, 214, 102, 0.9));

@@ -218,11 +218,46 @@ describe('ProjectileSet', () => {
     return { id, state: createShipState(def, x, y, 0), def, team: NO_TEAM };
   }
 
+  it('rapid-fire shots lose damage and thickness with the distance they flew; other weapons do not', () => {
+    const gun = WEAPONS.machine_gun;
+    const idx = weaponIndex('machine_gun');
+    const noHits = recorder().sink;
+    const hitAt = (x: number): number => {
+      const set = new ProjectileSet(8);
+      const foe = target(2, x, 0);
+      const { hits, sink } = recorder();
+      set.spawn(0, 0, 0, gun.projectileSpeed, gun.range, gun.radius, gun.damage, 1, idx);
+      for (let i = 0; i < 80 && hits.length === 0; i++) set.step(0.05, [foe], sink);
+      expect(hits).toHaveLength(1);
+      return hits[0]!.damage;
+    };
+    const near = hitAt(8);
+    const far = hitAt(gun.range - 6);
+    expect(near).toBeLessThanOrEqual(gun.damage);
+    expect(near).toBeGreaterThan(gun.damage * 0.85);
+    expect(far).toBeLessThan(near * 0.6);
+    expect(far).toBeGreaterThan(gun.damage * gun.falloff.damage * 0.95);
+    // The shot gets thinner as it flies.
+    const set = new ProjectileSet(8);
+    const slot = set.spawn(0, 0, 0, gun.projectileSpeed, gun.range, gun.radius, gun.damage, 1, idx);
+    expect(set.radiusFactor(slot)).toBe(1);
+    for (let i = 0; i < 10; i++) set.step(0.05, [], noHits);
+    const mid = set.radiusFactor(slot);
+    expect(mid).toBeLessThan(1);
+    expect(mid).toBeGreaterThan(gun.falloff.radius);
+    // A cannon shell keeps its full strength to the end of its range.
+    const shell = weaponIndex('cannon_t3');
+    const s2 = new ProjectileSet(8);
+    const sl = s2.spawn(0, 0, 0, 60, 58, 0.25, 16, 1, shell);
+    for (let i = 0; i < 10; i++) s2.step(0.05, [], noHits);
+    expect(s2.radiusFactor(sl)).toBe(1);
+  });
+
   it('hits a ship in range and reports shield/damage', () => {
     const set = new ProjectileSet(8);
     const foe = target(2, 30, 0);
     const { hits, sink } = recorder();
-    set.spawn(0, 0, 0, weapon.projectileSpeed, weapon.range, weapon.radius, weapon.damage, 1, 0);
+    set.spawn(0, 0, 0, weapon.projectileSpeed, weapon.range, weapon.radius, weapon.damage, 1, weaponIndex('cannon_t3'));
     for (let i = 0; i < 20 && hits.length === 0; i++) set.step(0.05, [foe], sink);
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({ owner: 1, target: 2, damage: 16, shield: true, killed: false });

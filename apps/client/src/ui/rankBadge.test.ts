@@ -1,40 +1,36 @@
 import { RANKS } from '@tidebreaker/shared';
 import { describe, expect, it } from 'vitest';
-import { rankSvg } from './rankBadge.ts';
+import { RANK_PALETTE, RANK_PIXELS, rankPixels } from './rankBadge.ts';
 
-const count = (svg: string, cls: string): number => svg.split(`class="${cls}"`).length - 1;
-
-describe('rank insignia', () => {
+describe('rank insignia (pixel art)', () => {
   it('draws a different, well-formed picture for every rank', () => {
     const seen = new Set<string>();
     for (let r = 0; r < RANKS.count; r++) {
-      const svg = rankSvg(r);
-      expect(svg.startsWith('<svg')).toBe(true);
-      expect(svg.endsWith('</svg>')).toBe(true);
-      expect(svg).not.toContain('NaN');
-      seen.add(svg);
+      const rows = rankPixels(r);
+      expect(rows).toHaveLength(RANK_PIXELS);
+      for (const row of rows) {
+        expect(row).toHaveLength(RANK_PIXELS);
+        for (const c of row) expect(c === '.' || RANK_PALETTE[c] !== undefined).toBe(true);
+      }
+      seen.add(rows.join('/'));
     }
     expect(seen.size).toBe(RANKS.count);
   });
 
-  it('counts the symbols like the DarkOrbit ranks: 1-3 narrow and 1-5 wide chevrons, four gold shields, stars on bronze', () => {
-    for (let r = 0; r < 3; r++) expect(count(rankSvg(r), 'ch')).toBe(r + 1);
-    for (let r = 3; r < 8; r++) expect(count(rankSvg(r), 'ch')).toBe(r - 2);
-    expect(count(rankSvg(9), 'band')).toBe(1);
-    expect(count(rankSvg(10), 'col')).toBe(3);
-    expect(count(rankSvg(11), 'tri')).toBe(1);
-    for (let r = 12; r < 15; r++) expect(count(rankSvg(r), 'st')).toBe(r - 11);
-    expect(count(rankSvg(15), 'st')).toBe(1);
+  it('keeps the chevrons mirror-symmetrical and gives every picture an outline', () => {
+    for (let r = 0; r < 8; r++) {
+      for (const row of rankPixels(r)) expect([...row].reverse().join('')).toBe(row);
+    }
+    for (let r = 0; r < RANKS.count; r++) expect(rankPixels(r).join('')).toContain('k');
   });
 
-  it('gives the top rank a design of its own', () => {
-    const top = rankSvg(RANKS.count - 1);
-    expect(top).toContain('class="laurel"');
-    expect(rankSvg(15)).not.toContain('class="laurel"');
+  it('draws more chevrons as the rank rises (more lit pixels)', () => {
+    const lit = (r: number): number => rankPixels(r).join('').replace(/[^wlmd]/g, '').length;
+    for (const r of [1, 2, 4, 5, 6, 7]) expect(lit(r)).toBeGreaterThan(lit(r - 1));
   });
 
   it('keeps ranks that are out of range inside the ladder', () => {
-    expect(rankSvg(-3)).toBe(rankSvg(0));
-    expect(rankSvg(99)).toBe(rankSvg(RANKS.count - 1));
+    expect(rankPixels(-3)).toEqual(rankPixels(0));
+    expect(rankPixels(99)).toEqual(rankPixels(RANKS.count - 1));
   });
 });

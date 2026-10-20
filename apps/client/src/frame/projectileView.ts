@@ -68,7 +68,9 @@ export class ProjectileView {
       // Shots of a ship with the damage upgrade are thicker (and a little longer).
       const grown = 1 + this.thickenOfMesh[m]! * set.power[i]!;
       const size = this.sizeOfWeapon[set.weapon[i]!]!;
-      const thick = grown * size;
+      // A shot of the rapid-fire guns gets thinner the farther it flies.
+      const fade = set.radiusFactor(i);
+      const thick = grown * size * fade;
       const long = (1 + (grown - 1) * 0.5) * size;
       // Rotation about y that turns local +x toward the velocity (sim y is world z).
       arr[o] = dx * long;

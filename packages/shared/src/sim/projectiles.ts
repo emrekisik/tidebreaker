@@ -60,6 +60,17 @@ export interface HitSink {
 
 const NO_TARGETS: readonly Combatant[] = [];
 
+/** Per weapon: its range, and how much of its damage and thickness it keeps at the end of its range (1 = no falloff). */
+const RANGE_OF = new Float32Array(WEAPON_IDS.length);
+const DAMAGE_AT_END = new Float32Array(WEAPON_IDS.length);
+const RADIUS_AT_END = new Float32Array(WEAPON_IDS.length);
+for (let w = 0; w < WEAPON_IDS.length; w++) {
+  const def = WEAPONS[WEAPON_IDS[w]!] as WeaponDef;
+  RANGE_OF[w] = def.range;
+  DAMAGE_AT_END[w] = def.falloff?.damage ?? 1;
+  RADIUS_AT_END[w] = def.falloff?.radius ?? 1;
+}
+
 /** Where a guided projectile's target is right now (the server's world, or the client's view of it). */
 export interface HomingTargets {
   /** Writes the position of entity `id` into `out[0]`, `out[1]`; false when it is gone or sunk. */
@@ -182,6 +193,19 @@ export class ProjectileSet implements ProjectileSink {
     this.homingId[slot] = targetId;
   }
 
+  /** How far along its range a shot is, 0 at the muzzle and 1 at the end (0..1). */
+  flightFraction(slot: number): number {
+    const range = RANGE_OF[this.weapon[slot]!]!;
+    const f = range > 0 ? 1 - this.remaining[slot]! / range : 0;
+    return f < 0 ? 0 : f > 1 ? 1 : f;
+  }
+
+  /** The share of its thickness a shot has after flying that far (1 for weapons without falloff). */
+  radiusFactor(slot: number): number {
+    const end = RADIUS_AT_END[this.weapon[slot]!]!;
+    return end === 1 ? 1 : 1 + (end - 1) * this.flightFraction(slot);
+  }
+
   /** Removes one projectile (the client does this when the server reports its end). */
   remove(slot: number): void {
     if (this.active[slot] === 1) this.release(slot);
@@ -263,7 +287,7 @@ export class ProjectileSet implements ProjectileSink {
 
     let bestT = 2;
     let bestTarget = -1;
-    const projRadius = this.radius[i]!;
+    const projRadius = this.radius[i]! * this.radiusFactor(i);
     const owner = this.owner[i]!;
     const ownerTeam = this.team[i]!;
     for (let j = 0; j < targets.length; j++) {
@@ -304,7 +328,14 @@ export class ProjectileSet implements ProjectileSink {
 
     if (bestTarget >= 0) {
       const target = targets[bestTarget]!;
-      const damage = this.damage[i]!;
+      // A shot that has flown far hits softer (rapid-fire guns): by how far it had gone when it reached the ship.
+      let damage = this.damage[i]!;
+      const w = this.weapon[i]!;
+      if (DAMAGE_AT_END[w]! !== 1) {
+        const range = RANGE_OF[w]!;
+        const f = range > 0 ? 1 - (remaining - bestT * len) / range : 0;
+        damage *= 1 + (DAMAGE_AT_END[w]! - 1) * (f < 0 ? 0 : f > 1 ? 1 : f);
+      }
       const flags = applyDamage(target.state, damage);
       hits.onHit(
         owner,

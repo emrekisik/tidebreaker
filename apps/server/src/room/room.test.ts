@@ -1668,7 +1668,8 @@ describe('drones', () => {
     // The owner sails out into the open sea; an enemy comes within reach (away from any carrier guns).
     const es = w.slots[enemy]!.state;
     const score0 = w.score[slot]!;
-    for (let i = 0; i < 900 && es.alive; i++) {
+    // (A drone's bullet loses strength with distance, so this takes a while.)
+    for (let i = 0; i < 2400 && es.alive; i++) {
       place(room, a, 560, 480, 0);
       place(room, b, 600, 480, Math.PI);
       w.protectLeft[enemy] = 0;

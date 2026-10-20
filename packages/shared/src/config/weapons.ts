@@ -26,6 +26,12 @@ export interface WeaponDef {
    * (`edgeFactor` of that at the edge). The ship that was hit takes the full damage only.
    */
   splash?: { radius: number; damageFactor: number; edgeFactor: number };
+  /**
+   * Shots that lose strength with distance (the rapid-fire guns): over its flight the shot gets thinner and hits
+   * softer, in a straight line from full strength at the muzzle to `damage` and `radius` (shares of the
+   * full values) at the end of its range.
+   */
+  falloff?: { damage: number; radius: number };
   /** Guided shots only: how fast (degrees per second) the flight direction can turn toward the target. */
   turnRateDeg?: number;
 }
@@ -43,13 +49,15 @@ export const WEAPONS = {
   machine_gun: {
     damage: 2,
     intervalSec: 0.15,
-    range: 45,
+    // (Reaches farther than the cannons, but a long shot is thin and soft: see `falloff`.)
+    range: 72,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 4.5,
     startSpeedPct: 1,
     accelSec: 0,
     visual: 'bullet',
+    falloff: { damage: 0.3, radius: 0.45 },
   },
   // Turret cannons follow GAME_DESIGN.md §6.3 per tier (damage / interval); range grows with tier.
   cannon_t3: {
@@ -103,13 +111,14 @@ export const WEAPONS = {
   carrier_gun: {
     damage: 8,
     intervalSec: 0.25,
-    range: 60,
+    range: 88,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 3,
     startSpeedPct: 1,
     accelSec: 0,
     visual: 'bullet',
+    falloff: { damage: 0.3, radius: 0.45 },
   },
   // The carrier's second turret fires rockets instead of bullets (an exception to its turret type).
   carrier_rocket: {
@@ -161,13 +170,14 @@ export const WEAPONS = {
   drone_gun: {
     damage: 1.8,
     intervalSec: 0.12,
-    range: 28,
+    range: 38,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 5,
     startSpeedPct: 1,
     accelSec: 0,
     visual: 'bullet',
+    falloff: { damage: 0.35, radius: 0.5 },
   },
   drone_rocket: {
     damage: 20,

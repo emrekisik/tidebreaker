@@ -844,7 +844,8 @@ export class Effects {
       if (set.active[i] === 0) continue;
       const w = set.weapon[i]!;
       const kind = this.kindOfWeapon[w]!;
-      const ps = this.powerScale(set.power[i]!) * this.sizeOfWeapon[w]!;
+      // (The streak of a rapid-fire shot thins out with the shot.)
+      const ps = this.powerScale(set.power[i]!) * this.sizeOfWeapon[w]! * set.radiusFactor(i);
       const every = kind === 0 ? B.everySec : kind === 1 ? S.everySec : kind === 3 ? M.everySec : R.everySec;
       let carry = carries[i]! + dt;
       while (carry >= every) {
