@@ -2,6 +2,8 @@ import { RANKS } from '@tidebreaker/shared';
 import { describe, expect, it } from 'vitest';
 import { rankSvg } from './rankBadge.ts';
 
+const count = (svg: string, cls: string): number => svg.split(`class="${cls}"`).length - 1;
+
 describe('rank insignia', () => {
   it('draws a different, well-formed picture for every rank', () => {
     const seen = new Set<string>();
@@ -15,18 +17,17 @@ describe('rank insignia', () => {
     expect(seen.size).toBe(RANKS.count);
   });
 
-  it('puts one more star on each gold rank, and the top rank looks different', () => {
-    const stars = (r: number): number => {
-      let n = 0;
-      for (const m of rankSvg(r).matchAll(/<polygon points="([^"]*)" fill="url\(#m\)"/g)) if (m[1]!.split(' ').length === 10) n++;
-      return n;
-    };
-    expect(stars(13)).toBe(stars(12) + 1);
-    expect(stars(15)).toBe(stars(12) + 3);
-    // The top rank is a design of its own: five stars, a laurel wreath and a ruby.
-    expect(stars(RANKS.count - 1)).toBe(5);
-    expect(rankSvg(RANKS.count - 1)).toContain('url(#ruby)');
-    expect(rankSvg(15)).not.toContain('url(#ruby)');
+  it('counts the symbols: 1-8 chevrons, then 1-4 bars, then 1-4 stars', () => {
+    for (let r = 0; r < 8; r++) expect(count(rankSvg(r), 'ch')).toBe(r + 1);
+    for (let r = 8; r < 12; r++) expect(count(rankSvg(r), 'bar')).toBe(r - 7);
+    for (let r = 12; r < 16; r++) expect(count(rankSvg(r), 'st')).toBe(r - 11);
+  });
+
+  it('gives the top rank a design of its own', () => {
+    const top = rankSvg(RANKS.count - 1);
+    expect(top).toContain('class="laurel"');
+    expect(top).toContain('url(#ruby)');
+    expect(rankSvg(15)).not.toContain('class="laurel"');
   });
 
   it('keeps ranks that are out of range inside the ladder', () => {

@@ -203,7 +203,7 @@ svg.ico,
   display: flex;
 }
 #hud-rank .rank-badge {
-  height: 30px;
+  height: 28px;
   width: auto;
   margin: 0;
 }
@@ -1674,11 +1674,11 @@ svg.ico,
 }
 .feed-row .rank-badge,
 .wreck-mark .wm-name .rank-badge {
-  height: 21px;
+  height: 18px;
   margin-right: 5px;
 }
 .sb-name .rank-badge {
-  height: 25px;
+  height: 22px;
 }
 /* The top rank glows. */
 .rank-top {
@@ -1693,7 +1693,7 @@ svg.ico,
   }
 }
 .ann-rank .rank-badge {
-  height: 26px;
+  height: 24px;
 }
 .ann-rank {
   animation: rank-pop 0.5s ease-out;
@@ -1726,40 +1726,40 @@ svg.ico,
   display: flex;
   align-items: center;
   gap: 0.3em;
-  padding: 0.2em 0.65em 0.2em 0.35em;
   white-space: nowrap;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #eaf4ff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-  background: rgba(6, 20, 38, 0.62);
-  border: 1px solid var(--edge, rgba(255, 255, 255, 0.3));
+  color: var(--ink, #eaf4ff);
+  /* No backing: the dark outline around the letters keeps them readable on the sea. */
+  text-shadow:
+    0 0 2px rgba(0, 10, 24, 0.95),
+    0 1px 2px rgba(0, 10, 24, 0.95),
+    0 0 6px rgba(0, 10, 24, 0.7);
   will-change: transform;
 }
 .nplate.blue {
-  --edge: rgba(143, 208, 255, 0.7);
+  --ink: #bfe3ff;
 }
 .nplate.red {
-  --edge: rgba(255, 143, 166, 0.7);
+  --ink: #ffc2cf;
 }
 .nplate.pirate {
-  --edge: rgba(255, 216, 77, 0.7);
+  --ink: #ffe08a;
 }
 .nplate.own {
-  --edge: rgba(255, 255, 255, 0.85);
+  --ink: #ffffff;
 }
-.nplate.top {
-  --edge: rgba(255, 226, 130, 0.95);
-  box-shadow: 0 0 10px rgba(255, 200, 70, 0.45);
+.nplate.top .np-name {
+  color: #ffe9a8;
 }
 .np-rank {
   display: flex;
   align-items: center;
 }
 .np-rank .rank-badge {
-  height: 2em;
-  margin: -0.25em 0 -0.25em 0;
+  height: 1.75em;
+  margin: 0;
 }
 
 /* ---- a promotion pops up over the own ship ---- */
@@ -1774,7 +1774,7 @@ svg.ico,
 }
 .ru-badge {
   position: relative;
-  height: 54px;
+  height: 52px;
   width: auto;
   margin: 0;
   animation: ru-pop 3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
