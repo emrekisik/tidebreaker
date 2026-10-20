@@ -1,3 +1,5 @@
+import { rankBadge } from './rankBadge.ts';
+import { RankBook } from './rankBook.ts';
 import skullIcon from './icons/skull.svg?raw';
 
 /** How long a mark stays (seconds): matches the CSS animation. */
@@ -14,7 +16,7 @@ export class WreckMarks {
   private readonly out = new Float32Array(2);
 
   /** A ship of `team` ('blue', 'red' or 'pirate') named `name` went down at (x, y). */
-  add(x: number, y: number, name: string, team: string, nowMs: number): void {
+  add(x: number, y: number, name: string, team: string, nowMs: number, rank: number | null = null): void {
     const el = document.createElement('div');
     el.className = `wreck-mark ${team}`;
     const skull = document.createElement('div');
@@ -23,6 +25,7 @@ export class WreckMarks {
     const label = document.createElement('div');
     label.className = 'wm-name';
     label.textContent = name;
+    if (rank !== null) label.prepend(rankBadge(rank, RankBook.title(rank)));
     el.append(skull, label);
     el.style.display = 'none';
     this.layer.append(el);

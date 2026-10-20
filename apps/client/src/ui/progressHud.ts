@@ -1,6 +1,8 @@
 import { STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import { rankBadge } from './rankBadge.ts';
+import { RankBook } from './rankBook.ts';
 import type { MessageKey } from '../i18n/index.ts';
 import agilityIcon from './icons/agility.svg?raw';
 import ammunitionIcon from './icons/ammunition.svg?raw';
@@ -55,6 +57,7 @@ export class ProgressHud {
   private readonly lives = document.getElementById('hud-lives') as HTMLElement;
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
   private readonly score = document.getElementById('hud-score') as HTMLElement;
+  private readonly rankSlot = document.getElementById('hud-rank') as HTMLElement;
   private readonly next = document.getElementById('hud-next') as HTMLElement;
   private readonly lv = document.getElementById('hud-lv') as HTMLElement;
   private readonly classFill = document.getElementById('hud-classfill') as HTMLElement;
@@ -161,6 +164,11 @@ export class ProgressHud {
       return card;
     });
     this.cards.replaceChildren(...cards);
+  }
+
+  /** The player's own rank changed: its insignia stands beside the score. */
+  setRank(rank: number): void {
+    this.rankSlot.replaceChildren(rankBadge(rank, RankBook.title(rank)));
   }
 
   /** The player's own progress changed. */

@@ -121,6 +121,11 @@ export const sfx = {
     else if (kind === ANNOUNCE.GUNS_UPGRADED) audio.play('upgrade', { own: true });
   },
 
+  /** The player's own rank went up. */
+  rankUp(): void {
+    audio.play('tier_ready', { own: true, gain: 0.9 });
+  },
+
   click(): void {
     audio.play('ui_click', { own: true });
   },

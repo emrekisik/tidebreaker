@@ -91,7 +91,7 @@ export interface OnlineEvents extends GameEvents {
   /** A ship changed class (anyone's): `x`, `y` is where, `length` the new hull's length. */
   onUpgrade(x: number, y: number, length: number): void;
   /** A ship went down (anyone's, carriers included). */
-  onSunk(entity: ShipEntity, x: number, y: number, name: string): void;
+  onSunk(entity: ShipEntity, x: number, y: number, name: string, id: number): void;
   /** The player was sunk. */
   onDied(killerId: number, killerName: string, respawnSec: number): void;
   onMatch(
@@ -914,7 +914,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
         if (r && r.kind === KIND.SHIP) name = r.name;
         else if (r && r.kind === KIND.PIRATE) name = pirateName(r.name);
       }
-      this.deps.events.onSunk(e, x, y, name);
+      this.deps.events.onSunk(e, x, y, name, id);
     };
     if (id === this.myId) apply();
     else this.at(tick * STEP_MS, apply);

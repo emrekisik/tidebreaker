@@ -92,6 +92,8 @@
   "sound.style.arcade": "Arcade",
   "sound.style.real": "Gerçekçi",
   "sound.ambient": "Deniz ve motor sesi aç / kapat",
+  "rank.title": "Rütbe {n}/{max}",
+  "announce.rankUp": "Rütben yükseldi!",
   "drone.count": "Drone",
   "drone.full": "DOLU",
   "drone.fpv_drone": "FPV drone",

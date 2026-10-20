@@ -1619,3 +1619,44 @@ svg.ico,
 .ss-sea:hover {
   border-color: #6dff9a;
 }
+
+/* ---- ranks: the insignia left of a name (ui/rankBadge.ts) ---- */
+.rank-badge {
+  height: 20px;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 6px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+.feed-row .rank-badge,
+.wreck-mark .wm-name .rank-badge {
+  height: 17px;
+  margin-right: 4px;
+}
+.sb-name .rank-badge {
+  height: 22px;
+}
+#hud-rank {
+  display: inline-block;
+  margin-right: 7px;
+}
+#hud-rank .rank-badge {
+  height: 26px;
+  margin-right: 0;
+}
+.ann-rank {
+  animation: rank-pop 0.5s ease-out;
+}
+@keyframes rank-pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}

@@ -13,6 +13,9 @@ import {
   SHIPS,
   STEP_MS,
   STEP_SEC,
+  TEAM_BLUE,
+  TEAM_PIRATE,
+  TEAM_RED,
   TRAINING,
   WEAPONS,
   WEAPON_IDS,
@@ -76,6 +79,7 @@ import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
 import { ProgressHud } from './ui/progressHud.ts';
+import { RankBook } from './ui/rankBook.ts';
 import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
 import { Minimap } from './ui/minimap.ts';
@@ -188,7 +192,14 @@ const progressHud = new ProgressHud(
 const rigView = new RigView(stage.scene, assets.prop('oil_rig'));
 const rigHud = new RigHud();
 const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement);
-const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement);
+const ranks = new RankBook();
+const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement, ranks);
+ranks.onOwnRank = (rank) => progressHud.setRank(rank);
+ranks.onPromoted = (rank) => {
+  announcer.rankUp(rank, online?.myTeam ?? TEAM_BLUE);
+  sfx.rankUp();
+};
+progressHud.setRank(0);
 const stormEl = document.getElementById('storm') as HTMLElement;
 const minimapEl = document.getElementById('minimap') as HTMLElement;
 const pickerEl = document.getElementById('picker') as HTMLElement;
@@ -360,8 +371,12 @@ const events: OnlineEvents = {
       if (d < R * 3) rig.shake(Math.min(0.9, (1 - d / (R * 3)) * 0.9));
     }
   },
-  onSunk(entity, x, y, name) {
-    if (name) wreckMarks.add(x, y, name, teamNameOf(entity.combatant.team), performance.now());
+  onSunk(entity, x, y, name, id) {
+    if (name) {
+      const team = entity.combatant.team;
+      const ranked = team === TEAM_BLUE || team === TEAM_RED;
+      wreckMarks.add(x, y, name, teamNameOf(team), performance.now(), ranked ? ranks.of(id) : null);
+    }
     effects.explode(x, y, entity.combatant.def.length, entity.combatant.def.flying !== true);
     sfx.sunk(x, y, entity.combatant.def.length, entity.combatant.def.flying === true);
   },
@@ -401,12 +416,17 @@ const events: OnlineEvents = {
       victimTeam,
       weapon,
       killerId === me || victimId === me,
+      killerId > 2 && killerTeam !== TEAM_PIRATE ? ranks.of(killerId) : null,
+      victimId > 2 && victimTeam !== TEAM_PIRATE ? ranks.of(victimId) : null,
     );
   },
   onScores(rows, myId) {
+    ranks.update(rows, myId);
     scoreboard.update(rows, myId);
   },
   onJoined() {
+    ranks.reset();
+    progressHud.setRank(0);
     matchHud.respawned();
     missileLock.reset();
     sfx.appeared();

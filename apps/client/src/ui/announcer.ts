@@ -1,5 +1,7 @@
 import { ANNOUNCE, TEAM_BLUE } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import { rankBadge } from './rankBadge.ts';
+import { RankBook } from './rankBook.ts';
 
 const MAX_ROWS = 4;
 const LIFETIME_MS = 6500;
@@ -10,6 +12,17 @@ const LIFETIME_MS = 6500;
  */
 export class Announcer {
   constructor(private readonly root: HTMLElement) {}
+
+  /** The player's own rank went up. */
+  rankUp(rank: number, team: number): void {
+    const row = document.createElement('div');
+    row.className = `ann-row ann-rank panel ${team === TEAM_BLUE ? 'blue' : 'red'}`;
+    row.append(rankBadge(rank, RankBook.title(rank)), document.createTextNode(` ${t('announce.rankUp')}`));
+    this.root.append(row);
+    while (this.root.childElementCount > MAX_ROWS) this.root.firstElementChild?.remove();
+    setTimeout(() => row.classList.add('fading'), LIFETIME_MS - 600);
+    setTimeout(() => row.remove(), LIFETIME_MS);
+  }
 
   /** `name`: the player behind it (empty when it is the team's doing, like a rig). Shown as text only. */
   show(kind: number, arg: number, team: number, name: string): void {

@@ -1,6 +1,8 @@
-import { SHIP_IDS, TEAM_BLUE, TEAM_RED } from '@tidebreaker/shared';
+import { SHIP_IDS, TEAM_BLUE, TEAM_RED, compareRankOrder } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import { rankBadge } from './rankBadge.ts';
+import { RankBook } from './rankBook.ts';
 
 /** Two-column scoreboard (blue, red): hold Tab, or it stays up between rounds. */
 export class Scoreboard {
@@ -9,7 +11,10 @@ export class Scoreboard {
   private held = false;
   private pinned = false;
 
-  constructor(private readonly root: HTMLElement) {}
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly ranks: RankBook,
+  ) {}
 
   /** The server's latest scores. */
   update(rows: ScoreEntry[], myId: number): void {
@@ -53,7 +58,7 @@ export class Scoreboard {
     col.append(head);
     const mine = this.rows
       .filter((r) => r.team === team)
-      .sort((a, b) => b.score - a.score || b.kills - a.kills);
+      .sort(compareRankOrder);
     for (const r of mine) {
       const row = document.createElement('div');
       row.className = r.id === this.myId ? 'sb-row me' : 'sb-row';
@@ -78,7 +83,8 @@ export class Scoreboard {
     icon.alt = `T${r.tier + 1}`;
     icon.title = `T${r.tier + 1}`;
     icon.src = `${import.meta.env.BASE_URL}icons/ships/side/${r.team === TEAM_BLUE ? 'blue' : 'red'}/${ship}.png`;
-    el.append(icon, document.createTextNode(r.name));
+    const rank = this.ranks.of(r.id);
+    el.append(rankBadge(rank, RankBook.title(rank)), icon, document.createTextNode(r.name));
     return el;
   }
 

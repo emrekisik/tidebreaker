@@ -17,3 +17,4 @@ export * from './base.ts';
 export * from './emotes.ts';
 export * from './missiles.ts';
 export * from './mines.ts';
+export * from './ranks.ts';
