@@ -1665,10 +1665,8 @@ svg.ico,
 
 /* ---- ranks: the insignia beside a name (ui/rankBadge.ts) ---- */
 .rank-badge {
-  /* Pixel art (21 x 21): shown at 21 px or a whole multiple, never smoothed. */
-  height: 21px;
-  width: 21px;
-  image-rendering: pixelated;
+  height: 22px;
+  width: 22px;
   vertical-align: middle;
   margin-right: 6px;
 }
@@ -1774,8 +1772,8 @@ svg.ico,
 }
 .ru-badge {
   position: relative;
-  height: 63px;
-  width: 63px;
+  height: 60px;
+  width: 60px;
   margin: 0;
   animation: ru-pop 3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   filter: drop-shadow(0 0 9px rgba(255, 214, 102, 0.9));

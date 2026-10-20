@@ -49,8 +49,8 @@ export const WEAPONS = {
   machine_gun: {
     damage: 2,
     intervalSec: 0.15,
-    // (Reaches farther than the cannons, but a long shot is thin and soft: see `falloff`.)
-    range: 72,
+    // (As far as a cannon shot reaches, but a long shot is thin and soft: see `falloff`.)
+    range: 60,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 4.5,
@@ -111,7 +111,7 @@ export const WEAPONS = {
   carrier_gun: {
     damage: 8,
     intervalSec: 0.25,
-    range: 88,
+    range: 70,
     projectileSpeed: 75,
     radius: 0.15,
     spreadDeg: 3,
