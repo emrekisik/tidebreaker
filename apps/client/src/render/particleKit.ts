@@ -3,6 +3,7 @@ import {
   BoxGeometry,
   BufferGeometry,
   CircleGeometry,
+  DataTexture,
   PlaneGeometry,
   DoubleSide,
   IcosahedronGeometry,
@@ -13,12 +14,14 @@ import {
   ShaderMaterial,
 } from 'three';
 import { FX } from '@tidebreaker/shared';
+import { CLOUD_TILES, createCloudAtlas } from './cloudAtlas.ts';
 import { SUN_DIR } from './stage.ts';
 
 /** How a pool orients its particles. */
 export const MODE_UNIFORM = 0; // uniformly scaled, no rotation
 export const MODE_TUMBLE = 1; // spins around two axes (debris)
 export const MODE_STREAK = 2; // stretched along the velocity (sparks)
+export const MODE_SPRITE = 3; // camera-facing cloud sprite that turns on the spot (smoke, flames)
 
 /** An instanced mesh plus the per-instance color/alpha buffers the particle shader reads. */
 export interface ParticleBuffers {
@@ -42,6 +45,12 @@ export interface ParticleKit {
   debris: ParticleBuffers;
   /** Flat foam on the water surface. */
   foam: ParticleBuffers;
+  /** Soft, billowy smoke sprites (alpha blended). */
+  smoke: ParticleBuffers;
+  /** Soft, billowy flame sprites (additive). */
+  blaze: ParticleBuffers;
+  /** Soft, ragged patches lying flat on the water (oil slicks, shock waves). */
+  slick: ParticleBuffers;
 }
 
 const SUN = SUN_DIR;
@@ -113,15 +122,96 @@ void main() {
 }
 `;
 
+// Camera-facing cloud sprites: the quad turns by an angle stored in the instance matrix (x axis = size * (cos, sin)),
+// and each particle shows one of the atlas's clouds (picked by its instance index) so a column of them is not a stamp.
+const SPRITE_VERTEX = /* glsl */ `
+attribute vec3 aColor;
+attribute float aAlpha;
+varying vec3 vColor;
+varying float vAlpha;
+varying vec2 vUv;
+varying vec2 vTurn;
+varying float vTile;
+uniform float uMode;
+void main() {
+  vec4 center = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  vec3 axis = instanceMatrix[0].xyz;
+  float size = length(axis);
+  vec2 turn = axis.xy / max(size, 0.0001);
+  vec2 p = vec2(turn.x * position.x - turn.y * position.y, turn.y * position.x + turn.x * position.y);
+  vec4 mv = viewMatrix * center;
+  if (uMode > 1.5) {
+    // Lying flat on the water: the quad turns in the horizontal plane.
+    mv = viewMatrix * vec4(center.x + p.x * size, center.y, center.z + p.y * size, 1.0);
+  } else {
+    mv.xy += p * size;
+  }
+  vColor = aColor;
+  vAlpha = aAlpha;
+  vUv = uv;
+  vTurn = turn;
+  vTile = mod(float(gl_InstanceID), ${CLOUD_TILES * CLOUD_TILES}.0);
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const SPRITE_FRAGMENT = /* glsl */ `
+uniform sampler2D uCloud;
+uniform float uMode;
+varying vec3 vColor;
+varying float vAlpha;
+varying vec2 vUv;
+varying vec2 vTurn;
+varying float vTile;
+void main() {
+  float tiles = ${CLOUD_TILES}.0;
+  vec2 tile = vec2(mod(vTile, tiles), floor(vTile / tiles));
+  vec2 uv = (tile + clamp(vUv, 0.01, 0.99)) / tiles;
+  float d = texture2D(uCloud, uv).r;
+  vec3 col = vColor;
+  if (uMode > 1.5) {
+    gl_FragColor = vec4(col, vAlpha * d);
+  } else if (uMode > 0.5) {
+    // Fake light from the upper left of the screen: the side facing it is brighter, the far side darker (the quad turns, so turn back first).
+    vec2 rel = vUv - 0.5;
+    vec2 back = vec2(vTurn.x * rel.x + vTurn.y * rel.y, -vTurn.y * rel.x + vTurn.x * rel.y);
+    float side = dot(back, vec2(-0.6, 0.8)) * 2.0;
+    col *= clamp(0.78 + 0.5 * side * d + 0.18 * d, 0.45, 1.35);
+    gl_FragColor = vec4(col, vAlpha * d);
+  } else {
+    // Flames: the dense middle burns hotter (brighter), the thin rim is dimmer.
+    gl_FragColor = vec4(col * (0.55 + 0.9 * d * d), vAlpha * d);
+  }
+  #include <colorspace_fragment>
+}
+`;
+
 interface MaterialOptions {
   billboard?: boolean;
+  sprite?: 'smoke' | 'blaze' | 'slick';
   lit: boolean;
   additive: boolean;
   opaque: boolean;
   soft: boolean;
 }
 
+let cloudAtlas: DataTexture | null = null;
+
 function material(o: MaterialOptions): ShaderMaterial {
+  if (o.sprite) {
+    cloudAtlas ??= createCloudAtlas();
+    return new ShaderMaterial({
+      uniforms: { uCloud: { value: cloudAtlas }, uMode: { value: o.sprite === 'slick' ? 2 : o.sprite === 'smoke' ? 1 : 0 } },
+      vertexShader: SPRITE_VERTEX,
+      fragmentShader: SPRITE_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+      // Smoke and flames rise above everything: the water must not cut their base off along a straight line.
+      depthTest: o.sprite === 'slick',
+      side: DoubleSide,
+      blending: o.additive ? AdditiveBlending : NormalBlending,
+    });
+  }
   return new ShaderMaterial({
     uniforms: {
       uSun: { value: SUN },
@@ -155,7 +245,7 @@ function buffers(
   return { mesh, color, alpha, mode };
 }
 
-/** Meshes for all particle pools: 7 draw calls in total. */
+/** Meshes for all particle pools: 10 draw calls in total. */
 export function createParticleKit(): ParticleKit {
   const cap = FX.capacity;
   const foam = buffers(new CircleGeometry(0.5, 9).rotateX(-Math.PI / 2), cap.foam, MODE_UNIFORM, {
@@ -202,5 +292,33 @@ export function createParticleKit(): ParticleKit {
     opaque: true,
     soft: false,
   });
-  return { puff, fire, glow, spark, tracer, debris, foam };
+  const smoke = buffers(new PlaneGeometry(1, 1), cap.smoke, MODE_SPRITE, {
+    sprite: 'smoke',
+    lit: false,
+    additive: false,
+    opaque: false,
+    soft: false,
+  });
+  const blaze = buffers(new PlaneGeometry(1, 1), cap.blaze, MODE_SPRITE, {
+    sprite: 'blaze',
+    lit: false,
+    additive: true,
+    opaque: false,
+    soft: false,
+  });
+  const slick = buffers(new PlaneGeometry(1, 1), cap.slick, MODE_SPRITE, {
+    sprite: 'slick',
+    lit: false,
+    additive: false,
+    opaque: false,
+    soft: false,
+  });
+  slick.mesh.renderOrder = 1; // like foam: after the water, before the ships
+  // Order of the transparent layers: smoke, then flames over it, then the bright sparks and glows over both.
+  smoke.mesh.renderOrder = 3;
+  blaze.mesh.renderOrder = 4;
+  glow.mesh.renderOrder = 5;
+  fire.mesh.renderOrder = 5;
+  spark.mesh.renderOrder = 5;
+  return { puff, fire, glow, spark, tracer, debris, foam, smoke, blaze, slick };
 }

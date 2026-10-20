@@ -117,6 +117,9 @@ stage.scene.add(
   particleKit.spark.mesh,
   particleKit.tracer.mesh,
   particleKit.debris.mesh,
+  particleKit.smoke.mesh,
+  particleKit.blaze.mesh,
+  particleKit.slick.mesh,
 );
 const effects = new Effects(particleKit, MAX_PROJECTILES, wakeMap);
 
@@ -279,7 +282,7 @@ const events: OnlineEvents = {
     if (!killed) sfx.hit(x, y, damage, showNumber, weaponIdx);
     if (killed) {
       const c = target.combatant;
-      effects.explode(c.state.x, c.state.y, c.def.length);
+      effects.explode(c.state.x, c.state.y, c.def.length, c.def.flying !== true);
     }
   },
   onMiss(x, y, weaponIdx, power = 0) {
@@ -358,7 +361,7 @@ const events: OnlineEvents = {
   },
   onSunk(entity, x, y, name) {
     if (name) wreckMarks.add(x, y, name, teamNameOf(entity.combatant.team), performance.now());
-    effects.explode(x, y, entity.combatant.def.length);
+    effects.explode(x, y, entity.combatant.def.length, entity.combatant.def.flying !== true);
     sfx.sunk(x, y, entity.combatant.def.length, entity.combatant.def.flying === true);
   },
   onDied(killerId, killerName, respawnSec) {
@@ -801,6 +804,9 @@ if (debug) {
               particleKit.spark.mesh,
               particleKit.tracer.mesh,
               particleKit.debris.mesh,
+              particleKit.smoke.mesh,
+              particleKit.blaze.mesh,
+              particleKit.slick.mesh,
             ],
             projectiles: projectileMeshes,
           },

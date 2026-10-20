@@ -17,7 +17,8 @@ function clamp(v: number, lo: number, hi: number): number {
  * back into the simulation. Sim coordinates are (x, y); the world position is (x, height, y).
  *
  * Pools: `puff` = lit smoke and water, `fire` = additive flames and flashes, `spark` = additive
- * streaks, `debris` = tumbling chunks, `foam` = flat foam on the water.
+ * streaks, `debris` = tumbling chunks, `foam` = flat foam on the water, `smoke` and `blaze` = soft
+ * cloud sprites (the big smoke columns and flames of explosions and burning ships).
  */
 export class Effects {
   private readonly puff: ParticlePool;
@@ -27,6 +28,9 @@ export class Effects {
   private readonly tracer: ParticlePool;
   private readonly debris: ParticlePool;
   private readonly foam: ParticlePool;
+  private readonly smoke: ParticlePool;
+  private readonly blaze: ParticlePool;
+  private readonly slick: ParticlePool;
   private readonly rng = new Mulberry32(0x51ed1ab5);
   /** Called where a ship is being repaired (the UI shows a wrench there). */
   onRepair: ((x: number, y: number) => void) | null = null;
@@ -52,6 +56,9 @@ export class Effects {
     this.tracer = new ParticlePool(kit.tracer, -100);
     this.debris = new ParticlePool(kit.debris, -0.4);
     this.foam = new ParticlePool(kit.foam, -100);
+    this.smoke = new ParticlePool(kit.smoke, -100);
+    this.blaze = new ParticlePool(kit.blaze, -100);
+    this.slick = new ParticlePool(kit.slick, -100);
     this.trailCarries.push(
       new Float32Array(projectileCapacity),
       new Float32Array(projectileCapacity),
@@ -73,6 +80,9 @@ export class Effects {
     this.tracer.update(dt);
     this.debris.update(dt);
     this.foam.update(dt);
+    this.smoke.update(dt);
+    this.blaze.update(dt);
+    this.slick.update(dt);
     // Chunks that fell into the sea throw up a little splash.
     const d = this.debris;
     for (let i = 0; i < d.landedCount; i++) {
@@ -637,55 +647,92 @@ export class Effects {
     }
   }
 
-  explode(x: number, y: number, length: number): void {
+  explode(x: number, y: number, length: number, ship = false): void {
     const s = clamp(length / 4.5, 1.1, 3);
     const E = FX.explosion;
-    this.flash(x, 1.6, y, 6 * s, 0.14, C.white, C.fire);
-    for (let i = 0; i < E.fire; i++) {
+    // Light: a hard white flash, then a warm glow that lights the water a moment longer.
+    this.glow.spawn(x, 2.2, y, 0, 0, 0, 0.12, 7 * s, 10 * s, 0, 0, C.white, C.flash, 1, 0, 0);
+    this.glow.spawn(x, 1.6, y, 0, 0, 0, 0.5, 6 * s, 13 * s, 0, 0, C.flash, C.fireDeep, 0.65, 0, 0, C.fire);
+    // The fireball: soft flame clouds that billow out and up, white-hot at first, then orange, then dark red.
+    for (let i = 0; i < E.fireball; i++) {
       const a = this.r(0, Math.PI * 2);
-      const rad = this.r(0, 0.15) * length;
-      const sp = this.r(1.5, 3.5) * s;
-      this.fire.spawn(
+      const rad = this.r(0, 0.12) * length;
+      const sp = this.r(1.2, 4.2) * s * 0.7;
+      this.blaze.spawn(
         x + Math.cos(a) * rad,
-        this.r(0.8, 1.8),
+        this.r(1, 2),
         y + Math.sin(a) * rad,
         Math.cos(a) * sp,
-        this.r(2, 6),
+        this.r(2.5, 6),
         Math.sin(a) * sp,
-        this.r(0.5, 1.0),
-        this.r(0.9, 1.5) * s,
-        this.r(2.4, 3.4) * s,
-        -2,
-        1.5,
+        this.r(0.8, 1.5),
+        this.r(0.2, 0.34) * length,
+        this.r(0.55, 0.95) * length,
+        -0.6,
+        1.4,
         C.fireHot,
         C.fireDeep,
         1,
         0,
-        0,
+        this.r(-1.3, 1.3),
         C.fire,
+        this.r(0, 0.18),
       );
     }
+    // The smoke column: black at the foot, rising and spreading, greying as it thins. Later puffs are held
+    // back, so the column keeps building for a second after the blast.
     for (let i = 0; i < E.smoke; i++) {
+      const t = i / E.smoke;
       const a = this.r(0, Math.PI * 2);
-      const rad = this.r(0, 0.2) * length;
-      this.puff.spawn(
+      const rad = this.r(0, 0.14) * length;
+      this.smoke.spawn(
         x + Math.cos(a) * rad,
-        this.r(1, 2.4),
+        this.r(1.2, 2.4),
         y + Math.sin(a) * rad,
-        FX.wind.x + this.r(-1, 1),
-        this.r(1.8, 3.6),
-        FX.wind.z + this.r(-1, 1),
-        this.r(2.2, 3.6),
-        1.1 * s,
-        4.2 * s,
-        0,
+        FX.wind.x * 1.3 + this.r(-1.6, 1.6),
+        this.r(2.6, 5.2) * (0.75 + 0.25 * s),
+        FX.wind.z * 1.3 + this.r(-1.6, 1.6),
+        E.smokeLife * this.r(0.75, 1.2),
+        this.r(0.22, 0.38) * length,
+        this.r(0.8, 1.35) * length * (0.8 + 0.5 * t),
+        -0.5,
         0.5,
+        0x2a2826,
         C.smokeMid,
-        C.smokeDark,
-        0.85,
+        0.72,
         0,
-        0,
+        this.r(-0.5, 0.5),
+        0x45474b,
+        t * 1.0 + this.r(0, 0.15),
       );
+    }
+    if (ship) {
+      // A sunk ship leaves an oil slick: low, dark, soft patches that spread on the water and stay a while.
+      const L = E.slick;
+      for (let i = 0; i < L.patches; i++) {
+        const a = this.r(0, Math.PI * 2);
+        const rad = this.r(0, 0.35) * length;
+        this.slick.spawn(
+          x + Math.cos(a) * rad,
+          this.foamY,
+          y + Math.sin(a) * rad,
+          FX.wind.x * 0.15,
+          0,
+          FX.wind.z * 0.15,
+          L.life * this.r(0.8, 1.2),
+          this.r(0.35, 0.55) * length * L.size,
+          this.r(0.9, 1.3) * length * L.size,
+          0,
+          0,
+          0x0e1113,
+          0x1a1f23,
+          0.55,
+          0,
+          this.r(-0.15, 0.15),
+          -1,
+          this.r(0.4, 1.2),
+        );
+      }
     }
     for (let i = 0; i < E.sparks; i++) {
       const a = this.r(0, Math.PI * 2);
@@ -780,7 +827,8 @@ export class Effects {
         0,
       );
     }
-    this.foam.spawn(x, this.foamY, y, 0, 0, 0, 1.1, 2 * s, 9 * s, 0, 0, C.foam, C.foam, 0.7, 0, 0);
+    // The pressure wave: a ragged ring of spray and foam spreading over the water.
+    this.slick.spawn(x, this.foamY + 0.02, y, 0, 0, 0, 1.2, 2 * s, 11 * s, 0, 0, C.foam, C.foam, 0.45, 0, this.r(-0.6, 0.6));
   }
 
   /** Trails behind projectiles in flight. `back` = seconds between the last sim step and the drawn frame. */
@@ -1197,23 +1245,27 @@ export class Effects {
   ): void {
     this.spotPosition(e, x, y, heading);
     const k = clamp(length / 7, 0.8, 1.9);
-    this.puff.spawn(
+    const D = FX.damage;
+    // A soft column: thin and pale from a lightly damaged hull, thick and black from a burning one. It stays
+    // where the wind leaves it, so a moving ship draws a long trail.
+    this.smoke.spawn(
       this.spotX,
       1.8,
       this.spotZ,
       FX.wind.x * 0.8 + this.r(-0.3, 0.3),
-      this.r(1.4, 2.6),
+      this.r(1.6, 2.8),
       FX.wind.z * 0.8 + this.r(-0.3, 0.3),
-      FX.damage.smokeLife * this.r(0.9, 1.5),
-      0.5 * k,
-      (dark ? 3.4 : 2.4) * k,
+      D.smokeLife * this.r(1.6, 2.6),
+      0.7 * k,
+      D.smokeSpread * k * (dark ? 1.15 : 0.85),
+      -0.4,
+      0.35,
+      dark ? 0x16171a : 0x9aa1a8,
+      dark ? 0x80868c : 0xdfe3e6,
+      D.smokeThick * (dark ? 1 : 0.7),
       0,
-      0.45,
-      dark ? C.smokeDark : C.smokeMid,
-      dark ? C.smokeMid : C.smokeLight,
-      dark ? 0.75 : 0.5,
-      0,
-      0,
+      this.r(-0.4, 0.4),
+      dark ? 0x3a3d42 : 0xb6bcc2,
     );
   }
 
@@ -1223,23 +1275,23 @@ export class Effects {
     const px = this.spotX;
     const pz = this.spotZ;
     const k = clamp(length / 6, 0.9, 1.9);
-    this.fire.spawn(
+    this.blaze.spawn(
       px,
       1.4,
       pz,
       this.r(-0.6, 0.6),
       this.r(2.2, 3.6),
       this.r(-0.6, 0.6),
-      this.r(0.45, 0.85),
-      1.5 * k,
-      0.2 * k,
-      0,
+      this.r(0.5, 0.95),
+      1.7 * k,
+      0.5 * k,
+      -0.5,
       0.25,
       C.fireHot,
       C.fireDeep,
       1,
       0,
-      0,
+      this.r(-2.2, 2.2),
       C.fire,
     );
     if (this.rng.next() < 0.5) {

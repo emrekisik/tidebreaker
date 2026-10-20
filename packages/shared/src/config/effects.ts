@@ -6,7 +6,7 @@ export const FX = {
   /** How long a ship turns white when it takes damage. */
   hitFlashSec: 0.05,
   /** Particle pool sizes; the oldest particle is recycled when a pool is full. */
-  capacity: { puff: 1500, fire: 700, spark: 800, tracer: 600, glow: 500, debris: 200, foam: 1000 },
+  capacity: { puff: 1500, fire: 700, spark: 800, tracer: 600, glow: 500, debris: 200, foam: 1000, smoke: 1600, blaze: 700, slick: 400 },
   gravity: 16,
   /** Smoke drifts with the wind (world x/z units per second). */
   wind: { x: 0.9, z: -0.5 },
@@ -104,6 +104,9 @@ export const FX = {
     smokeRate: 3.2,
     fireRate: 11,
     smokeLife: 1.8,
+    /** Soft smoke columns from a burning hull: how long a puff lives (x smokeLife), how large it grows (x ship scale) and how thick it is. */
+    smokeSpread: 3.4,
+    smokeThick: 0.8,
   },
 
   /**
@@ -131,7 +134,18 @@ export const FX = {
   repair: { everySec: 0.9, minGain: 0.0004 },
 
   /** What a sinking ship throws out. Counts scale with ship length via `sizeScale`. */
-  explosion: { fire: 12, smoke: 16, sparks: 26, debris: 12, ring: 3 },
+  explosion: {
+    /** Fireball: soft flame clouds that billow out and fade through orange to dark red. */
+    fireball: 10,
+    /** The smoke column: puffs that rise from the blast for several seconds (some are held back so it keeps building). */
+    smoke: 26,
+    smokeLife: 5.5,
+    sparks: 26,
+    debris: 12,
+    ring: 3,
+    /** The oil slick a sunk ship leaves: patches (of the ship length) and how long they last. */
+    slick: { patches: 4, size: 1.1, life: 16 },
+  },
   sinkingSmokeRate: 16,
   sinkingFireRate: 18,
 

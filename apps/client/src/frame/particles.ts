@@ -1,4 +1,4 @@
-import { MODE_STREAK, MODE_TUMBLE } from '../render/particleKit.ts';
+import { MODE_SPRITE, MODE_STREAK, MODE_TUMBLE } from '../render/particleKit.ts';
 import type { ParticleBuffers } from '../render/particleKit.ts';
 
 function srgbToLinear(c: number): number {
@@ -84,6 +84,7 @@ export class ParticlePool {
     alpha1: number,
     spin: number,
     hexMid = -1,
+    delay = 0,
   ): void {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.cap;
@@ -93,7 +94,8 @@ export class ParticlePool {
     this.vx[i] = vx;
     this.vy[i] = vy;
     this.vz[i] = vz;
-    this.age[i] = 0;
+    // (A delayed particle waits at a negative age and shows when it reaches zero.)
+    this.age[i] = -delay;
     this.life[i] = life;
     this.s0[i] = size0;
     this.s1[i] = size1;
@@ -137,6 +139,10 @@ export class ParticlePool {
       const life = this.life[i]!;
       if (life <= 0) continue;
       const age = this.age[i]! + dt;
+      if (age < 0) {
+        this.age[i] = age;
+        continue;
+      }
       if (age >= life) {
         this.life[i] = 0;
         continue;
@@ -228,6 +234,14 @@ export class ParticlePool {
           mat[m + 9] = zy * size;
           mat[m + 10] = zz * size;
         }
+      } else if (mode === MODE_SPRITE) {
+        // The quad turns by a slowly changing angle; the shader reads it from the x axis (size * (cos, sin)).
+        const a = (this.rot[i] = this.rot[i]! + this.spin[i]! * dt);
+        mat[m] = Math.cos(a) * size;
+        mat[m + 1] = Math.sin(a) * size;
+        mat[m + 2] = 0;
+        mat[m + 5] = size;
+        mat[m + 10] = size;
       } else {
         mat[m] = size;
         mat[m + 5] = size;
@@ -245,7 +259,10 @@ export class ParticlePool {
       colAttr[k] = this.col[c + h]! + (this.col[c + h + 3]! - this.col[c + h]!) * f;
       colAttr[k + 1] = this.col[c + h + 1]! + (this.col[c + h + 4]! - this.col[c + h + 1]!) * f;
       colAttr[k + 2] = this.col[c + h + 2]! + (this.col[c + h + 5]! - this.col[c + h + 2]!) * f;
-      alphaAttr[j] = this.a0[i]! + (this.a1[i]! - this.a0[i]!) * u;
+      let alpha = this.a0[i]! + (this.a1[i]! - this.a0[i]!) * u;
+      // Clouds fade in over the first tenth of their life (no pop when they appear).
+      if (mode === MODE_SPRITE && u < 0.1) alpha *= u * 10;
+      alphaAttr[j] = alpha;
       j++;
     }
 
