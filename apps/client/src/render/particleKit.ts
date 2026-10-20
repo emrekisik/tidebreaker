@@ -28,6 +28,8 @@ export interface ParticleBuffers {
   mesh: InstancedMesh;
   color: InstancedBufferAttribute;
   alpha: InstancedBufferAttribute;
+  /** Cloud sprites only: which of the atlas's clouds each particle shows (kept per particle slot, so it never changes during its life). */
+  tile: InstancedBufferAttribute | null;
   mode: number;
 }
 
@@ -123,10 +125,12 @@ void main() {
 `;
 
 // Camera-facing cloud sprites: the quad turns by an angle stored in the instance matrix (x axis = size * (cos, sin)),
-// and each particle shows one of the atlas's clouds (picked by its instance index) so a column of them is not a stamp.
+// and each particle shows one of the atlas's clouds (chosen once per particle slot: the instance index itself shifts as
+// particles die, which made the clouds flicker) so a column of them is not a stamp.
 const SPRITE_VERTEX = /* glsl */ `
 attribute vec3 aColor;
 attribute float aAlpha;
+attribute float aTile;
 varying vec3 vColor;
 varying float vAlpha;
 varying vec2 vUv;
@@ -150,7 +154,7 @@ void main() {
   vAlpha = aAlpha;
   vUv = uv;
   vTurn = turn;
-  vTile = mod(float(gl_InstanceID), ${CLOUD_TILES * CLOUD_TILES}.0);
+  vTile = aTile;
   gl_Position = projectionMatrix * mv;
 }
 `;
@@ -165,7 +169,9 @@ varying vec2 vTurn;
 varying float vTile;
 void main() {
   float tiles = ${CLOUD_TILES}.0;
-  vec2 tile = vec2(mod(vTile, tiles), floor(vTile / tiles));
+  // (The varying may come out a hair off an integer: round it, or pixels would pick the wrong cloud.)
+  float id = floor(vTile + 0.5);
+  vec2 tile = vec2(mod(id, tiles), floor(id / tiles));
   vec2 uv = (tile + clamp(vUv, 0.01, 0.99)) / tiles;
   float d = texture2D(uCloud, uv).r;
   vec3 col = vColor;
@@ -237,12 +243,17 @@ function buffers(
   const alpha = new InstancedBufferAttribute(new Float32Array(capacity), 1);
   geo.setAttribute('aColor', color);
   geo.setAttribute('aAlpha', alpha);
+  let tile: InstancedBufferAttribute | null = null;
+  if (o.sprite) {
+    tile = new InstancedBufferAttribute(new Float32Array(capacity), 1);
+    geo.setAttribute('aTile', tile);
+  }
   const mesh = new InstancedMesh(geo, material(o), capacity);
   const arr = mesh.instanceMatrix.array as Float32Array;
   for (let i = 0; i < capacity; i++) arr[i * 16 + 15] = 1;
   mesh.count = 0;
   mesh.frustumCulled = false;
-  return { mesh, color, alpha, mode };
+  return { mesh, color, alpha, tile, mode };
 }
 
 /** Meshes for all particle pools: 10 draw calls in total. */

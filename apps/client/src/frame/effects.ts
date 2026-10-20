@@ -674,7 +674,7 @@ export class Effects {
         C.fireDeep,
         1,
         0,
-        this.r(-1.3, 1.3),
+        this.r(-0.6, 0.6),
         C.fire,
         this.r(0, 0.18),
       );
@@ -1291,7 +1291,7 @@ export class Effects {
       C.fireDeep,
       1,
       0,
-      this.r(-2.2, 2.2),
+      this.r(-0.7, 0.7),
       C.fire,
     );
     if (this.rng.next() < 0.5) {

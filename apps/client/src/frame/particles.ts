@@ -125,7 +125,8 @@ export class ParticlePool {
     this.col[o + 8] = b1;
     this.a0[i] = alpha0;
     this.a1[i] = alpha1;
-    this.rot[i] = 0;
+    // (Sprites start turned by a different angle each, so a column of them does not look stamped.)
+    this.rot[i] = this.buf.mode === MODE_SPRITE ? (i * 2.399963) % 6.2831853 : 0;
     this.spin[i] = spin;
   }
 
@@ -133,6 +134,7 @@ export class ParticlePool {
     const mat = this.buf.mesh.instanceMatrix.array as Float32Array;
     const colAttr = this.buf.color.array as Float32Array;
     const alphaAttr = this.buf.alpha.array as Float32Array;
+    const tileAttr = this.buf.tile ? (this.buf.tile.array as Float32Array) : null;
     const mode = this.buf.mode;
     let j = 0;
     for (let i = 0; i < this.cap; i++) {
@@ -263,6 +265,7 @@ export class ParticlePool {
       // Clouds fade in over the first tenth of their life (no pop when they appear).
       if (mode === MODE_SPRITE && u < 0.1) alpha *= u * 10;
       alphaAttr[j] = alpha;
+      if (tileAttr) tileAttr[j] = i % 4;
       j++;
     }
 
@@ -277,5 +280,10 @@ export class ParticlePool {
     this.buf.alpha.clearUpdateRanges();
     this.buf.alpha.addUpdateRange(0, j);
     this.buf.alpha.needsUpdate = true;
+    if (this.buf.tile) {
+      this.buf.tile.clearUpdateRanges();
+      this.buf.tile.addUpdateRange(0, j);
+      this.buf.tile.needsUpdate = true;
+    }
   }
 }
