@@ -321,6 +321,16 @@ function teamMaterial(
   return mat;
 }
 
+/** One rock of the rock pack: its triangles (corners as x, y, z), the linear color of each corner and its size. Centered on x/z, lowest point at y = 0. */
+export interface RockPiece {
+  name: string;
+  pos: Float32Array;
+  col: Float32Array;
+  w: number;
+  h: number;
+  d: number;
+}
+
 /** Copies an attribute into plain floats (the loader may hand out normalized integers). */
 function floats(src: BufferAttribute | InterleavedBufferAttribute, items: number): Float32Array {
   const out = new Float32Array(src.count * items);
@@ -470,6 +480,50 @@ export class AssetProvider {
   }
 
   private readonly props = new Map<string, { geometry: BufferGeometry; material: Material }>();
+  private rockPieces: RockPiece[] = [];
+
+  /** Loads the rock pack (`rocks_pack.glb`). A failure leaves no rocks (the reefs and islands stay procedural). */
+  async preloadRocks(): Promise<void> {
+    try {
+      const gltf = await this.gltfOf('rocks_pack.glb');
+      gltf.scene.updateMatrixWorld(true);
+      const out: RockPiece[] = [];
+      gltf.scene.traverse((o) => {
+        const mesh = o as Mesh;
+        if (!mesh.isMesh) return;
+        const src = mesh.geometry;
+        const position = src.attributes['position'];
+        const color = src.attributes['color'];
+        if (!position || !color) return;
+        const geo = new BufferGeometry();
+        geo.setAttribute('position', new Float32BufferAttribute(floats(position, 3), 3));
+        geo.setAttribute('color', new Float32BufferAttribute(floats(color, 3), 3));
+        if (src.index) geo.setIndex(src.index.clone());
+        geo.applyMatrix4(mesh.matrixWorld);
+        // Corners in triangle order (the pack may come indexed).
+        const flat = geo.index ? geo.toNonIndexed() : geo;
+        flat.computeBoundingBox();
+        const b = flat.boundingBox!;
+        const name = mesh.name || (mesh.parent?.name ?? '').replace(/\.mesh$/, '');
+        out.push({
+          name,
+          pos: flat.attributes['position']!.array as Float32Array,
+          col: flat.attributes['color']!.array as Float32Array,
+          w: b.max.x - b.min.x,
+          h: b.max.y - b.min.y,
+          d: b.max.z - b.min.z,
+        });
+      });
+      this.rockPieces = out;
+    } catch (err) {
+      console.warn('The rock pack failed to load, using the procedural rocks.', err);
+    }
+  }
+
+  /** The rocks of the rock pack (empty when it did not load). */
+  rocks(): readonly RockPiece[] {
+    return this.rockPieces;
+  }
 
   /** Loads the static models (oil rig, islands). A failure leaves the prop missing (callers fall back). */
   async preloadProps(keys: readonly string[]): Promise<void> {

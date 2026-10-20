@@ -134,6 +134,7 @@ await Promise.all([
 ]);
 await assets.preload(Object.keys(MODEL_SPECS));
 await assets.preloadProps(Object.keys(PROP_SPECS));
+await assets.preloadRocks();
 const bars = new BarKit();
 
 const input = new Input(canvas);
@@ -215,7 +216,7 @@ let worldMap: WorldMap | null = null;
 function setWorld(map: WorldMap): void {
   if (islands) for (const o of islands.objects) stage.scene.remove(o);
   worldMap = map;
-  islands = new IslandView(map, islandModels());
+  islands = new IslandView(map, islandModels(), assets.rocks());
   stage.scene.add(...islands.objects);
   minimapEl.replaceChildren();
   minimap = new Minimap(minimapEl, map);

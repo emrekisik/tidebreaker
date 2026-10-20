@@ -11,6 +11,7 @@ import {
 import { ISLAND_TYPES, Mulberry32, RIG } from '@tidebreaker/shared';
 import type { WorldMap } from '@tidebreaker/shared';
 import type { Material } from 'three';
+import type { RockPiece } from './assets.ts';
 import type { Footprint } from './islandFootprints.ts';
 import { WAVE_MAX } from './waves.ts';
 
@@ -24,6 +25,7 @@ const SAND = [0xf0d58f, 0xe2c27a] as const;
 const GRASS = [0x62b04a, 0x4f9a3f, 0x7cc255] as const;
 const ROCK = [0x8e949c, 0x6f757d, 0xa5abb2] as const;
 const SNOW = 0xf1f4f7;
+const GRAVEL = [0x9a9488, 0x87817a] as const;
 const REEF_ROCK = [0x6a7078, 0x858b93, 0x575c64] as const;
 const PINE = [0x2f7a3c, 0x3b8c45] as const;
 const ROUND = [0x5cb04b, 0x6fc257] as const;
@@ -92,6 +94,22 @@ class Soup {
     this.c.setHex(hex).multiplyScalar(shade);
     this.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz);
     for (let i = 0; i < 3; i++) this.col.push(this.c.r, this.c.g, this.c.b);
+  }
+
+  /**
+   * A rock of the rock pack placed at (x, y, z), turned by `yaw` and scaled by (sx, sy, sz); it keeps its own face
+   * colors (times `shade`).
+   */
+  rock(piece: RockPiece, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number, shade: number): void {
+    const c = Math.cos(yaw);
+    const s = Math.sin(yaw);
+    const p = piece.pos;
+    for (let o = 0; o < p.length; o += 3) {
+      const px = p[o]! * sx;
+      const pz = p[o + 2]! * sz;
+      this.pos.push(x + px * c - pz * s, y + p[o + 1]! * sy, z + px * s + pz * c);
+      this.col.push(piece.col[o]! * shade, piece.col[o + 1]! * shade, piece.col[o + 2]! * shade);
+    }
   }
 
   /** A quad a-b-c-d (12 numbers) as two triangles. */
@@ -281,13 +299,16 @@ class Terrain {
   readonly R: number;
   readonly type: string;
   readonly seed: number;
+  /** A rock island: bare rock, low hills, cliffs from the rock pack around the coast. */
+  readonly cliff: boolean;
   /** Distance from the center to the outline, sampled around the island. */
   private readonly edge = new Float32Array(ANGLES);
   readonly peaks: Peak[] = [];
   flat: { x: number; z: number; rho: number; h: number } | null = null;
   maxHeight = 0;
 
-  constructor(map: WorldMap, i: number, rng: Mulberry32) {
+  constructor(map: WorldMap, i: number, rng: Mulberry32, cliff = false) {
+    this.cliff = cliff;
     this.cx = map.islandX[i]!;
     this.cz = map.islandY[i]!;
     this.R = map.islandR[i]!;
@@ -319,8 +340,9 @@ class Terrain {
 
     // Hills: where the rocky peaks are. Ports and treasure islands are gentler, forts flat on top.
     const R = this.R;
-    const gentle =
-      this.type === 'treasure'
+    const gentle = cliff
+      ? 0.5
+      : this.type === 'treasure'
         ? 0.55
         : this.type === 'port'
           ? 0.75
@@ -339,7 +361,7 @@ class Terrain {
         h,
       });
     }
-    if (this.type === 'fort') this.flat = { x: this.cx, z: this.cz, rho: R * 0.42, h: 1.5 };
+    if (this.type === 'fort' && !cliff) this.flat = { x: this.cx, z: this.cz, rho: R * 0.42, h: 1.5 };
     // Highest point (for the rock and snow lines).
     for (let k = 0; k < 400; k++) {
       const a = rng.next() * Math.PI * 2;
@@ -402,6 +424,12 @@ class Terrain {
 /** Tints a face by what it is: sand, grass, bare rock or snow. */
 function faceColor(t: Terrain, x: number, z: number, y: number, ny: number): number {
   const s = t.inland(x, z);
+  if (t.cliff) {
+    // Rock island: a thin band of gravel at the water, bare rock everywhere else.
+    const n = noise(x * 0.4, z * 0.4, t.seed + 5);
+    if (s < 1.8) return GRAVEL[n < 0.5 ? 0 : 1]!;
+    return ROCK[n < 0.33 ? 0 : n < 0.66 ? 1 : 2]!;
+  }
   const sandWidth = t.type === 'treasure' ? 6 : BEACH_END;
   if (s < sandWidth) return SAND[noise(x * 0.5, z * 0.5, t.seed + 11) < 0.5 ? 0 : 1]!;
   const rockLine = t.maxHeight * 0.5;
@@ -631,6 +659,126 @@ function addReef(soup: Soup, map: WorldMap, i: number): void {
   }
 }
 
+// ---------- rocks from the rock pack
+
+/** The rocks of the pack sorted by what they are for. */
+interface RockKit {
+  /** Low boulders (natural and cave colors). */
+  boulders: RockPiece[];
+  /** Tall thin rocks. */
+  spires: RockPiece[];
+  walls: RockPiece[];
+  corners: RockPiece[];
+  arches: RockPiece[];
+  columns: RockPiece[];
+}
+
+function rockKit(pieces: readonly RockPiece[]): RockKit | null {
+  const of = (re: RegExp): RockPiece[] => pieces.filter((p) => re.test(p.name));
+  const kit: RockKit = {
+    boulders: of(/^rock(1|2|5|6|7|8|9|10)(natural|cave)/),
+    spires: of(/^rock(3|4)(natural|cave)/),
+    walls: of(/^rockformwall(long|short)/),
+    corners: of(/^rockformcorner(hard|soft)/),
+    arches: of(/^rockformarch/),
+    columns: of(/^rockformcolumn/),
+  };
+  return kit.boulders.length > 0 && kit.walls.length > 0 ? kit : null;
+}
+
+function pickOf<T>(list: readonly T[], rng: Mulberry32): T {
+  return list[Math.floor(rng.next() * list.length) % list.length]!;
+}
+
+/** Share of the islands that are rock islands (when the rock pack is there). */
+const CLIFF_SHARE = 0.25;
+
+/**
+ * A rock of `width` units across standing on the water at (x, z): turned at random, never taller than `maxHeight`
+ * (a tall rock is squashed rather than stretched), its foot below the waves.
+ */
+function putRock(soup: Soup, rng: Mulberry32, piece: RockPiece, x: number, z: number, width: number, maxHeight: number): void {
+  const k = width / Math.max(piece.w, piece.d);
+  const squash = Math.min(1, maxHeight / (piece.h * k));
+  soup.rock(piece, x, -0.45, z, rng.next() * Math.PI * 2, k, k * squash, k, 0.92 + rng.next() * 0.16);
+}
+
+/** A reef made of pack rocks: one big rock and a few small ones around it (inside the collision circle). */
+function addReefRocks(soup: Soup, kit: RockKit, map: WorldMap, i: number): void {
+  const rng = new Mulberry32(0x7ee1 + i * 104729);
+  const x = map.reefX[i]!;
+  const z = map.reefY[i]!;
+  const r = map.reefR[i]!;
+  putRock(soup, rng, pickOf(kit.boulders, rng), x, z, r * 1.7, 2.6 + r * 0.55);
+  const satellites = 2 + Math.floor(rng.next() * 3);
+  for (let k = 0; k < satellites; k++) {
+    const a = rng.next() * Math.PI * 2;
+    const d = r * (0.5 + rng.next() * 0.3);
+    putRock(soup, rng, pickOf(kit.boulders, rng), x + Math.cos(a) * d, z + Math.sin(a) * d, r * (0.45 + rng.next() * 0.35), 1.6 + r * 0.25);
+  }
+}
+
+/**
+ * A rock island: cliff walls around the coast (their outer face on the collision outline), a few columns and an
+ * arch, boulders and thin rocks on the bare terrain inside.
+ */
+function addCliffs(soup: Soup, t: Terrain, rng: Mulberry32, kit: RockKit): void {
+  const sc = Math.min(0.8, Math.max(0.38, (t.R / 30) * 0.8));
+  const wallsAndCorners = [...kit.walls, ...kit.corners];
+  let ang = rng.next() * Math.PI * 2;
+  const end = ang + Math.PI * 2;
+  let arch = t.R >= 18 && kit.arches.length > 0;
+  while (ang < end - 0.05) {
+    let piece: RockPiece;
+    if (arch && rng.next() < 0.25) {
+      piece = pickOf(kit.arches, rng);
+      arch = false;
+    } else {
+      piece = pickOf(wallsAndCorners, rng);
+    }
+    // A corner piece is an L: its arm is what lies along the coast.
+    const corner = piece.name.includes('corner');
+    const along = (corner ? piece.w * 0.7 : piece.w) * sc;
+    const depth = (corner ? piece.d * 0.45 : piece.d) * sc;
+    const arc = along / t.edgeAt(ang + 0.5 * (along / t.edgeAt(ang)));
+    const mid = ang + arc / 2;
+    const rad = t.edgeAt(mid) - depth * 0.5 - 0.4;
+    const px = t.cx + Math.cos(mid) * rad;
+    const pz = t.cz + Math.sin(mid) * rad;
+    const yaw = mid + Math.PI / 2 + (rng.next() < 0.5 ? Math.PI : 0);
+    soup.rock(piece, px, t.height(px, pz) - 0.6, pz, yaw, sc, sc * (0.85 + rng.next() * 0.35), sc, 0.92 + rng.next() * 0.16);
+    ang += arc * 0.82;
+  }
+  // Columns and boulders inside.
+  const inside = (minInland: number): { x: number; z: number } | null => {
+    for (let a = 0; a < 30; a++) {
+      const th = rng.next() * Math.PI * 2;
+      const r = Math.sqrt(rng.next()) * t.edgeAt(th) * 0.8;
+      const x = t.cx + Math.cos(th) * r;
+      const z = t.cz + Math.sin(th) * r;
+      if (t.inland(x, z) >= minInland) return { x, z };
+    }
+    return null;
+  };
+  const columns = Math.round(t.R / 14);
+  for (let n = 0; n < columns && kit.columns.length > 0; n++) {
+    const p = inside(6);
+    if (!p) continue;
+    const piece = pickOf(kit.columns, rng);
+    soup.rock(piece, p.x, t.height(p.x, p.z) - 0.4, p.z, rng.next() * Math.PI * 2, sc * 0.9, sc * 0.9, sc * 0.9, 0.95);
+  }
+  const rocks = Math.max(6, Math.round(t.R / 2));
+  for (let n = 0; n < rocks; n++) {
+    const p = inside(2.5);
+    if (!p) continue;
+    const tall = kit.spires.length > 0 && rng.next() < 0.25;
+    const piece = tall ? pickOf(kit.spires, rng) : pickOf(kit.boulders, rng);
+    const w = (tall ? 1.6 : 1.4 + rng.next() * 1.8) * (0.8 + sc);
+    const k = w / Math.max(piece.w, piece.d);
+    soup.rock(piece, p.x, t.height(p.x, p.z) - 0.3, p.z, rng.next() * Math.PI * 2, k, k, k, 0.92 + rng.next() * 0.16);
+  }
+}
+
 // ---------- modelled islands
 
 /** A fitted island model (render/assets.ts `prop`) and the footprint measured for it. */
@@ -780,8 +928,12 @@ export class IslandView {
   readonly objects: Mesh[] = [];
   private readonly shoreMat: MeshBasicMaterial;
 
-  /** `models`: the island models to bend onto the outlines (islands are procedural without them). */
-  constructor(map: WorldMap, models: readonly IslandModel[] = []) {
+  /**
+   * `models`: the island models to bend onto the outlines (islands are procedural without them). `rocks`: the rock pack
+   * (the reefs and some islands are made of it; they are procedural without it).
+   */
+  constructor(map: WorldMap, models: readonly IslandModel[] = [], rocks: readonly RockPiece[] = []) {
+    const kit = rockKit(rocks);
     const landMat = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
     this.shoreMat = new MeshBasicMaterial({
       vertexColors: true,
@@ -811,7 +963,15 @@ export class IslandView {
       const pos: number[] = [];
       const col: number[] = [];
       const rng = new Mulberry32(0x15a4d + i * 7919 + map.seed * 31);
-      const t = new Terrain(map, i, rng);
+      const cliff = kit !== null && hash2(i, map.seed, 0xc11f) < CLIFF_SHARE;
+      const t = new Terrain(map, i, rng, cliff);
+      if (cliff && kit) {
+        addTerrain(soup, t, rng);
+        addCliffs(soup, t, rng, kit);
+        addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
+        add(soup, pos, col, true);
+        continue;
+      }
       const model = models.length > 0 ? models[Math.floor(rng.next() * models.length)] : undefined;
       if (model) {
         const rot = rng.next() * Math.PI * 2;
@@ -838,7 +998,8 @@ export class IslandView {
     const col: number[] = [];
     // (The first reefs are the oil rig platforms: they are drawn as rigs, not as rocks.)
     for (let i = RIG.count; i < map.reefCount; i++) {
-      addReef(soup, map, i);
+      if (kit) addReefRocks(soup, kit, map, i);
+      else addReef(soup, map, i);
       const r = map.reefR[i]!;
       addShore(pos, col, () => r * 0.95, map.reefX[i]!, map.reefY[i]!, i * 17 + 1);
     }

@@ -199,6 +199,9 @@ importers:
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.4)
+      three:
+        specifier: 0.186.1
+        version: 0.186.1
       tsx:
         specifier: 4.23.15
         version: 4.23.15
