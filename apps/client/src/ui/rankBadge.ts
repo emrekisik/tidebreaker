@@ -3,7 +3,7 @@ import { RANKS } from '@tidebreaker/shared';
 /**
  * Rank insignia, drawn in code (no image files): a navy shield-shaped patch with metal stripes, stars and flowers.
  *   rank 0-3    silver diagonal stripes (1-4)
- *   rank 4-7    silver bar on top, an emblem and silver chevrons (1-4)
+ *   rank 4-7    silver bar on top, an eagle and silver chevrons (1-4)
  *   rank 8-11   red bar, 1-4 silver flowers, emblem, a red arch and a red chevron
  *   rank 12-15  gold bar, 1-4 gold stars, emblem, a gold arch and two gold chevrons
  *   rank 16     its own design (topRankSvg): royal blue with golden rays, double gold border, laurel wreath, five stars, a ruby;
@@ -61,21 +61,37 @@ function stripe(x0: number, y0: number, x1: number, y1: number, thick: number, f
   );
 }
 
-/** A small winged anchor (the emblem) centered on (30, cy). */
-function emblem(cy: number, fill: string): string {
-  const wing = (s: number): string => {
-    const x = (v: number): number => 30 + s * v;
-    return `<path d="M${f(x(2))} ${f(cy - 2)} C${f(x(8))} ${f(cy - 7)} ${f(x(15))} ${f(cy - 7)} ${f(x(21))} ${f(cy - 2.5)} C${f(x(17))} ${f(cy - 3.2)} ${f(x(14))} ${f(cy - 2.4)} ${f(x(12))} ${f(cy - 0.6)} C${f(x(15))} ${f(cy - 0.6)} ${f(x(17))} ${f(cy + 0.2)} ${f(x(18.5))} ${f(cy + 1.6)} C${f(x(14))} ${f(cy + 1.2)} ${f(x(11))} ${f(cy + 2.2)} ${f(x(9))} ${f(cy + 4)} C${f(x(12))} ${f(cy + 4)} ${f(x(13.5))} ${f(cy + 4.8)} ${f(x(14.5))} ${f(cy + 5.8)} C${f(x(9))} ${f(cy + 5.6)} ${f(x(5))} ${f(cy + 4.2)} ${f(x(2))} ${f(cy + 1.5)}Z" fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width=".4"/>`;
+/** One wing of the eagle (the right one; the left is its mirror): a smooth underside, feathers fanning up along the top. */
+const EAGLE_WING =
+  'M1.6 1.6C4.6 2.6 9.4 0.6 11.9 -5.8L9.7 -4.5L10 -7.9L7.8 -5.3L7.3 -8.3L5.6 -5.4L4.7 -7.9L3.5 -5L2 -6.7L1.2 -3.4Z';
+const EAGLE_BODY =
+  'M0 -3.7C2 -3.6 2.7 -1.5 2.4 0.5L1.8 2.7L3.2 7.4L0.9 6.4L0 8L-0.9 6.4L-3.2 7.4L-1.8 2.7L-2.4 0.5C-2.7 -1.5 -2 -3.6 0 -3.7Z';
+
+/**
+ * The emblem: an eagle with spread wings, its head turned to the right, a small shield on its chest. Centered on
+ * (30, cy); `k` scales it (the eagle is about 24 x 16 units at k = 1).
+ */
+function emblem(cy: number, fill: string, k = 1.4): string {
+  const wing = (mirror: boolean): string => {
+    const t = mirror ? ' transform="scale(-1 1)"' : '';
+    return (
+      `<g${t}><path d="${EAGLE_WING}" fill="${fill}" stroke="rgba(0,0,0,.5)" stroke-width=".45" stroke-linejoin="round"/>` +
+      // the feather lines
+      `<path d="M2.4 -0.8L9.6 -4.6M2.8 0.4L7.6 -5.2M3.2 1.2L5.5 -5.3M3.4 1.7L4.7 -7.8" fill="none" stroke="rgba(0,0,0,.28)" stroke-width=".3"/></g>`
+    );
   };
   return (
-    wing(1) +
-    wing(-1) +
-    // the anchor: ring, shank, stock and flukes
-    `<g fill="none" stroke="${fill}" stroke-linecap="round" stroke-width="1.5">` +
-    `<circle cx="30" cy="${f(cy - 4.4)}" r="1.5"/>` +
-    `<line x1="30" y1="${f(cy - 2.9)}" x2="30" y2="${f(cy + 7)}"/>` +
-    `<line x1="26.6" y1="${f(cy - 0.6)}" x2="33.4" y2="${f(cy - 0.6)}"/>` +
-    `<path d="M24.6 ${f(cy + 3.4)} Q30 ${f(cy + 11)} 35.4 ${f(cy + 3.4)}"/>` +
+    `<g transform="translate(30 ${f(cy)}) scale(${f(k)})">` +
+    wing(false) +
+    wing(true) +
+    `<path d="${EAGLE_BODY}" fill="${fill}" stroke="rgba(0,0,0,.5)" stroke-width=".45" stroke-linejoin="round"/>` +
+    // head with a flat brow and a hooked beak, and the eye
+    `<path d="M-1 -3.7C-1.2 -5.6 0 -7 1.7 -6.8L2.7 -6.2L4.3 -5.2L2.9 -4.7L2.4 -3.9C1.2 -3.3 -.2 -3.3 -1 -3.7Z" fill="${fill}" stroke="rgba(0,0,0,.5)" stroke-width=".4" stroke-linejoin="round"/>` +
+    `<path d="M.6 -6.2L2.4 -5.6" fill="none" stroke="rgba(0,0,0,.55)" stroke-width=".4"/>` +
+    `<circle cx="1.4" cy="-5.5" r=".32" fill="#10182f"/>` +
+    // the shield on the chest
+    `<path d="M-1.6 -1.5H1.6V1.2Q1.6 2.7 0 3.4Q-1.6 2.7 -1.6 1.2Z" fill="#14296a" stroke="rgba(0,0,0,.55)" stroke-width=".35"/>` +
+    `<path d="M-1.6 -0.3H1.6M0 -1.5V3.3" fill="none" stroke="${fill}" stroke-width=".45"/>` +
     `</g>`
   );
 }
@@ -141,7 +157,7 @@ function topRankSvg(): string {
     [48, 19, 3.2],
   ];
   for (const [x, y, r] of stars) body.push(star(x, y, r, 5, 0.42, 'url(#m)'));
-  body.push(`<g transform="translate(30 36) scale(1.22) translate(-30 -34)">${emblem(34, 'url(#m)')}</g>`);
+  body.push(emblem(35, 'url(#m)', 1.35));
   // The ruby on a gold setting.
   body.push(
     `<polygon points="30,46.5 37.5,54.5 30,64 22.5,54.5" fill="url(#ruby)" stroke="url(#m)" stroke-width="1.3" stroke-linejoin="round"/>` +
@@ -179,19 +195,19 @@ export function rankSvg(rank: number): string {
     const emblemFill = silverRow || metal === 'red' ? 'url(#e)' : m;
     if (silverRow) {
       const n = r - 3;
-      body.push(emblem(22, emblemFill));
+      body.push(emblem(22, emblemFill, 1.4));
       for (let i = 0; i < n; i++) body.push(vBand(5, 55, 36 + i * 6.2, 9, 4, m));
     } else if (metal === 'red') {
       const n = r - 7;
       for (let i = 0; i < n; i++) body.push(star(30 + (i - (n - 1) / 2) * 11, 14, 3.6, 8, 0.55, 'url(#e)'));
-      body.push(emblem(28, emblemFill));
+      body.push(emblem(29, emblemFill, 1.3));
       body.push(arch(5, 55, 49, 6, 4.6, m));
       body.push(vBand(5, 55, 56, 7, 3.6, m));
       body.push(star(30, 54, 2.2, 8, 0.55, 'url(#e)'));
     } else {
       const n = r - 11;
       for (let i = 0; i < n; i++) body.push(star(30 + (i - (n - 1) / 2) * 11, 13.5, 3.8, 5, 0.42, m));
-      body.push(emblem(28, emblemFill));
+      body.push(emblem(29, emblemFill, 1.3));
       body.push(arch(7, 53, 46, 5.5, 4.2, m));
       body.push(vBand(7, 53, 51.5, 6.5, 3.4, m));
       body.push(vBand(7, 53, 57, 6.5, 3.2, m));
