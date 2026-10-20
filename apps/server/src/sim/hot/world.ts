@@ -1431,15 +1431,15 @@ export class World
 
   // ---- money: damage credit, kill rewards, loot, pickups
 
-  /** Remembers who damaged whom (assists) and pays money for damage done to the enemy carrier. */
+  /** Remembers who damaged whom (assists) and pays score for damage done to the enemy carrier. */
   private noteDamage(attacker: number, target: number, damage: number): void {
     if (attacker < CARRIER_SLOTS || attacker >= this.playerEnd) return;
     if (target < CARRIER_SLOTS) {
-      // Hurting the enemy carrier is the point of the game: it pays a little per damage point.
+      // Hurting the enemy carrier is the point of the game: it pays a little score per damage point.
       const owed = this.carrierCarry[attacker]! + damage * ECONOMY.carrier.perDamage;
       const whole = Math.floor(owed);
       this.carrierCarry[attacker] = owed - whole;
-      this.addCash(attacker, whole);
+      this.addScore(attacker, whole);
       return;
     }
     const at = target * this.slotCount + attacker;

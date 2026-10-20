@@ -42,6 +42,12 @@ export class BaseShop {
   private readonly count = document.createElement('span');
   private readonly rows: Row[] = [];
   private visible = false;
+  /** The ship is in range of its carrier (the shop can be opened). */
+  private near = false;
+  /** The player opened the shop (it is only shown while in range). */
+  private opened = false;
+  /** The shop opened or closed. */
+  onToggle: ((open: boolean) => void) | null = null;
   private cash = 0;
   private drones = 0;
   private gunLevel = 0;
@@ -107,11 +113,32 @@ export class BaseShop {
     this.rows.push({ button: b, desc: d, price });
   }
 
-  /** Opens or closes the window (call every frame; it only touches the page on a change). */
-  show(on: boolean): void {
+  /** Whether the ship is in range of its own carrier (call every frame). Out of range the shop closes; in range it only opens on request. */
+  show(near: boolean): void {
+    if (near === this.near) return;
+    this.near = near;
+    if (!near) this.opened = false;
+    this.apply();
+  }
+
+  /** The shop button (or its key) was pressed: opens or closes the shop while in range. */
+  toggle(): void {
+    if (!this.near) return;
+    this.opened = !this.opened;
+    this.apply();
+  }
+
+  /** The ship is in range of its carrier. */
+  get inRange(): boolean {
+    return this.near;
+  }
+
+  private apply(): void {
+    const on = this.near && this.opened;
     if (on === this.visible) return;
     this.visible = on;
     this.root.classList.toggle('hidden', !on);
+    this.onToggle?.(on);
   }
 
   /** The player's money, drones and the level of the team's carrier guns changed. */

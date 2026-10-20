@@ -276,6 +276,8 @@
     <div id="dmg-layer" class="overlay"></div>
     <div id="emote-layer" class="overlay"></div>
     <div id="wreck-layer" class="overlay"></div>
+    <div id="plate-layer" class="overlay"></div>
+    <div id="shop-layer" class="overlay"></div>
     <div id="lock-layer" class="overlay"></div>
     <div id="crosshair" class="overlay hidden"></div>
     <div id="sound-ctl" class="overlay panel hidden"></div>
@@ -315,16 +317,25 @@
           <span id="num-shield" class="bar-num"></span>
         </div>
       </div>
-      <div class="hud-money">
+      <div class="hud-sep"></div>
+      <div class="hud-standing">
+        <span id="hud-rank"></span>
+        <div class="hud-standing-info">
+          <span class="hud-tag" data-i18n="hud.rank"></span>
+          <b id="hud-rank-n">1/17</b>
+          <span class="hud-tag" data-i18n="hud.score"></span>
+          <b class="hud-score" id="hud-score">0</b>
+        </div>
+      </div>
+      <div class="hud-wallet">
         <span class="hud-cash"
           ><span id="hud-cash-ico" class="ico"></span><span id="hud-cash">0</span></span
         >
-        <span class="hud-score"><span id="hud-rank"></span><span id="hud-score">0</span></span>
-      </div>
-      <div class="hud-classrow">
-        <span class="hud-lv" id="hud-lv">LV 1</span>
-        <div class="hud-classbar"><div id="hud-classfill"></div></div>
-        <span class="hud-next" id="hud-next"></span>
+        <div class="hud-classrow">
+          <span class="hud-lv" id="hud-lv">LV 1</span>
+          <div class="hud-classbar"><div id="hud-classfill"></div></div>
+          <span class="hud-next" id="hud-next"></span>
+        </div>
       </div>
       <div id="missile-hud" class="hidden"></div>
     </div>

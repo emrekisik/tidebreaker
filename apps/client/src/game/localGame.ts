@@ -134,7 +134,7 @@ export class LocalGame implements HitSink, CollisionSink, IslandSink, GameSessio
         spawn.x + t.x,
         spawn.y + t.y,
         t.heading,
-        new HealthBar(scene, bars, 'red'),
+        new HealthBar(scene, bars),
         1,
       );
     }

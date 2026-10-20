@@ -1,4 +1,4 @@
-import { STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
+import { RANKS, STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
@@ -58,6 +58,7 @@ export class ProgressHud {
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
   private readonly score = document.getElementById('hud-score') as HTMLElement;
   private readonly rankSlot = document.getElementById('hud-rank') as HTMLElement;
+  private readonly rankText = document.getElementById('hud-rank-n') as HTMLElement;
   private readonly next = document.getElementById('hud-next') as HTMLElement;
   private readonly lv = document.getElementById('hud-lv') as HTMLElement;
   private readonly classFill = document.getElementById('hud-classfill') as HTMLElement;
@@ -169,6 +170,7 @@ export class ProgressHud {
   /** The player's own rank changed: its insignia stands beside the score. */
   setRank(rank: number): void {
     this.rankSlot.replaceChildren(rankBadge(rank, RankBook.title(rank)));
+    this.rankText.textContent = `${rank + 1}/${RANKS.count}`;
   }
 
   /** The player's own progress changed. */
@@ -177,7 +179,7 @@ export class ProgressHud {
     this.cash.textContent = String(m.cash);
     // The score only counts; the next class is bought with money, and the bar shows how much of
     // its price the money in hand covers.
-    this.score.textContent = `${t('hud.score')} ${m.score}`;
+    this.score.textContent = String(m.score);
     const price = tierCost(m.tier);
     const top = price === Infinity;
     this.lv.textContent = `${t('hud.level')} ${m.tier + 1}`;

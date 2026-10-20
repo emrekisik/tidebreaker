@@ -181,33 +181,84 @@ svg.ico,
     #10dcd8 100%
   );
 }
-.hud-money {
+/* The panel has three clearly separate parts: the ship (lives, hull, shield), the standing (rank and score: gold)
+   and the wallet (money and class level: green). */
+.hud-sep {
+  grid-column: 1 / 3;
+  height: 1px;
+  margin: 1px -6px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+}
+.hud-standing {
   grid-column: 1 / 3;
   display: flex;
   align-items: center;
-  gap: 16px;
-  font-size: 15px;
+  gap: 13px;
+  padding: 8px 10px 8px 9px;
+  background: linear-gradient(90deg, rgba(255, 205, 90, 0.2), rgba(255, 205, 90, 0.03));
+  border-left: 3px solid var(--gold);
+}
+#hud-rank {
+  flex: none;
+  display: flex;
+}
+#hud-rank .rank-badge {
+  height: 62px;
+  width: auto;
+  margin: 0;
+}
+.hud-standing-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 11px;
+  row-gap: 3px;
+}
+.hud-tag {
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+#hud-rank-n {
+  font-size: 17px;
+  color: #ffeaa8;
+  font-variant-numeric: tabular-nums;
+}
+.hud-score {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.hud-wallet {
+  grid-column: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(90deg, rgba(55, 255, 92, 0.14), rgba(55, 255, 92, 0.02));
+  border-left: 3px solid var(--cash);
 }
 .hud-cash {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--cash);
 }
 .hud-cash .ico {
   flex: none;
-  width: 19px;
-  height: 19px;
-}
-.hud-score {
-  color: var(--gold);
-  letter-spacing: 0.03em;
+  width: 22px;
+  height: 22px;
 }
 /* How much of the next class's price the money in hand covers. */
 .hud-classrow {
-  grid-column: 1 / 3;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -216,13 +267,13 @@ svg.ico,
   flex: none;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: #cfe9d8;
 }
 .hud-classbar {
   flex: 1;
-  height: 4px;
+  height: 5px;
   background: rgba(3, 12, 22, 0.6);
 }
 #hud-classfill {
@@ -1553,7 +1604,7 @@ svg.ico,
 }
 #sound-ctl {
   zoom: var(--ui-scale, 1);
-  top: 232px;
+  top: 322px;
   left: 30px;
   padding: 5px 9px;
   pointer-events: auto;
@@ -1620,29 +1671,36 @@ svg.ico,
   border-color: #6dff9a;
 }
 
-/* ---- ranks: the insignia left of a name (ui/rankBadge.ts) ---- */
+/* ---- ranks: the insignia beside a name (ui/rankBadge.ts) ---- */
 .rank-badge {
-  height: 20px;
+  height: 24px;
   width: auto;
   vertical-align: middle;
-  margin-right: 6px;
+  margin-right: 7px;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
 .feed-row .rank-badge,
 .wreck-mark .wm-name .rank-badge {
-  height: 17px;
-  margin-right: 4px;
+  height: 24px;
+  margin-right: 5px;
 }
 .sb-name .rank-badge {
-  height: 22px;
+  height: 28px;
 }
-#hud-rank {
-  display: inline-block;
-  margin-right: 7px;
+/* The top rank glows. */
+.rank-top {
+  animation: rank-glow 2.4s ease-in-out infinite alternate;
 }
-#hud-rank .rank-badge {
-  height: 26px;
-  margin-right: 0;
+@keyframes rank-glow {
+  from {
+    filter: drop-shadow(0 0 2px rgba(255, 200, 70, 0.55));
+  }
+  to {
+    filter: drop-shadow(0 0 8px rgba(255, 226, 130, 1));
+  }
+}
+.ann-rank .rank-badge {
+  height: 30px;
 }
 .ann-rank {
   animation: rank-pop 0.5s ease-out;
@@ -1659,4 +1717,305 @@ svg.ico,
   100% {
     transform: scale(1);
   }
+}
+
+/* ---- name plates over the ships: frosted glass ---- */
+#plate-layer {
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  font-size: calc(13px * var(--ui-scale, 1));
+}
+.nplate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.85em 0.3em 0.5em;
+  border-radius: 1em;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 18, 40, 0.65);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.16) 100%),
+    var(--tint, rgba(255, 255, 255, 0.1));
+  -webkit-backdrop-filter: blur(9px) saturate(1.6);
+  backdrop-filter: blur(9px) saturate(1.6);
+  border: 1px solid var(--edge, rgba(255, 255, 255, 0.4));
+  box-shadow:
+    0 6px 18px rgba(0, 10, 30, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  will-change: transform;
+}
+.nplate.blue {
+  --tint: rgba(70, 150, 255, 0.24);
+  --edge: rgba(160, 210, 255, 0.65);
+}
+.nplate.red {
+  --tint: rgba(255, 80, 110, 0.24);
+  --edge: rgba(255, 170, 185, 0.65);
+}
+.nplate.pirate {
+  --tint: rgba(255, 190, 70, 0.24);
+  --edge: rgba(255, 218, 150, 0.65);
+}
+.nplate.own {
+  --edge: rgba(255, 255, 255, 0.85);
+}
+.nplate.top {
+  --edge: rgba(255, 226, 130, 0.95);
+  box-shadow:
+    0 0 16px rgba(255, 200, 70, 0.55),
+    0 6px 18px rgba(0, 10, 30, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.np-rank {
+  display: flex;
+  align-items: center;
+}
+.np-rank .rank-badge {
+  height: 2.5em;
+  margin: -0.35em 0 -0.35em 0;
+}
+
+/* ---- a promotion pops up over the own ship ---- */
+.rankup {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.ru-badge {
+  position: relative;
+  height: 104px;
+  width: auto;
+  margin: 0;
+  animation: ru-pop 3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  filter: drop-shadow(0 0 14px rgba(255, 214, 102, 0.95));
+}
+@keyframes ru-pop {
+  0% {
+    transform: translateY(24px) scale(0.2);
+    opacity: 0;
+  }
+  12% {
+    transform: translateY(0) scale(1.35);
+    opacity: 1;
+  }
+  22% {
+    transform: scale(0.94);
+  }
+  30% {
+    transform: scale(1.05);
+  }
+  38% {
+    transform: scale(1);
+  }
+  80% {
+    transform: translateY(-16px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-44px) scale(1);
+    opacity: 0;
+  }
+}
+.ru-burst {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  width: 280px;
+  height: 280px;
+  margin: -140px 0 0 -140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 238, 170, 0.9), rgba(255, 200, 80, 0) 66%);
+  animation: ru-burst 1.2s ease-out both;
+}
+@keyframes ru-burst {
+  0% {
+    transform: scale(0.1);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+.ru-ring {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 226, 130, 0.95);
+  animation: ru-ring 1.3s ease-out 0.1s both;
+}
+@keyframes ru-ring {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.ru-label {
+  position: relative;
+  margin-top: 6px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffeaa8;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(255, 200, 70, 0.7);
+  animation: ru-label 3s ease-out both;
+}
+@keyframes ru-label {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  26%,
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+}
+
+/* ---- the shop button over the own carrier ---- */
+#shop-layer {
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.shop-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 15px 8px 11px;
+  font: 800 15px var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eafff3;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 999px;
+  background: rgba(12, 44, 30, 0.8);
+  border: 1px solid #6dff9a;
+  box-shadow: 0 0 16px rgba(109, 255, 154, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  will-change: transform;
+  animation: shop-pulse 1.8s ease-in-out infinite;
+}
+.shop-btn:hover {
+  background: rgba(20, 70, 46, 0.9);
+}
+.shop-btn.open {
+  background: rgba(60, 22, 26, 0.82);
+  border-color: #ff9a9a;
+  box-shadow: 0 0 16px rgba(255, 130, 130, 0.45);
+  animation: none;
+}
+.sbtn-ico {
+  display: block;
+  width: 22px;
+  height: 22px;
+  color: #6dff9a;
+}
+.shop-btn.open .sbtn-ico {
+  color: #ff9a9a;
+}
+.sbtn-ico svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.shop-btn kbd {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 5px;
+  opacity: 0.8;
+}
+@keyframes shop-pulse {
+  50% {
+    box-shadow: 0 0 26px rgba(109, 255, 154, 0.85);
+  }
+}
+
+/* ---- announcement icons ---- */
+.ann-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.ann-ico {
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+.ann-ico svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ann-row.blue .ann-ico {
+  color: #4fe3ff;
+}
+.ann-row.red .ann-ico {
+  color: #ff5fa8;
+}
+.ann-row.lost .ann-ico svg {
+  opacity: 0.55;
+}
+.ann-chip {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 1px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 12px;
+  text-align: center;
+  color: #06121f;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+.ann-row.won .ann-chip {
+  background: #6dff9a;
+}
+.ann-row.lost .ann-chip {
+  background: #ff8a8a;
 }

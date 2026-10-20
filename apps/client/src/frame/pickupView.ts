@@ -97,7 +97,7 @@ export class PickupView {
       } else if (kindIdx === 2) {
         y += 0.25;
         // A pirate's loot chest (the big look) is bigger than the ordinary treasure chests.
-        if (this.looks[i]! === 3) size *= 1.4;
+        if (this.looks[i]! === 3) size *= 1.2;
       }
       d.position.set(x, y, z);
       // (Only what is inside the foam map, which follows the camera focus.)

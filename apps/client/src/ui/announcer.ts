@@ -1,5 +1,8 @@
 import { ANNOUNCE, TEAM_BLUE } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import damageIcon from './icons/damage.svg?raw';
+import repairIcon from './icons/repair.svg?raw';
+import rigIcon from './icons/rig.svg?raw';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
 
@@ -52,7 +55,21 @@ export class Announcer {
       .replace('{level}', String(arg));
     const row = document.createElement('div');
     row.className = `ann-row panel ${team === TEAM_BLUE ? 'blue' : 'red'}`;
-    row.textContent = text;
+    const rig = kind === ANNOUNCE.RIG_CAPTURED || kind === ANNOUNCE.RIG_LOST;
+    if (rig) row.classList.add(kind === ANNOUNCE.RIG_LOST ? 'lost' : 'won');
+    const ico = document.createElement('span');
+    ico.className = 'ann-ico';
+    ico.innerHTML = (rig ? rigIcon : kind === ANNOUNCE.CARRIER_REPAIRED ? repairIcon : damageIcon).replace(/ width="\d+" height="\d+"/, '');
+    if (rig) {
+      // The letter of the rig, as on the rig gauges.
+      const chip = document.createElement('span');
+      chip.className = 'ann-chip';
+      chip.textContent = String.fromCharCode(65 + arg);
+      ico.append(chip);
+    }
+    const label = document.createElement('span');
+    label.textContent = text;
+    row.append(ico, label);
     this.root.append(row);
     while (this.root.childElementCount > MAX_ROWS) this.root.firstElementChild?.remove();
     setTimeout(() => row.classList.add('fading'), LIFETIME_MS - 600);

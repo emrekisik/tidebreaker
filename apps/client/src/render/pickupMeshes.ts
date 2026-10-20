@@ -52,7 +52,7 @@ export function makePickupMeshes(scene: Scene, assets: AssetProvider): Instanced
       make(scene, new BoxGeometry(1.6, 1.3, 1.6), 0xb07a45, 0.25),
     fromModel(scene, assets, 'red_oil_barrel', 1.5) ??
       make(scene, new CylinderGeometry(0.85, 0.85, 1.7, 8), 0xd8321f, 0.55),
-    fromModel(scene, assets, 'pirate_golden_treasure_chest', 3.2) ??
+    fromModel(scene, assets, 'pirate_golden_treasure_chest', 2.3) ??
       make(scene, new BoxGeometry(2.6, 1.6, 1.8), 0xe9b92f, 0.45),
     fromModel(scene, assets, 'money_model', 2.2) ??
       make(scene, new BoxGeometry(1.7, 0.3, 1.1), 0x59d27a, 0.55),

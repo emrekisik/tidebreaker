@@ -1,9 +1,7 @@
 import { Group, Mesh } from 'three';
 import type { PerspectiveCamera, Scene } from 'three';
-import { disposeNameTag } from '../render/barKit.ts';
 import type { BarKit } from '../render/barKit.ts';
 
-type Team = 'blue' | 'red' | 'pirate';
 import { GhostTracker } from './ghost.ts';
 
 const WIDTH = 5;
@@ -18,25 +16,17 @@ export class HealthBar {
   private readonly shieldGhost: Mesh;
   private readonly hullTrack = new GhostTracker();
   private readonly shieldTrack = new GhostTracker();
-  private readonly tag: Mesh | null;
   private readonly lift: number;
-  private readonly kit: BarKit;
 
-  /** `name`: shows a name plate above the bar (omit it for ships that need none). */
   constructor(
     scene: Scene,
     kit: BarKit,
-    team: Team,
-    name?: string,
     /** Smaller bars and a different height for small things (drones). */
     scale = 1,
     lift = HEIGHT_ABOVE_WATER,
     /** Green hull bar (the player's side) or red (an enemy). */
     friend = false,
-    /** The rank insignia on the name plate (-1: none). */
-    rank = -1,
   ) {
-    this.kit = kit;
     this.lift = lift;
     this.group.scale.setScalar(scale);
     const bg = new Mesh(kit.bgGeo, kit.bgMat);
@@ -54,23 +44,12 @@ export class HealthBar {
     this.shield.position.set(0, -0.2, 0.01);
     this.shieldGhost.position.set(0, -0.2, 0.005);
     this.group.add(bg, this.hullGhost, this.shieldGhost, this.hull, this.shield);
-    this.tag = name ? kit.makeNameTag(name, team, rank) : null;
-    if (this.tag) {
-      this.tag.position.set(0, 1.55, 0.02);
-      this.group.add(this.tag);
-    }
     scene.add(this.group);
-  }
-
-  /** The rank on the name plate changed. */
-  setRank(rank: number): void {
-    if (this.tag) this.kit.setTagRank(this.tag, rank);
   }
 
   /** Takes the bar out of the scene (the ship is gone). */
   remove(scene: Scene): void {
     scene.remove(this.group);
-    if (this.tag) disposeNameTag(this.tag);
   }
 
   update(

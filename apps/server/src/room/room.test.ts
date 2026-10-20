@@ -924,7 +924,7 @@ describe('money and progress', () => {
     expect(notesActive()).toBe(0);
   });
 
-  it('damage to the enemy carrier pays money, not score', async () => {
+  it('damage to the enemy carrier pays score, not money', async () => {
     const { room, join, tick } = setup({ anyClass: true });
     const a = await join('A', 'corvette'); // blue
     await tick(2);
@@ -940,8 +940,8 @@ describe('money and progress', () => {
       a.input(0, 0, 0, 45, true);
       await tick(1);
     }
-    expect(room.world.cash[slot]!).toBeGreaterThan(cashBefore);
-    expect(room.world.score[slot]!).toBe(before);
+    expect(room.world.score[slot]!).toBeGreaterThan(before);
+    expect(room.world.cash[slot]!).toBe(cashBefore);
   });
 
   it('a new round starts everyone over as T1', async () => {

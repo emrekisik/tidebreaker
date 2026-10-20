@@ -81,8 +81,8 @@ export const ECONOMY = {
     minReward: 6,
   },
 
-  /** Money (no score) per point of damage dealt to the enemy carrier. */
-  carrier: { perDamage: 0.25 },
+  /** Score (no money) per point of damage dealt to the enemy carrier (a carrier has 4000 hull: one player taking it all down earns 400). */
+  carrier: { perDamage: 0.1 },
 
   /** Things floating in the sea. Values are multiplied by the zone factor of where they are. */
   pickups: {

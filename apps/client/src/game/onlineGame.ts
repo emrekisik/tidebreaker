@@ -52,6 +52,7 @@ import type {
 } from '@tidebreaker/shared';
 import { ShipEntity } from '../frame/entity.ts';
 import { HealthBar } from '../frame/healthBar.ts';
+import type { NamePlates } from '../ui/namePlates.ts';
 import type { MineView } from '../frame/mineView.ts';
 import type { PickupView } from '../frame/pickupView.ts';
 import { ServerClock } from '../net/clock.ts';
@@ -174,7 +175,9 @@ export interface OnlineDeps {
   url: string;
   name: string;
   shipIdx: number;
-  /** The rank of a player (shown on the name plate above their ship). */
+  /** The name plates over the ships. */
+  plates?: NamePlates;
+  /** The rank of a player (shown on their name plate). */
   rankOf?: (id: number) => number;
 }
 
@@ -379,13 +382,6 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     }
   }
 
-  /** The ranks changed (new scores): the name plates over the other players show them. */
-  applyRanks(rankOf: (id: number) => number): void {
-    for (const [id, r] of this.remotes) {
-      if (r.kind === KIND.SHIP) r.entity.bar?.setRank(rankOf(id));
-    }
-  }
-
   // ---- scheduling on the server's timeline
 
   private at(timeMs: number, run: () => void): void {
@@ -442,8 +438,9 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       this.player = new ShipEntity(
         combatant,
         model,
-        new HealthBar(d.scene, d.bars, teamName(team), undefined, 1, undefined, true),
+        new HealthBar(d.scene, d.bars, 1, undefined, true),
       );
+      d.plates?.add(entityId, d.name, teamName(team), d.rankOf ? d.rankOf(entityId) : -1, true);
       d.scene.add(model.root);
       this.entities.unshift(this.player);
     } else {
@@ -661,18 +658,14 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     const bar = new HealthBar(
       d.scene,
       d.bars,
-      teamName(e.team),
-      e.kind === KIND.CARRIER || e.kind === KIND.DRONE
-        ? undefined
-        : e.kind === KIND.PIRATE
-          ? pirateName(e.name)
-          : e.name,
       e.kind === KIND.DRONE ? 0.55 : 1,
       e.kind === KIND.DRONE ? DRONE.hover + 2.4 : undefined,
       // Green for the own side (the pirates are everyone's enemy), red for the rest.
       e.team === this.myTeam,
-      e.kind === KIND.SHIP && d.rankOf ? d.rankOf(e.id) : -1,
     );
+    // The name plate (carriers and drones have none); pirates show no rank.
+    if (e.kind === KIND.SHIP) d.plates?.add(e.id, e.name, teamName(e.team), d.rankOf ? d.rankOf(e.id) : -1);
+    else if (e.kind === KIND.PIRATE) d.plates?.add(e.id, pirateName(e.name), 'pirate', -1);
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
     // Bit 7 of the power field: the ship is still under spawn protection.
@@ -733,6 +726,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     const d = this.deps;
     d.scene.remove(r.entity.model.root);
     r.entity.bar?.remove(d.scene);
+    d.plates?.remove(id);
     const at = this.entities.indexOf(r.entity);
     if (at >= 0) this.entities.splice(at, 1);
     this.remotes.delete(id);

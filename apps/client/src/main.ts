@@ -79,7 +79,10 @@ import { RigHud } from './ui/rigHud.ts';
 import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
 import { ProgressHud } from './ui/progressHud.ts';
+import { NamePlates } from './ui/namePlates.ts';
 import { RankBook } from './ui/rankBook.ts';
+import { RankUp } from './ui/rankUp.ts';
+import { ShopButton } from './ui/shopButton.ts';
 import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
 import { Minimap } from './ui/minimap.ts';
@@ -154,6 +157,39 @@ pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0,
 const mines = new MineView([assets.createMineMesh('blue', MINE_CAPACITY), assets.createMineMesh('red', MINE_CAPACITY)]);
 for (const mesh of mines.meshList) stage.scene.add(mesh);
 mines.contact = pickups.contact;
+/** Where the shop button hovers above the carrier's deck (world units). */
+const SHOP_BUTTON_HEIGHT = 9;
+const shopSpot = new Vector3();
+/** Height (world units) of the top of a ship's health bar: the name plate sits just above it. */
+const PLATE_HEIGHT = 5.1;
+const plateSpot = new Vector3();
+const plateOut = new Float32Array(2);
+
+/** The screen spot for the name plate of ship `id`; false when it is gone, sunk or off screen. */
+function projectPlate(id: number, out: Float32Array): boolean {
+  const e = online?.entityOf(id);
+  if (!e || !e.combatant.state.alive) return false;
+  plateSpot.set(e.pose.x, PLATE_HEIGHT, e.pose.y).project(stage.camera);
+  if (plateSpot.z > 1) return false;
+  const x = (plateSpot.x * 0.5 + 0.5) * window.innerWidth;
+  const y = (-plateSpot.y * 0.5 + 0.5) * window.innerHeight - 4;
+  if (x < -160 || x > window.innerWidth + 160 || y < -60 || y > window.innerHeight + 80) return false;
+  out[0] = x;
+  out[1] = y;
+  return true;
+}
+
+/** Over the own ship, a little higher than the plate (the promotion pops up there). */
+function projectRankUp(out: Float32Array): boolean {
+  const me = session?.player;
+  if (!me) return false;
+  plateSpot.set(me.pose.x, PLATE_HEIGHT + 2, me.pose.y).project(stage.camera);
+  if (plateSpot.z > 1) return false;
+  out[0] = (plateSpot.x * 0.5 + 0.5) * window.innerWidth;
+  out[1] = (-plateSpot.y * 0.5 + 0.5) * window.innerHeight - 30;
+  return true;
+}
+
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
 const crosshair = new Crosshair();
@@ -195,11 +231,22 @@ const killFeed = new KillFeed(document.getElementById('killfeed') as HTMLElement
 const ranks = new RankBook();
 const scoreboard = new Scoreboard(document.getElementById('scoreboard') as HTMLElement, ranks);
 ranks.onOwnRank = (rank) => progressHud.setRank(rank);
+const plateLayer = document.getElementById('plate-layer') as HTMLElement;
+const plates = new NamePlates(plateLayer);
+const rankUp = new RankUp(plateLayer);
 ranks.onPromoted = (rank) => {
   announcer.rankUp(rank, online?.myTeam ?? TEAM_BLUE);
-  sfx.rankUp();
+  rankUp.show(rank, performance.now());
+  // The same burst of light as a new class, around the own ship.
+  const me = session?.player;
+  if (me) {
+    effects.upgrade(me.pose.x, me.pose.y, me.combatant.def.length);
+    sfx.tierUp(me.pose.x, me.pose.y, true);
+  }
 };
 progressHud.setRank(0);
+const shopButton = new ShopButton(document.getElementById('shop-layer') as HTMLElement, () => baseShop.toggle());
+baseShop.onToggle = (open) => shopButton.setOpen(open);
 const stormEl = document.getElementById('storm') as HTMLElement;
 const minimapEl = document.getElementById('minimap') as HTMLElement;
 const pickerEl = document.getElementById('picker') as HTMLElement;
@@ -248,6 +295,7 @@ window.addEventListener('keydown', (e) => {
     else if (e.code === 'KeyE') baseShop.press(4);
     else if (e.code === 'KeyR') baseShop.press(5);
     else if (e.code === 'KeyF') pressLayMine();
+    else if (e.code === 'KeyB') baseShop.toggle();
     else if (e.code === 'F9') online.net.cheat(CHEAT.MONEY);
     else if (e.code === 'KeyQ') pressLock();
   }
@@ -422,7 +470,7 @@ const events: OnlineEvents = {
   },
   onScores(rows, myId) {
     ranks.update(rows, myId);
-    online?.applyRanks((id) => ranks.of(id));
+    plates.applyRanks((id) => ranks.of(id));
     scoreboard.update(rows, myId);
   },
   onJoined() {
@@ -435,6 +483,7 @@ const events: OnlineEvents = {
     soundCtl.classList.remove('hidden');
   },
   onClosed() {
+    plates.clear();
     matchHud.connectionLost();
   },
 };
@@ -496,6 +545,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
     url: serverUrl,
     name,
     shipIdx,
+    plates,
     rankOf: (id) => ranks.of(id),
   });
   try {
@@ -724,14 +774,30 @@ function update(nowMs: number): void {
     emoteSpot.set(p.x, 1, p.y).project(stage.camera);
     emoteWheel.update((emoteSpot.x * 0.5 + 0.5) * window.innerWidth, (-emoteSpot.y * 0.5 + 0.5) * window.innerHeight);
   }
-  // The base shop is open while the player's ship is at its own carrier.
+  // The base shop can be opened while the player's ship is at its own carrier: a button shows over the carrier.
   const ownCarrier = online ? carriers[online.myTeam] : undefined;
   if (ownCarrier) baseShop.setCarrierHull(ownCarrier.state.hull / ownCarrier.def.hull);
-  baseShop.show(
+  const atCarrier =
     ownCarrier !== undefined &&
-      ps.alive &&
-      hullDistance(ownCarrier.state, ownCarrier.def, ps.x, ps.y) <= DRONE.buyRadius,
-  );
+    ps.alive &&
+    hullDistance(ownCarrier.state, ownCarrier.def, ps.x, ps.y) <= DRONE.buyRadius;
+  baseShop.show(atCarrier);
+  if (atCarrier && ownCarrier) {
+    // The button sits on the deck, toward the player's ship (the carrier's middle can be off screen).
+    const cs = ownCarrier.state;
+    const dx = ps.x - cs.x;
+    const dy = ps.y - cs.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const reach = Math.min(d, ownCarrier.def.length * 0.3);
+    shopSpot.set(cs.x + (dx / d) * reach, SHOP_BUTTON_HEIGHT, cs.y + (dy / d) * reach).project(stage.camera);
+    const bx = Math.max(70, Math.min(window.innerWidth - 70, (shopSpot.x * 0.5 + 0.5) * window.innerWidth));
+    const by = Math.max(40, Math.min(window.innerHeight - 40, (-shopSpot.y * 0.5 + 0.5) * window.innerHeight));
+    shopButton.update(shopSpot.z < 1, bx, by);
+  } else {
+    shopButton.update(false, 0, 0);
+  }
+  plates.update(projectPlate);
+  rankUp.update(nowMs, projectRankUp, plateOut);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;
