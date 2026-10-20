@@ -422,6 +422,7 @@ const events: OnlineEvents = {
   },
   onScores(rows, myId) {
     ranks.update(rows, myId);
+    online?.applyRanks((id) => ranks.of(id));
     scoreboard.update(rows, myId);
   },
   onJoined() {
@@ -495,6 +496,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
     url: serverUrl,
     name,
     shipIdx,
+    rankOf: (id) => ranks.of(id),
   });
   try {
     await game.connect();

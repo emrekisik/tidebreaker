@@ -174,6 +174,8 @@ export interface OnlineDeps {
   url: string;
   name: string;
   shipIdx: number;
+  /** The rank of a player (shown on the name plate above their ship). */
+  rankOf?: (id: number) => number;
 }
 
 /**
@@ -374,6 +376,13 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
           aims[m] = r.entity.combatant.state.heading;
         }
       }
+    }
+  }
+
+  /** The ranks changed (new scores): the name plates over the other players show them. */
+  applyRanks(rankOf: (id: number) => number): void {
+    for (const [id, r] of this.remotes) {
+      if (r.kind === KIND.SHIP) r.entity.bar?.setRank(rankOf(id));
     }
   }
 
@@ -662,6 +671,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       e.kind === KIND.DRONE ? DRONE.hover + 2.4 : undefined,
       // Green for the own side (the pirates are everyone's enemy), red for the rest.
       e.team === this.myTeam,
+      e.kind === KIND.SHIP && d.rankOf ? d.rankOf(e.id) : -1,
     );
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;
