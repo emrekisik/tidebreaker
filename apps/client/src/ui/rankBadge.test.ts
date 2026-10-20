@@ -17,16 +17,19 @@ describe('rank insignia', () => {
     expect(seen.size).toBe(RANKS.count);
   });
 
-  it('counts the symbols: 1-8 chevrons, then 1-4 bars, then 1-4 stars', () => {
-    for (let r = 0; r < 8; r++) expect(count(rankSvg(r), 'ch')).toBe(r + 1);
-    for (let r = 8; r < 12; r++) expect(count(rankSvg(r), 'bar')).toBe(r - 7);
-    for (let r = 12; r < 16; r++) expect(count(rankSvg(r), 'st')).toBe(r - 11);
+  it('counts the symbols like the DarkOrbit ranks: 1-3 narrow and 1-5 wide chevrons, four gold shields, stars on bronze', () => {
+    for (let r = 0; r < 3; r++) expect(count(rankSvg(r), 'ch')).toBe(r + 1);
+    for (let r = 3; r < 8; r++) expect(count(rankSvg(r), 'ch')).toBe(r - 2);
+    expect(count(rankSvg(9), 'band')).toBe(1);
+    expect(count(rankSvg(10), 'col')).toBe(3);
+    expect(count(rankSvg(11), 'tri')).toBe(1);
+    for (let r = 12; r < 15; r++) expect(count(rankSvg(r), 'st')).toBe(r - 11);
+    expect(count(rankSvg(15), 'st')).toBe(1);
   });
 
   it('gives the top rank a design of its own', () => {
     const top = rankSvg(RANKS.count - 1);
     expect(top).toContain('class="laurel"');
-    expect(top).toContain('url(#ruby)');
     expect(rankSvg(15)).not.toContain('class="laurel"');
   });
 
