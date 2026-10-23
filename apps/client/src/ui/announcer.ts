@@ -20,7 +20,7 @@ export class Announcer {
   rankUp(rank: number, team: number): void {
     const row = document.createElement('div');
     row.className = `ann-row ann-rank panel ${team === TEAM_BLUE ? 'blue' : 'red'}`;
-    row.append(rankBadge(rank, RankBook.title(rank)), document.createTextNode(` ${t('announce.rankUp')}`));
+    row.append(rankBadge(rank, RankBook.title(rank)), document.createTextNode(` ${t('announce.rankUp').replace('{name}', RankBook.title(rank))}`));
     this.root.append(row);
     while (this.root.childElementCount > MAX_ROWS) this.root.firstElementChild?.remove();
     setTimeout(() => row.classList.add('fading'), LIFETIME_MS - 600);

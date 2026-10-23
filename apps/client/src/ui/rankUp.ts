@@ -1,4 +1,3 @@
-import { t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
 
@@ -30,7 +29,7 @@ export class RankUp {
     badge.classList.add('ru-badge');
     const label = document.createElement('span');
     label.className = 'ru-label';
-    label.textContent = t('announce.rankUp');
+    label.textContent = RankBook.title(rank);
     el.append(burst, ring, badge, label);
     el.style.display = 'none';
     this.root.append(el);

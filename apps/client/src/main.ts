@@ -80,6 +80,7 @@ import { KillFeed } from './ui/killFeed.ts';
 import { MatchHud } from './ui/matchHud.ts';
 import { ProgressHud } from './ui/progressHud.ts';
 import { NamePlates } from './ui/namePlates.ts';
+import { preloadRankIcons } from './ui/rankBadge.ts';
 import { RankBook } from './ui/rankBook.ts';
 import { RankUp } from './ui/rankUp.ts';
 import { ShopButton } from './ui/shopButton.ts';
@@ -142,6 +143,7 @@ await Promise.all([
 await assets.preload(Object.keys(MODEL_SPECS));
 await assets.preloadProps(Object.keys(PROP_SPECS));
 await assets.preloadRocks();
+preloadRankIcons();
 const bars = new BarKit();
 
 const input = new Input(canvas);

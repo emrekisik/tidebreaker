@@ -203,7 +203,7 @@ svg.ico,
   display: flex;
 }
 #hud-rank .rank-badge {
-  height: 21px;
+  height: 23px;
   margin: 0;
 }
 .hud-standing-info {
@@ -1665,18 +1665,18 @@ svg.ico,
 
 /* ---- ranks: the insignia beside a name (ui/rankBadge.ts) ---- */
 .rank-badge {
-  height: 22px;
-  width: 22px;
+  height: 24px;
+  width: auto;
   vertical-align: middle;
   margin-right: 6px;
 }
 .feed-row .rank-badge,
 .wreck-mark .wm-name .rank-badge {
-  height: 21px;
+  height: 23px;
   margin-right: 5px;
 }
 .sb-name .rank-badge {
-  height: 21px;
+  height: 23px;
 }
 /* The top rank glows. */
 .rank-top {
@@ -1691,7 +1691,7 @@ svg.ico,
   }
 }
 .ann-rank .rank-badge {
-  height: 21px;
+  height: 23px;
 }
 .ann-rank {
   animation: rank-pop 0.5s ease-out;
@@ -1756,7 +1756,7 @@ svg.ico,
   align-items: center;
 }
 .np-rank .rank-badge {
-  height: 21px;
+  height: 23px;
   margin: 0;
 }
 
@@ -1772,8 +1772,8 @@ svg.ico,
 }
 .ru-badge {
   position: relative;
-  height: 60px;
-  width: 60px;
+  height: 64px;
+  width: auto;
   margin: 0;
   animation: ru-pop 3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   filter: drop-shadow(0 0 9px rgba(255, 214, 102, 0.9));
@@ -1808,7 +1808,7 @@ svg.ico,
 .ru-burst {
   position: absolute;
   left: 50%;
-  top: 31px;
+  top: 33px;
   width: 160px;
   height: 160px;
   margin: -80px 0 0 -80px;
@@ -1832,7 +1832,7 @@ svg.ico,
 .ru-ring {
   position: absolute;
   left: 50%;
-  top: 31px;
+  top: 33px;
   width: 70px;
   height: 70px;
   margin: -35px 0 0 -35px;

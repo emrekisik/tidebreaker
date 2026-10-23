@@ -1,6 +1,7 @@
 import { RANKS, rankTable } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import type { MessageKey } from '../i18n/index.ts';
 
 /**
  * The rank of every player, worked out from the scoreboard rows the server sends (the rank depends only on the
@@ -37,10 +38,9 @@ export class RankBook {
     this.lastOwn = -1;
   }
 
-  /** The tooltip of a rank: "Rank 5/17". */
+  /** The name of a rank ("Petty Officer"), also the tooltip of its insignia. */
   static title(rank: number): string {
-    return t('rank.title')
-      .replace('{n}', String(rank + 1))
-      .replace('{max}', String(RANKS.count));
+    const k = Math.max(0, Math.min(RANKS.count - 1, Math.floor(rank)));
+    return t(`rank.name.${k}` as MessageKey);
   }
 }
