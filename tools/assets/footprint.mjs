@@ -11,7 +11,7 @@ import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const FILES = ['island_rocky', 'island_tropical'];
+const FILES = ['island_tropical'];
 const BINS = 64;
 /** Only the low part of the model counts as coast (mountains rise out of it). */
 const COAST_HEIGHT = 0.3;

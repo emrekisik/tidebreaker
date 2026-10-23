@@ -24,14 +24,14 @@ if (ifNeeded && !existsSync(srcDir)) {
   process.exit(0);
 }
 
-const SKIP = new Set();
+// Models that stay in `models/` but are not part of the game (island_rocky: dropped, it did not look good).
+const SKIP = new Set(['island_rocky.glb']);
 // The ship pack shares a smooth palette atlas, so 256 px loses nothing. The generated models
 // (pirate ship, oil rig, islands) carry real painted textures and need more.
 const ATLAS_PX = 256;
 const TEXTURE_PX = {
   'pirate_ship.glb': 1024,
   'oil_rig.glb': 1024,
-  'island_rocky.glb': 1024,
   'island_tropical.glb': 1024,
   // Small props and drones: seen from far above, many at once.
   'red_oil_barrel.glb': 512,

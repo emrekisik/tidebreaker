@@ -260,7 +260,7 @@ let online: OnlineGame | null = null;
 /** The island models that loaded (none: the islands are generated procedurally). */
 function islandModels(): IslandModel[] {
   const out: IslandModel[] = [];
-  for (const key of ['island_tropical', 'island_rocky']) {
+  for (const key of ['island_tropical']) {
     const prop = assets.prop(key);
     const footprint = ISLAND_FOOTPRINTS[key];
     if (prop && footprint) out.push({ ...prop, footprint });

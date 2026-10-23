@@ -40,7 +40,6 @@ export interface PropSpec {
 
 export const PROP_SPECS: Readonly<Record<string, PropSpec>> = {
   oil_rig: { file: 'oil_rig.glb', node: 'oil_rig', sink: 0.07, glow: 0.5 },
-  island_rocky: { file: 'island_rocky.glb', node: 'island_rocky', sink: 0.04 },
   island_tropical: { file: 'island_tropical.glb', node: 'island_tropical', sink: 0.04 },
   // Things floating in the sea (pickups) and the drones that fly over it.
   red_oil_barrel: { file: 'red_oil_barrel.glb', node: 'red_oil_barrel', sink: 0.3, glow: 0.3 },
