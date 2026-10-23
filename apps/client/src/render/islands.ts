@@ -8,7 +8,7 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
 } from 'three';
-import { ISLAND_TYPES, Mulberry32, RIG } from '@tidebreaker/shared';
+import { ISLAND_TYPES, Mulberry32, RIG, channelRocks } from '@tidebreaker/shared';
 import type { WorldMap } from '@tidebreaker/shared';
 import type { Material } from 'three';
 import type { RockPiece } from './assets.ts';
@@ -691,7 +691,7 @@ function pickOf<T>(list: readonly T[], rng: Mulberry32): T {
 }
 
 /** Share of the islands that are rock islands (when the rock pack is there). */
-const CLIFF_SHARE = 0.25;
+const CLIFF_SHARE = 0.4;
 
 /**
  * A rock of `width` units across standing on the water at (x, z): turned at random, never taller than `maxHeight`
@@ -993,11 +993,25 @@ export class IslandView {
       addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
       add(soup, pos, col, true);
     }
+    // The rocks of the channel walls (the reefs right after the rig platforms) are a mesh of their own, so it can be
+    // skipped when it is off screen; the ordinary reefs are one mesh that is always drawn.
+    const wallEnd = Math.min(map.reefCount, RIG.count + channelRocks().length);
+    {
+      const walls = new Soup();
+      const wpos: number[] = [];
+      const wcol: number[] = [];
+      for (let i = RIG.count; i < wallEnd; i++) {
+        if (kit) addReefRocks(walls, kit, map, i);
+        else addReef(walls, map, i);
+        addShore(wpos, wcol, () => map.reefR[i]! * 0.95, map.reefX[i]!, map.reefY[i]!, i * 17 + 1);
+      }
+      add(walls, wpos, wcol, true);
+    }
     const soup = new Soup();
     const pos: number[] = [];
     const col: number[] = [];
     // (The first reefs are the oil rig platforms: they are drawn as rigs, not as rocks.)
-    for (let i = RIG.count; i < map.reefCount; i++) {
+    for (let i = wallEnd; i < map.reefCount; i++) {
       if (kit) addReefRocks(soup, kit, map, i);
       else addReef(soup, map, i);
       const r = map.reefR[i]!;

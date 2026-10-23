@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
+import { CHANNEL, RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
 import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 
@@ -182,6 +182,23 @@ export class Minimap {
       g.beginPath();
       g.arc(x, y, Math.max(1.2 * u, m.reefR[i]! * k), 0, Math.PI * 2);
       g.fill();
+    }
+
+    // The rock channel: a gold diamond in the middle of its lane, where the gold banknotes float.
+    {
+      const x = sx(CHANNEL.x);
+      const y = sy(CHANNEL.y - CHANNEL.bow / 2);
+      if (x > -10 && y > -10 && x < px + 10 && y < px + 10) {
+        const d = 4.5 * u;
+        g.fillStyle = 'rgba(255, 208, 70, 0.95)';
+        g.beginPath();
+        g.moveTo(x, y - d);
+        g.lineTo(x + d, y);
+        g.lineTo(x, y + d);
+        g.lineTo(x - d, y);
+        g.closePath();
+        g.fill();
+      }
     }
 
     // Oil rigs: the capture circle in the owner's color with the gauge around it, a derrick mark.

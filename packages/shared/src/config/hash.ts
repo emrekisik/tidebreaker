@@ -12,7 +12,7 @@ import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
 import { SALVO_GAP_SEC, WEAPONS } from './weapons.ts';
 import { MISSILE } from './missiles.ts';
 import { MINE } from './mines.ts';
-import { MAP, WORLD_SIZE } from './world.ts';
+import { CHANNEL, MAP, WORLD_SIZE } from './world.ts';
 
 let cached = 0;
 
@@ -29,6 +29,7 @@ export function configHash(): number {
     SNAPSHOT_EVERY,
     WORLD_SIZE,
     MAP,
+    CHANNEL,
     SHIPS,
     CARRIER,
     WEAPONS,

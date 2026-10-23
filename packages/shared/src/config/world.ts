@@ -1,6 +1,30 @@
 export const WORLD_SIZE = 1100;
 export const WORLD_CENTER = WORLD_SIZE / 2;
 
+/**
+ * The rock channel (GAME_DESIGN.md §4.7): two walls of rocks with a narrow lane of water between them, north of the
+ * map center and the same distance from both teams. Gold banknotes float in the lane (`ECONOMY.pickups.gold`). The
+ * walls are round obstacles like reefs, so they stop ships and shots; nothing else is generated near them.
+ */
+export const CHANNEL = {
+  /** Middle of the channel; it runs west to east. */
+  x: WORLD_CENTER,
+  y: WORLD_CENTER - 140,
+  /** End to end. */
+  length: 170,
+  /** Clear water between the two walls. */
+  gap: 14,
+  /** The lane arches this far north in the middle (its ends are on the line y). */
+  bow: 18,
+  /**
+   * The rocks of a wall: radius range, distance between neighbors along the lane (they overlap, so the wall is
+   * solid), and how far a rock may sit farther out than the lane's edge (a ragged wall).
+   */
+  rock: { min: 7, max: 9, spacing: 9, ragged: 1.5 },
+  /** No island or reef is generated closer than this to a wall. */
+  clearance: 28,
+} as const;
+
 /** Map generation and world-edge settings (GAME_DESIGN.md §4). Distances are world units. */
 export const MAP = {
   /** Island counts by type (flat = plain obstacle islands). */

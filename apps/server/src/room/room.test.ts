@@ -32,6 +32,7 @@ import {
   ECONOMY,
   KIND,
   applyWorldBounds,
+  channelSpots,
   circleVsWorld,
   collideIslands,
   configHash,
@@ -69,7 +70,7 @@ import {
 } from '@tidebreaker/shared';
 import { MemoryTransport } from '../net/memTransport.ts';
 import { TestClient, settle } from '../testing.ts';
-import { NOTE_START } from '../sim/hot/pickups.ts';
+import { GOLD_START, NOTE_START } from '../sim/hot/pickups.ts';
 import { Room } from './room.ts';
 
 const SEED = 1337;
@@ -785,6 +786,49 @@ describe('money and progress', () => {
     expect(b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + crate).length).toBeGreaterThan(
       entersBefore,
     );
+  });
+
+  it('floats gold banknotes in the rock channel: worth the same everywhere, back after a while', async () => {
+    const { room, join, tick } = setup({ anyClass: false });
+    const a = await join('A');
+    const b = await join('B');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const p = room.world.pickups;
+    const spots = channelSpots(ECONOMY.pickups.gold.count);
+    // Every gold slot holds a banknote on its own spot in the lane, from the start.
+    for (let k = 0; k < spots.length; k++) {
+      const i = GOLD_START + k;
+      expect(p.kind[i]).toBe(KIND.GOLD);
+      expect(p.active[i]).toBe(1);
+      expect(p.x[i]).toBeCloseTo(spots[k]!.x, 2);
+      expect(p.y[i]).toBeCloseTo(spots[k]!.y, 2);
+      expect(p.value[i]).toBe(ECONOMY.pickups.gold.cash);
+    }
+    expect(NOTE_START).toBe(GOLD_START + spots.length);
+    // A ship that sails into one takes it: money, not score.
+    const i = GOLD_START + 3;
+    const cash0 = room.world.cash[slot]!;
+    const score0 = room.world.score[slot]!;
+    const s = room.world.slots[slot]!.state;
+    s.x = p.x[i]!;
+    s.y = p.y[i]!;
+    await tick(2);
+    expect(room.world.cash[slot]).toBe(cash0 + ECONOMY.pickups.gold.cash);
+    expect(room.world.score[slot]).toBe(score0);
+    expect(p.active[i]).toBe(0);
+    expect(a.heard.pickups.some((e) => e.id === PICKUP_ID_BASE + i && e.kind === KIND.GOLD)).toBe(true);
+    // It comes back in the same place (the ship has sailed off by then).
+    s.x = 300;
+    s.y = 800;
+    const entersBefore = b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + i).length;
+    await tick(Math.ceil((ECONOMY.pickups.gold.respawnSec + 2) * TICK_RATE));
+    expect(p.active[i]).toBe(1);
+    expect(p.x[i]).toBeCloseTo(spots[3]!.x, 2);
+    expect(p.y[i]).toBeCloseTo(spots[3]!.y, 2);
+    const enters = b.heard.enters.filter((e) => e.id === PICKUP_ID_BASE + i);
+    expect(enters.length).toBeGreaterThan(entersBefore);
+    expect(enters.at(-1)!.kind).toBe(KIND.GOLD);
   });
 
   it('upgrades cost money, respect the cap and change how the ship behaves', async () => {

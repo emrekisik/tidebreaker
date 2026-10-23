@@ -1,8 +1,9 @@
 import { MATCH } from '../config/match.ts';
 import { PIRATE, PIRATE_COVES } from '../config/pirates.ts';
 import { RIG, RIGS } from '../config/rigs.ts';
-import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
+import { CHANNEL, MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { Mulberry32 } from '../math/rng.ts';
+import { CHANNEL_REACH, channelDistance, channelRocks } from './channel.ts';
 import { ISLAND_TYPES } from './types.ts';
 import type { IslandType, WorldMap } from './types.ts';
 
@@ -99,6 +100,7 @@ export function generateMap(seed: number): WorldMap {
         for (const cove of PIRATE_COVES) {
           if (Math.hypot(cx - cove.x, cy - cove.y) < PIRATE.coveRadius + shape.bound) ok = false;
         }
+        if (channelDistance(cx, cy) < CHANNEL_REACH + CHANNEL.clearance + shape.bound) ok = false;
         for (const o of islands) {
           if (Math.hypot(cx - o.x, cy - o.y) < shape.bound + o.r + gap) {
             ok = false;
@@ -146,12 +148,14 @@ export function generateMap(seed: number): WorldMap {
 
   // Reef groups in open water.
   const R = MAP.reefs;
-  // The rigs' platforms come first: they are solid, like reefs, and the client draws them as rigs.
+  // The rigs' platforms come first: they are solid, like reefs, and the client draws them as rigs. The rocks of
+  // the channel walls follow (the client draws those as a group of their own).
   const reefs: { x: number; y: number; r: number }[] = RIGS.map((rig) => ({
     x: quant(rig.x),
     y: quant(rig.y),
     r: RIG.platformRadius,
   }));
+  for (const rock of channelRocks()) reefs.push({ x: rock.x, y: rock.y, r: rock.r });
   const centers: { x: number; y: number }[] = [];
   for (let g = 0; g < R.groups; g++) {
     for (let attempt = 0; attempt < MAP.attempts; attempt++) {
@@ -167,11 +171,13 @@ export function generateMap(seed: number): WorldMap {
           ok = false;
       }
       for (const cove of PIRATE_COVES) {
-        if (Math.hypot(x - cove.x, y - cove.y) < PIRATE.coveRadius + R.spread) ok = false;
+        // (A rock of the group may sit a spread diagonal off the center, and be this big: it still stays out of the cove.)
+        if (Math.hypot(x - cove.x, y - cove.y) < PIRATE.coveRadius + R.spread * Math.SQRT2 + R.radius.max) ok = false;
       }
       for (const o of islands) {
         if (Math.hypot(x - o.x, y - o.y) < o.r + R.islandGap) ok = false;
       }
+      if (channelDistance(x, y) < CHANNEL_REACH + CHANNEL.clearance + R.spread + R.radius.max) ok = false;
       for (const c of centers) {
         if (Math.hypot(x - c.x, y - c.y) < R.groupGap) ok = false;
       }

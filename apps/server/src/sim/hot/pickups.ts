@@ -8,6 +8,7 @@ import {
   PICKUP_CAPACITY,
   WORLD_CENTER,
   WORLD_SIZE,
+  channelSpots,
   circleVsWorld,
   zoneMultiplier,
 } from '@tidebreaker/shared';
@@ -19,7 +20,8 @@ const STARTERS = P.starter.crates * MATCH.carriers.length;
 export const CRATE_START = 0;
 export const BARREL_START = CRATE_START + P.crate.target + STARTERS;
 export const CHEST_START = BARREL_START + P.barrel.target;
-export const NOTE_START = CHEST_START + P.chest.target;
+export const GOLD_START = CHEST_START + P.chest.target;
+export const NOTE_START = GOLD_START + P.gold.count;
 export { PICKUP_CAPACITY };
 
 /** A pickup needs this much open water around it, so a ship can reach it. */
@@ -31,15 +33,15 @@ const EDGE = MAP.boundary.width + 25;
 
 /**
  * Everything floating in the sea: crates and treasure chests to pick up, explosive barrels to avoid
- * (or shoot), and the banknote piles and loot crates that sunk ships and pirates leave
- * (GAME_DESIGN.md §7.1). Plain data in typed arrays, one fixed slot
+ * (or shoot), the gold banknotes in the rock channel, and the banknote piles and loot crates that sunk ships and
+ * pirates leave (GAME_DESIGN.md §7.1). Plain data in typed arrays, one fixed slot
  * per pickup, so nothing is allocated while the game runs. Lives in `hot/`: no allocation here.
  *
- * Crates, barrels and chests respawn in their slot after a delay; banknote piles expire.
+ * Crates, barrels, chests and gold respawn in their slot after a delay; banknote piles expire.
  */
 export class Pickups {
   readonly active = new Uint8Array(PICKUP_CAPACITY);
-  /** `KIND.CRATE`, `KIND.BARREL`, `KIND.CHEST` or `KIND.BANKNOTE` of each slot (a dropped loot slot may hold a crate). */
+  /** `KIND.CRATE`, `KIND.BARREL`, `KIND.CHEST`, `KIND.GOLD` or `KIND.BANKNOTE` of each slot (a dropped loot slot may hold a crate). */
   readonly kind = new Uint8Array(PICKUP_CAPACITY);
   readonly x = new Float32Array(PICKUP_CAPACITY);
   readonly y = new Float32Array(PICKUP_CAPACITY);
@@ -54,6 +56,8 @@ export class Pickups {
   private readonly hit = new Float32Array(3);
   private readonly rng: Mulberry32;
   private readonly land: WorldMap;
+  /** Where the gold floats (the middle of the channel's lane), one spot per gold slot. */
+  private readonly goldSpots = channelSpots(P.gold.count);
 
   constructor(land: WorldMap, seed: number) {
     this.land = land;
@@ -61,7 +65,8 @@ export class Pickups {
     for (let i = 0; i < PICKUP_CAPACITY; i++) {
       if (i < BARREL_START) this.kind[i] = KIND.CRATE;
       else if (i < CHEST_START) this.kind[i] = KIND.BARREL;
-      else if (i < NOTE_START) this.kind[i] = KIND.CHEST;
+      else if (i < GOLD_START) this.kind[i] = KIND.CHEST;
+      else if (i < NOTE_START) this.kind[i] = KIND.GOLD;
       else this.kind[i] = KIND.BANKNOTE;
     }
     // The last crates of the crate range are the starters, grouped by team.
@@ -145,12 +150,28 @@ export class Pickups {
       ? P.crate.respawnSec
       : i < CHEST_START
         ? P.barrel.respawnSec
-        : P.chest.respawnSec;
+        : i < GOLD_START
+          ? P.chest.respawnSec
+          : P.gold.respawnSec;
   }
 
   /** Puts slot `i` somewhere valid; if no spot is found it tries again next tick. */
   private place(i: number, ships: readonly Combatant[]): void {
     const k = this.kind[i]!;
+    if (k === KIND.GOLD) {
+      // Gold has a spot of its own: the same place every time, worth the same whatever the zone.
+      const spot = this.goldSpots[i - GOLD_START]!;
+      this.x[i] = spot.x;
+      this.y[i] = spot.y;
+      if (this.spotIsFree(spot.x, spot.y, false, ships)) {
+        this.value[i] = P.gold.cash;
+        this.active[i] = 1;
+        this.gen[i] = this.gen[i]! + 1;
+      } else {
+        this.timer[i] = 0.5;
+      }
+      return;
+    }
     for (let t = 0; t < SPAWN_TRIES; t++) {
       if (k === KIND.CHEST) {
         if (!this.pickChestSpot(i)) continue;

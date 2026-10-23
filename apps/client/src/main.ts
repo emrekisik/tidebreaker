@@ -1,6 +1,7 @@
 import {
   DRONE,
   FX,
+  KIND,
   MATCH_STATE,
   MAX_PROJECTILES,
   CHEAT,
@@ -455,7 +456,7 @@ const events: OnlineEvents = {
   onPickup(kind, value, x, y) {
     damageNumbers.showGain(stage.camera, x, y, value);
     damageNumbers.flyCash(stage.camera, x, y, value);
-    sfx.pickup();
+    sfx.pickup(kind === KIND.GOLD);
   },
   onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
     const me = online?.myId ?? 0;

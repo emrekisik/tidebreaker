@@ -97,6 +97,8 @@ export const KIND = {
   MINE: 8,
   CHEST: 6,
   BANKNOTE: 7,
+  /** Gold banknotes floating in the rock channel. */
+  GOLD: 12,
   DRONE: 11,
   CARRIER: 10,
   PIRATE: 1,

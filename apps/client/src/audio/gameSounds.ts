@@ -92,8 +92,9 @@ export const sfx = {
     audio.play('emote', { x, y, own, gain: own ? 0.8 : 0.6 });
   },
 
-  pickup(): void {
-    audio.play('pickup', { own: true });
+  /** `gold`: a gold banknote from the rock channel (brighter and a little louder). */
+  pickup(gold = false): void {
+    audio.play('pickup', gold ? { own: true, pitch: 1.45, gain: 1.2 } : { own: true });
   },
 
   scored(): void {

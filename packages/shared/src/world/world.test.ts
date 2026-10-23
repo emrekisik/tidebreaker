@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { MATCH } from '../config/match.ts';
 import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS } from '../config/pirates.ts';
 import { RIG, RIGS } from '../config/rigs.ts';
-import { MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
+import { ECONOMY } from '../config/economy.ts';
+import { CHANNEL, MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
+import { CHANNEL_REACH, channelDistance, channelRocks, channelSpots } from './channel.ts';
 import { generateMap } from './generate.ts';
 import { mapHash } from './hash.ts';
 import { circleVsWorld, pointInIsland, segmentVsWorld } from './query.ts';
@@ -178,7 +180,7 @@ describe('world queries', () => {
 });
 
 // Pinned hashes (see the determinism test).
-const PINNED: Record<number, number> = { 1: 88855464, 1337: 1730491696, 987654: 1907920726 };
+const PINNED: Record<number, number> = { 1: 1379200569, 1337: 531194549, 987654: 219852941 };
 
 describe('team bases', () => {
   it('keeps islands and reefs away from both carriers', () => {
@@ -271,6 +273,85 @@ describe('pirate coves', () => {
           expect(Math.hypot(cove.x - b.x, cove.y - b.y)).toBeGreaterThan(PIRATE.carrierAvoid * 2);
         }
       }
+    }
+  });
+});
+
+describe('rock channel', () => {
+  const out = new Float32Array(3);
+  const rocks = channelRocks();
+  const west = CHANNEL.x - CHANNEL.length / 2;
+  const east = CHANNEL.x + CHANNEL.length / 2;
+
+  it('is part of every map: its rocks are the reefs right after the oil rig platforms', () => {
+    for (const seed of [1, 7, 1337]) {
+      const m = generateMap(seed);
+      rocks.forEach((rock, i) => {
+        expect(m.reefX[RIG.count + i]).toBeCloseTo(rock.x, 3);
+        expect(m.reefY[RIG.count + i]).toBeCloseTo(rock.y, 3);
+        expect(m.reefR[RIG.count + i]).toBeCloseTo(rock.r, 3);
+      });
+    }
+  });
+
+  it('has solid walls: nothing crosses it between the ends, ships and shots alike', () => {
+    const m = generateMap(1337);
+    for (let x = west + 3; x <= east - 3; x += 1.5) {
+      // From well north of the channel to well south of it, across the lane and both walls.
+      expect(segmentVsWorld(m, x, CHANNEL.y - 90, x, CHANNEL.y + 90)).toBeGreaterThanOrEqual(0);
+      expect(segmentVsWorld(m, x, CHANNEL.y + 90, x, CHANNEL.y - 90)).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('keeps the lane open from end to end, wide enough for a sizeable ship', () => {
+    const m = generateMap(1337);
+    for (const p of channelSpots(400)) {
+      expect(circleVsWorld(m, p.x, p.y, CHANNEL.gap / 2 - 1, out)).toBe(false);
+    }
+    // The rocks leave both ends open: a ship can sail in from the west and the east.
+    expect(circleVsWorld(m, west - 6, CHANNEL.y, 5, out)).toBe(false);
+    expect(circleVsWorld(m, east + 6, CHANNEL.y, 5, out)).toBe(false);
+  });
+
+  it('floats every gold banknote in open water in the middle of the lane, mirrored left to right', () => {
+    const spots = channelSpots(ECONOMY.pickups.gold.count);
+    expect(spots).toHaveLength(ECONOMY.pickups.gold.count);
+    const m = generateMap(1337);
+    spots.forEach((p, k) => {
+      expect(circleVsWorld(m, p.x, p.y, 6, out)).toBe(false);
+      const twin = spots[spots.length - 1 - k]!;
+      expect(twin.x).toBeCloseTo(WORLD_SIZE - p.x, 1);
+      expect(twin.y).toBeCloseTo(p.y, 1);
+      expect(channelDistance(p.x, p.y)).toBeLessThan(3);
+    });
+  });
+
+  it('has no island or reef near it, and stays clear of the rigs, coves, carriers and the center, on every map', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const m = generateMap(seed);
+      for (const rock of rocks) {
+        for (let i = 0; i < m.islandCount; i++) {
+          const gap = Math.hypot(m.islandX[i]! - rock.x, m.islandY[i]! - rock.y) - m.islandR[i]! - rock.r;
+          expect(gap).toBeGreaterThanOrEqual(CHANNEL.clearance - 5);
+        }
+        for (let k = RIG.count + rocks.length; k < m.reefCount; k++) {
+          const gap = Math.hypot(m.reefX[k]! - rock.x, m.reefY[k]! - rock.y) - m.reefR[k]! - rock.r;
+          expect(gap).toBeGreaterThanOrEqual(CHANNEL.clearance - 5);
+        }
+      }
+    }
+    for (const rock of rocks) {
+      for (const rig of RIGS) {
+        expect(Math.hypot(rock.x - rig.x, rock.y - rig.y)).toBeGreaterThan(RIG.captureRadius + RIG.clearance + rock.r);
+      }
+      for (const cove of PIRATE_COVES) {
+        expect(Math.hypot(rock.x - cove.x, rock.y - cove.y)).toBeGreaterThan(PIRATE.coveRadius + rock.r);
+      }
+      for (const b of MATCH.carriers) {
+        expect(Math.hypot(rock.x - b.x, rock.y - b.y)).toBeGreaterThan(MAP.baseClear + rock.r);
+      }
+      expect(Math.hypot(rock.x - WORLD_CENTER, rock.y - WORLD_CENTER)).toBeGreaterThan(MAP.spawnClear + rock.r);
+      expect(channelDistance(rock.x, rock.y)).toBeLessThanOrEqual(CHANNEL_REACH);
     }
   });
 });

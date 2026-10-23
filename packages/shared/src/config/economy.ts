@@ -24,7 +24,7 @@ export function tierShip(tier: number, choice = 0): ShipId {
 }
 
 /** Pickup kinds (their `KIND` values in snapshots are in net/messages.ts). */
-export type PickupKind = 'crate' | 'barrel' | 'chest' | 'banknote';
+export type PickupKind = 'crate' | 'barrel' | 'chest' | 'gold' | 'banknote';
 
 /**
  * Money, score and upgrades (GAME_DESIGN.md §6, §7). Money (cash) buys upgrades AND the next class;
@@ -100,6 +100,11 @@ export const ECONOMY = {
       blast: { radius: 15, damage: 90, edgeFactor: 0.3 },
     },
     chest: { cash: 100, target: 5, respawnSec: 90 },
+    /**
+     * Gold banknotes floating in the lane of the rock channel (`CHANNEL`): `count` of them, evenly spread along it. Each
+     * is worth `cash` whatever the zone, and comes back `respawnSec` after it was taken.
+     */
+    gold: { count: 8, cash: 40, respawnSec: 60 },
     /** Piles and loot crates dropped by sunk ships and pirates: capacity of the pool. */
     banknoteCapacity: 64,
     /** Multipliers by region: inner (dangerous), middle, outer (safe). */
@@ -116,10 +121,11 @@ export const ECONOMY = {
   },
 } as const;
 
-/** Number of pickup slots: crates + the carriers' starter crates + barrels + chests + loot piles. */
+/** Number of pickup slots: crates + the carriers' starter crates + barrels + chests + gold + loot piles. */
 export const PICKUP_CAPACITY =
   ECONOMY.pickups.crate.target +
   ECONOMY.pickups.starter.crates * TEAM_COUNT +
   ECONOMY.pickups.barrel.target +
   ECONOMY.pickups.chest.target +
+  ECONOMY.pickups.gold.count +
   ECONOMY.pickups.banknoteCapacity;

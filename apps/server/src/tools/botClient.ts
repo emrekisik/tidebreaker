@@ -78,6 +78,7 @@ function pickupValue(p: Seen): number {
   if (p.kind === KIND.CRATE) return ECONOMY.pickups.crate.cash * zone;
   if (p.kind === KIND.BARREL) return 0; // explosive: keep away
   if (p.kind === KIND.CHEST) return ECONOMY.pickups.chest.cash * zone;
+  if (p.kind === KIND.GOLD) return ECONOMY.pickups.gold.cash;
   return [10, 35, 100, 200][p.tier] ?? 10; // banknote piles: by size
 }
 
