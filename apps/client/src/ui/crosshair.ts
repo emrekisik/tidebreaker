@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 import crosshairSvg from './icons/crosshair1.svg?raw';
 
 /** How hard a shot kicks the crosshair, by projectile visual (1 = the biggest kick). */
@@ -29,6 +29,9 @@ export class Crosshair {
     this.pic.innerHTML = crosshairSvg.replace(/ width="\d+" height="\d+"/, '');
     this.tag.className = 'ch-tag';
     this.root.append(this.pic, this.tag);
+    onLanguageChange(() => {
+      if (this.auto) this.tag.textContent = t('autofire.tag');
+    });
   }
 
   /** Auto fire is on or off: while on, the pointer turns red and says so under itself. */

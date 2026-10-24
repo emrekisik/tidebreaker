@@ -1,5 +1,5 @@
 import { audio } from '../audio/engine.ts';
-import { t } from '../i18n/index.ts';
+import { LANGUAGES, currentLanguage, onLanguageChange, saveLanguage, setLanguage, setText, setTitle, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
 const GEAR =
@@ -44,7 +44,7 @@ const KEYS: readonly (readonly [string, MessageKey])[] = [
 
 /**
  * The settings of a running match: a gear button in the top right corner that opens a plain panel with the sound
- * (volume, style, sea and engine) and the list of keys, and a way back to the how-to-play tour. The match goes on
+ * (volume, sea and engine), the look (panel opacity, language) and the list of keys, and a way back to the how-to-play tour. The match goes on
  * while it is open (there is no pause in a multiplayer game). The panel and the start screen's sound control follow
  * each other through the audio engine.
  */
@@ -63,7 +63,7 @@ export class SettingsPanel {
   /** `onHowTo`: the player asked for the how-to-play tour. */
   constructor(private readonly onHowTo: () => void) {
     this.button.innerHTML = GEAR;
-    this.button.title = t('settings.title');
+    setTitle(this.button, 'settings.title');
     this.button.addEventListener('click', () => this.toggle());
     // Nothing clicked here may reach the game (it would fire the guns), and typing must not steer the ship.
     for (const el of [this.button, this.panel]) {
@@ -75,6 +75,8 @@ export class SettingsPanel {
     applyOpacity(savedOpacity());
     this.build();
     audio.subscribe(() => this.refresh());
+    // (The on / off words are set here, not marked for translation: they change with the audio state too.)
+    onLanguageChange(() => this.refresh());
     this.refresh();
   }
 
@@ -104,12 +106,12 @@ export class SettingsPanel {
     (document.activeElement as HTMLElement | null)?.blur();
   }
 
-  private row(label: string, control: HTMLElement): HTMLElement {
+  private row(label: MessageKey, control: HTMLElement): HTMLElement {
     const row = document.createElement('div');
     row.className = 'st-row';
     const name = document.createElement('span');
     name.className = 'st-label';
-    name.textContent = label;
+    setText(name, label);
     row.append(name, control);
     return row;
   }
@@ -118,7 +120,7 @@ export class SettingsPanel {
     const head = document.createElement('div');
     head.className = 'st-head';
     const title = document.createElement('span');
-    title.textContent = t('settings.title');
+    setText(title, 'settings.title');
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'st-close';
@@ -132,7 +134,7 @@ export class SettingsPanel {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'st-tab';
-      b.textContent = t(key);
+      setText(b, key);
       b.addEventListener('click', () => this.page(i));
       bar.append(b);
       this.tabs.push(b);
@@ -167,9 +169,9 @@ export class SettingsPanel {
       audio.setAmbient(!audio.ambientOn);
     });
     sound.append(
-      this.row(t('settings.sound'), this.mute),
-      this.row(t('sound.volume'), slider),
-      this.row(t('settings.ambient'), this.sea),
+      this.row('settings.sound', this.mute),
+      this.row('sound.volume', slider),
+      this.row('settings.ambient', this.sea),
     );
 
     // Display: how see-through the panels are.
@@ -199,15 +201,33 @@ export class SettingsPanel {
     const reset = document.createElement('button');
     reset.type = 'button';
     reset.className = 'st-btn';
-    reset.textContent = t('settings.reset');
+    setText(reset, 'settings.reset');
     reset.addEventListener('click', () => {
       this.opacity.value = String(OPACITY_DEFAULT);
       this.opacity.dispatchEvent(new Event('input'));
     });
     const note = document.createElement('p');
     note.className = 'st-note';
-    note.textContent = t('settings.opacityNote');
-    display.append(this.row(t('settings.opacity'), opacityBox), note, reset);
+    setText(note, 'settings.opacityNote');
+    // The language: a choice changes every text of the game at once (no reload).
+    const language = document.createElement('select');
+    language.className = 'st-select';
+    for (const lang of LANGUAGES) {
+      const o = document.createElement('option');
+      o.value = lang.code;
+      o.textContent = lang.name;
+      o.lang = lang.code;
+      language.append(o);
+    }
+    language.value = currentLanguage();
+    language.addEventListener('change', () => {
+      saveLanguage(language.value);
+      void setLanguage(language.value);
+      language.blur();
+    });
+    onLanguageChange(() => (language.value = currentLanguage()));
+    setTitle(language, 'menu.language');
+    display.append(this.row('menu.language', language), this.row('settings.opacity', opacityBox), note, reset);
 
     // Keys.
     const keys = document.createElement('div');
@@ -216,9 +236,10 @@ export class SettingsPanel {
       const row = document.createElement('div');
       row.className = 'st-key';
       const kbd = document.createElement('kbd');
-      kbd.textContent = chip.startsWith('keys.chip.') ? t(chip as MessageKey) : chip;
+      if (chip.startsWith('keys.chip.')) setText(kbd, chip as MessageKey);
+      else kbd.textContent = chip;
       const desc = document.createElement('span');
-      desc.textContent = t(text);
+      setText(desc, text);
       row.append(kbd, desc);
       keys.append(row);
     }
@@ -229,7 +250,7 @@ export class SettingsPanel {
     const howto = document.createElement('button');
     howto.type = 'button';
     howto.className = 'st-btn';
-    howto.textContent = t('menu.howto');
+    setText(howto, 'menu.howto');
     howto.addEventListener('click', () => {
       this.close();
       this.onHowTo();

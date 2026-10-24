@@ -1,6 +1,6 @@
 import { MATCH, MATCH_STATE } from '@tidebreaker/shared';
 import type { Combatant } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 import { teamName } from './teamNames.ts';
 
 const el = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
@@ -43,6 +43,13 @@ export class MatchHud {
   private lastKills = '';
   private shown: BannerKind = '';
   private lastNum = '';
+
+  constructor() {
+    // The words of a banner that is on screen follow a new language.
+    onLanguageChange(() => {
+      if (this.shown !== '') this.fillText(this.shown);
+    });
+  }
 
   show(on: boolean): void {
     this.root.classList.toggle('hidden', !on);

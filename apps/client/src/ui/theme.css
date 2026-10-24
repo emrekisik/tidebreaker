@@ -6,7 +6,8 @@
 :root {
   /* The player's panel opacity setting (settings panel): 1 is the default look. */
   --hud-alpha: 1;
-  --font-ui: 'Oxanium', system-ui, sans-serif;
+  /* (Oxanium has the Latin letters; the other scripts - Cyrillic, Arabic, Indic, Chinese, Japanese, Korean - come from the system fonts, picked by the page language.) */
+  --font-ui: 'Oxanium', system-ui, 'Segoe UI', 'Noto Sans', sans-serif;
   --panel: rgba(12, 31, 49, calc(0.62 * var(--hud-alpha, 1)));
   --panel-dark: rgba(8, 21, 35, calc(0.64 * var(--hud-alpha, 1)));
   --line: rgba(130, 180, 225, 0.16);
@@ -2364,4 +2365,26 @@ body.in-menu #netstat {
   font-size: 12px;
   line-height: 1.45;
   color: #8aa0b4;
+}
+
+/* ---- languages ---- */
+.st-select {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 8px;
+  color: #dce6ee;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(165, 190, 210, 0.4);
+}
+.st-select option {
+  color: #111;
+}
+/* Letters that join (Arabic, Urdu) must not be spread apart by letter-spacing, and the Indic scripts look better without it too. */
+html:lang(ar) :not(:lang(en)),
+html:lang(ur) :not(:lang(en)),
+html:lang(hi) :not(:lang(en)),
+html:lang(bn) :not(:lang(en)) {
+  letter-spacing: normal !important;
 }

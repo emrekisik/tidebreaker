@@ -9,7 +9,7 @@ import {
   gunsDamageMul,
   gunsReloadMul,
 } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, setText, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 import cashIcon from './icons/cash.svg?raw';
 import damageIcon from './icons/damage.svg?raw';
@@ -63,7 +63,7 @@ export class BaseShop {
     const head = document.createElement('div');
     head.className = 'ds-head';
     const title = document.createElement('span');
-    title.textContent = t('base.title');
+    setText(title, 'base.title');
     this.count.className = 'ds-count';
     head.append(title, this.count);
     this.root.append(head);
@@ -73,19 +73,20 @@ export class BaseShop {
         String(7 + i),
         // The FPV drone is a quadcopter; the combat drone is a fixed-wing unmanned aircraft.
         i === 0 ? droneIcon : uavIcon,
-        t(`drone.${type.id}` as MessageKey),
-        t(`drone.${type.id}.desc` as MessageKey),
+        `drone.${type.id}` as MessageKey,
+        `drone.${type.id}.desc` as MessageKey,
         () => this.onBuy(0, i),
       );
     });
-    this.addRow('9', repairIcon, t('base.repair'), '', () => this.onBuy(1, BASE_ITEM.REPAIR));
-    this.addRow('0', damageIcon, t('base.guns'), '', () => this.onBuy(2, BASE_ITEM.GUNS));
-    this.addRow('E', missileIcon, t('base.missile'), '', () => this.onBuy(2, BASE_ITEM.MISSILE));
-    this.addRow('R', mineIcon, t('base.mine'), '', () => this.onBuy(2, BASE_ITEM.MINE));
+    this.addRow('9', repairIcon, 'base.repair', '', () => this.onBuy(1, BASE_ITEM.REPAIR));
+    this.addRow('0', damageIcon, 'base.guns', '', () => this.onBuy(2, BASE_ITEM.GUNS));
+    this.addRow('E', missileIcon, 'base.missile', '', () => this.onBuy(2, BASE_ITEM.MISSILE));
+    this.addRow('R', mineIcon, 'base.mine', '', () => this.onBuy(2, BASE_ITEM.MINE));
+    onLanguageChange(() => this.refresh());
     this.refresh();
   }
 
-  private addRow(key: string, icon: string, name: string, desc: string, click: () => void): void {
+  private addRow(key: string, icon: string, name: MessageKey, desc: MessageKey | '', click: () => void): void {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'ds-btn';
@@ -98,10 +99,11 @@ export class BaseShop {
     const text = document.createElement('span');
     const title = document.createElement('span');
     title.className = 'ds-name';
-    title.textContent = name;
+    setText(title, name);
     const d = document.createElement('span');
     d.className = 'ds-desc';
-    d.textContent = desc;
+    // (The lines of the other rows are written by `refresh`, with their numbers.)
+    if (desc) setText(d, desc);
     text.append(title, d);
     const price = document.createElement('span');
     price.className = 'ds-price';

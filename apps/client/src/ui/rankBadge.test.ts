@@ -1,7 +1,6 @@
 import { RANKS } from '@tidebreaker/shared';
 import { describe, expect, it } from 'vitest';
 import en from '../i18n/en.json';
-import tr from '../i18n/tr.json';
 import { rankIconUrl } from './rankBadge.ts';
 
 describe('rank insignia', () => {
@@ -21,7 +20,8 @@ describe('rank insignia', () => {
   });
 
   it('has a name for every rank, in every language, and none for ranks that do not exist', () => {
-    for (const lang of [en, tr] as Record<string, string>[]) {
+    const others = Object.values(import.meta.glob<Record<string, string>>('../i18n/lang/*.json', { eager: true, import: 'default' }));
+    for (const lang of [en, ...others] as Record<string, string>[]) {
       const names = new Set<string>();
       for (let r = 0; r < RANKS.count; r++) {
         const name = lang[`rank.name.${r}`];

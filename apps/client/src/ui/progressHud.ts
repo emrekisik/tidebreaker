@@ -1,6 +1,6 @@
 import { ECONOMY, STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, setText, t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
 import type { MessageKey } from '../i18n/index.ts';
@@ -77,6 +77,7 @@ export class ProgressHud {
   private visible = false;
   private offered = false;
   private last: StatsMsg | null = null;
+  private rank = 0;
 
   constructor(
     private readonly onUpgrade: (stat: number) => void,
@@ -111,10 +112,12 @@ export class ProgressHud {
         dots.push(dot);
       }
       const level = el('span', 'p-lv');
+      const title = el('span', 'p-title');
+      setText(title, tile.name);
       b.append(
         el('span', 'p-key', String(i + 1)),
         icon,
-        el('span', 'p-title', t(tile.name)),
+        title,
         cost,
         level,
         pips,
@@ -139,6 +142,12 @@ export class ProgressHud {
     const arrowRight = el('span', 'ico');
     arrowRight.innerHTML = ARROW_UP;
     this.tierBtn.append(arrowLeft, el('span', 'ti-text'), arrowRight);
+    // A new language: the texts built from the last message are made again (the cards of the next class included).
+    onLanguageChange(() => {
+      this.cardFor = '';
+      if (this.last) this.update(this.last);
+      this.setRank(this.rank);
+    });
   }
 
   show(on: boolean): void {
@@ -180,6 +189,7 @@ export class ProgressHud {
 
   /** The player's own rank changed: its insignia stands beside the score. */
   setRank(rank: number): void {
+    this.rank = rank;
     this.rankSlot.replaceChildren(rankBadge(rank, RankBook.title(rank)));
   }
 

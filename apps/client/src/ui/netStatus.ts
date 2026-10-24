@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 
 const ICONS = {
   ping: '<svg viewBox="0 0 14 12" aria-hidden="true"><path d="M1.5 11V8.5M5.5 11V6M9.5 11V3.5M13 11V1"/></svg>',
@@ -24,18 +24,26 @@ export class NetStatus {
 
   constructor(
     private readonly root: HTMLElement,
-    serverName: string,
+    /** The server's address (null: there is none, offline practice). */
+    private readonly serverName: string | null,
   ) {
     const top = document.createElement('div');
     top.className = 'ns-row';
     top.append(this.ping.el, this.fps.el, this.players.el);
     this.server.el.classList.add('wide');
-    this.server.text.textContent = serverName;
-    this.server.el.title = `${t('net.server')}: ${serverName}`;
+    this.root.append(top, this.server.el);
+    this.words();
+    onLanguageChange(() => this.words());
+  }
+
+  /** The words: the name of the server (or "offline") and the tooltips. */
+  private words(): void {
+    const name = this.serverName ?? t('net.offline');
+    this.server.text.textContent = name;
+    this.server.el.title = `${t('net.server')}: ${name}`;
     this.ping.el.title = t('net.ping');
     this.fps.el.title = t('net.fps');
     this.players.el.title = t('net.players');
-    this.root.append(top, this.server.el);
   }
 
   private item(kind: keyof typeof ICONS): { el: HTMLElement; text: HTMLElement } {

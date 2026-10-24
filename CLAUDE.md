@@ -7,7 +7,7 @@ Desktop-browser multiplayer **.io naval combat game** (browser first, not mobile
 ## Language conventions
 - Code, identifiers, code comments, commit messages, and PR text: **English**.
 - `GAME_DESIGN.md` and user-facing explanations to the user: **Turkish**.
-- In-game strings live in `tr` / `en` JSON files, never hardcoded in components.
+- In-game strings live in the language JSON files (`apps/client/src/i18n`: `en.json` is the source, `lang/<code>.json` the other 15 languages), never hardcoded in components. Mark texts with `setText` / `data-i18n` (or rebuild them in `onLanguageChange`) so a language change applies live, without a page reload; a new key must be added to every language file (a test checks it).
 
 ## Stack (do not swap without asking)
 - TypeScript (strict, `noUncheckedIndexedAccess`) everywhere. pnpm workspaces monorepo.

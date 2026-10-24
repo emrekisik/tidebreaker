@@ -1,6 +1,6 @@
 import { RIG, RIG_NO_OWNER, TEAM_BLUE } from '@tidebreaker/shared';
 import type { RigState } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 
 /**
  * The three oil rigs at a glance (below the carriers' health), as hexagons lettered A, B and C.
@@ -16,7 +16,6 @@ export class RigHud {
     for (let i = 0; i < RIG.count; i++) {
       const box = document.createElement('div');
       box.className = 'rig';
-      box.title = `${t('rig.name')} ${i + 1}`;
       const hex = document.createElement('div');
       hex.className = 'rig-hex';
       const letter = document.createElement('span');
@@ -26,6 +25,9 @@ export class RigHud {
       this.root.append(box);
       this.boxes.push(box);
     }
+    const names = (): void => this.boxes.forEach((box, i) => (box.title = `${t('rig.name')} ${i + 1}`));
+    names();
+    onLanguageChange(names);
   }
 
   show(on: boolean): void {

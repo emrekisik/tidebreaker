@@ -1,5 +1,5 @@
 import { audio } from '../audio/engine.ts';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 
 const SPEAKER_ON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
@@ -50,12 +50,14 @@ export class SoundSettings {
       this.sea.blur();
     });
     audio.subscribe(() => this.refresh());
+    onLanguageChange(() => this.refresh());
     this.refresh();
   }
 
   private refresh(): void {
     this.mute.innerHTML = audio.muted ? SPEAKER_OFF : SPEAKER_ON;
     this.mute.title = t('sound.mute');
+    this.volume.title = t('sound.volume');
     this.mute.classList.toggle('off', audio.muted);
     this.volume.value = String(Math.round(audio.volume * 100));
     this.sea.title = t('sound.ambient');

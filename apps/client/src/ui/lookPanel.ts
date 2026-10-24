@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { setText, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
 /** Everything the "Look" test panel can change. Colors are sRGB hex numbers. */
@@ -67,7 +67,7 @@ export class LookPanel {
 
     const head = document.createElement('div');
     head.className = 'head';
-    head.textContent = t('look.title');
+    setText(head, 'look.title');
     const body = document.createElement('div');
     body.className = 'body';
     head.addEventListener('click', () => body.classList.toggle('collapsed'));
@@ -82,7 +82,7 @@ export class LookPanel {
         this.changed();
       });
       this.inputs.set(row.key, input);
-      body.appendChild(this.line(t(row.label), input));
+      body.appendChild(this.line(row.label, input));
     }
 
     body.appendChild(this.slider('look.boost', 'boost', 0.5, 4, 0.05));
@@ -96,15 +96,15 @@ export class LookPanel {
       this.changed();
     });
     this.inputs.set('outline', outline);
-    body.appendChild(this.line(t('look.outline'), outline));
+    body.appendChild(this.line('look.outline', outline));
 
     const buttons = document.createElement('div');
     buttons.className = 'buttons';
     const reset = document.createElement('button');
-    reset.textContent = t('look.reset');
+    setText(reset, 'look.reset');
     reset.addEventListener('click', () => this.reset());
     const copy = document.createElement('button');
-    copy.textContent = t('look.copy');
+    setText(copy, 'look.copy');
     copy.addEventListener('click', () => void this.copy(copy));
     buttons.append(reset, copy);
     body.appendChild(buttons);
@@ -116,11 +116,11 @@ export class LookPanel {
     this.changed();
   }
 
-  private line(label: string, control: HTMLElement): HTMLElement {
+  private line(label: MessageKey, control: HTMLElement): HTMLElement {
     const row = document.createElement('label');
     row.className = 'line';
     const text = document.createElement('span');
-    text.textContent = label;
+    setText(text, label);
     row.append(text, control);
     return row;
   }
@@ -143,7 +143,7 @@ export class LookPanel {
       this.changed();
     });
     this.inputs.set(key, input);
-    return this.line(t(label), input);
+    return this.line(label, input);
   }
 
   private changed(): void {

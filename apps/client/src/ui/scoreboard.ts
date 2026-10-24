@@ -1,6 +1,6 @@
 import { SHIP_IDS, TEAM_BLUE, TEAM_RED, compareRankOrder } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
 import { teamName } from './teamNames.ts';
@@ -15,7 +15,9 @@ export class Scoreboard {
   constructor(
     private readonly root: HTMLElement,
     private readonly ranks: RankBook,
-  ) {}
+  ) {
+    onLanguageChange(() => this.render());
+  }
 
   /** The server's latest scores. */
   update(rows: ScoreEntry[], myId: number): void {

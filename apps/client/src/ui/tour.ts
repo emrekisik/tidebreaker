@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 import { TOUR_SCENES } from './tourScenes.ts';
 
@@ -35,6 +35,10 @@ export class Tour {
   constructor(private readonly root: HTMLElement) {
     // Nothing the player clicks on the tour may reach the game underneath.
     root.addEventListener('pointerdown', (e) => e.stopPropagation());
+    // A new language while the tour is on screen: the card is drawn again in it.
+    onLanguageChange(() => {
+      if (this.isOpen) this.render();
+    });
   }
 
   /** Whether the tour is on screen. */
@@ -120,8 +124,10 @@ export class Tour {
     text.className = 'tr-text';
     const title = document.createElement('h2');
     title.textContent = t(key('title'));
+    title.dir = 'auto';
     const para = document.createElement('p');
     para.textContent = t(key('text'));
+    para.dir = 'auto';
     text.append(title, para);
     const tip = t(key('tip'));
     if (tip) {
@@ -129,6 +135,7 @@ export class Tour {
       p.className = 'tr-tip';
       p.dataset['tag'] = t('tour.note');
       p.textContent = tip;
+      p.dir = 'auto';
       text.append(p);
     }
     body.append(stage, text);

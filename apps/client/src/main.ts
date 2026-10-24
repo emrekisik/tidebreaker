@@ -48,7 +48,7 @@ import '@fontsource/oxanium/latin-ext-500.css';
 import '@fontsource/oxanium/latin-ext-700.css';
 import './ui/theme.css';
 import './ui/menu.css';
-import { applyI18n, detectLanguage, setLanguage, t } from './i18n/index.ts';
+import { detectLanguage, setLanguage, setText, t } from './i18n/index.ts';
 import type { MessageKey } from './i18n/index.ts';
 import { Input } from './input/input.ts';
 import { AssetProvider, setHologramTime } from './render/assets.ts';
@@ -99,7 +99,7 @@ import { Menu } from './ui/menu.ts';
 import { Minimap } from './ui/minimap.ts';
 import { ShipPicker } from './ui/shipPicker.ts';
 
-setLanguage(detectLanguage());
+await setLanguage(detectLanguage());
 
 /** The HUD is drawn for a 1600 x 900 window and scaled from there (see theme.css). */
 function fitUi(): void {
@@ -108,7 +108,6 @@ function fitUi(): void {
 }
 addEventListener('resize', fitUi);
 fitUi();
-applyI18n(document);
 
 const params = new URLSearchParams(location.search);
 // `?offline=1`: the single-player sandbox (target ships, no server). Otherwise: menu, then a match.
@@ -235,7 +234,7 @@ new SoundSettings(document.getElementById('menu-sound') as HTMLElement);
 // Ping, frame rate, players and server, under the radar.
 const netStatus = new NetStatus(
   document.getElementById('netstat') as HTMLElement,
-  offline ? t('net.offline') : serverUrl.replace(/^wss?:\/\//, '').replace(/\/$/, ''),
+  offline ? null : serverUrl.replace(/^wss?:\/\//, '').replace(/\/$/, ''),
 );
 /** How many players the scoreboard lists (the pirates are not on it). */
 let playerCount = 0;
@@ -252,7 +251,7 @@ const missileLock = new MissileLock(
   document.getElementById('missile-warning') as HTMLElement,
   () => online?.net.lock(0),
 );
-(document.getElementById('missile-warning') as HTMLElement).textContent = t('missile.incoming');
+setText(document.getElementById('missile-warning') as HTMLElement, 'missile.incoming');
 const missileBadge = new MissileBadge(document.getElementById('missile-hud') as HTMLElement);
 const baseShop = new BaseShop((item, arg) => {
   if (item === 0) online?.net.buyDrone(arg);

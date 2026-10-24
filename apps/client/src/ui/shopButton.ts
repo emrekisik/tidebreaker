@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { setText } from '../i18n/index.ts';
 import shopIcon from './icons/shop.svg?raw';
 
 /**
@@ -19,7 +19,7 @@ export class ShopButton {
     ico.className = 'sbtn-ico';
     ico.innerHTML = shopIcon.replace(/ width="\d+" height="\d+"/, '');
     const label = document.createElement('span');
-    label.textContent = t('base.openShop');
+    setText(label, 'base.openShop');
     const key = document.createElement('kbd');
     key.textContent = 'B';
     this.button.append(ico, label, key);
@@ -51,6 +51,6 @@ export class ShopButton {
   /** The shop is open: the button reads "close". */
   setOpen(open: boolean): void {
     this.button.classList.toggle('open', open);
-    (this.button.children[1] as HTMLElement).textContent = t(open ? 'base.closeShop' : 'base.openShop');
+    setText(this.button.children[1] as HTMLElement, open ? 'base.closeShop' : 'base.openShop');
   }
 }

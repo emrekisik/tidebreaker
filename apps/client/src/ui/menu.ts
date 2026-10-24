@@ -1,7 +1,8 @@
 import { SHIP_IDS } from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
-import { currentLanguage, saveLanguage, t } from '../i18n/index.ts';
+import { onLanguageChange, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
+import { LanguagePicker } from './languagePicker.ts';
 import { Tour, tourSeen } from './tour.ts';
 
 const NAME_KEY = 'tidebreaker.name';
@@ -19,6 +20,8 @@ export class Menu {
   private readonly play = document.getElementById('menu-play') as HTMLButtonElement;
   private readonly note = document.getElementById('menu-note') as HTMLElement;
   private readonly tour = new Tour(document.getElementById('tour') as HTMLElement);
+  /** What the note under the Play button says (a text key), so it follows a new language. */
+  private noteKey: MessageKey | null = null;
 
   /** `pickShip`: shows the class choice (test builds only); otherwise everyone starts as T1. */
   constructor(onPlay: (name: string, shipIdx: number) => void, pickShip = false) {
@@ -30,14 +33,26 @@ export class Menu {
     } catch {
       // Private mode: the defaults are fine.
     }
-    this.name.value = savedName || `${t('menu.captain')}${100 + Math.floor(Math.random() * 900)}`;
+    // A name nobody typed ("Captain 123") follows the language; a typed one stays.
+    const number = 100 + Math.floor(Math.random() * 900);
+    const generated = (): string => `${t('menu.captain')}${number}`;
+    let autoName = savedName === '';
+    this.name.value = savedName || generated();
+    this.name.addEventListener('input', () => (autoName = false));
     for (let i = 0; i < SHIP_IDS.length; i++) {
-      const id: ShipId = SHIP_IDS[i]!;
       const o = document.createElement('option');
       o.value = String(i);
-      o.textContent = t(`ship.${id}` as MessageKey);
       this.ship.appendChild(o);
     }
+    const label = (): void => {
+      this.ship.querySelectorAll('option').forEach((o, i) => (o.textContent = t(`ship.${SHIP_IDS[i]!}` as MessageKey)));
+      if (autoName) this.name.value = generated();
+    };
+    label();
+    onLanguageChange(label);
+    onLanguageChange(() => {
+      if (this.noteKey) this.note.textContent = t(this.noteKey);
+    });
     const at = SHIP_IDS.indexOf(savedShip as ShipId);
     this.ship.value = String(at >= 0 ? at : SHIP_IDS.indexOf('corvette'));
     this.form.addEventListener('submit', (e) => {
@@ -57,15 +72,8 @@ export class Menu {
     document.getElementById('menu-howto')?.addEventListener('click', () => {
       this.tour.open(() => this.name.focus());
     });
-    // The language buttons: the choice is remembered and the page reloads so every text follows it.
-    for (const b of this.root.querySelectorAll<HTMLButtonElement>('#menu-lang button')) {
-      b.classList.toggle('on', b.dataset['lang'] === currentLanguage());
-      b.addEventListener('click', () => {
-        if (b.dataset['lang'] === currentLanguage()) return;
-        saveLanguage(b.dataset['lang'] ?? 'en');
-        location.reload();
-      });
-    }
+    // The language button: a choice changes every text of the page at once (no reload) and is remembered.
+    new LanguagePicker(document.getElementById('menu-lang') as HTMLElement);
     // Typing must not steer the ship.
     this.form.addEventListener('keydown', (e) => e.stopPropagation());
     if (!pickShip) {
@@ -79,12 +87,14 @@ export class Menu {
   setBusy(busy: boolean): void {
     this.play.disabled = busy;
     this.note.classList.remove('error');
-    this.note.textContent = busy ? t('menu.connecting') : '';
+    this.noteKey = busy ? 'menu.connecting' : null;
+    this.note.textContent = this.noteKey ? t(this.noteKey) : '';
   }
 
   setError(key: MessageKey): void {
     this.play.disabled = false;
     this.note.classList.add('error');
+    this.noteKey = key;
     this.note.textContent = t(key);
   }
 
