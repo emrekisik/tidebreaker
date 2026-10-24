@@ -195,15 +195,6 @@
           margin-top: -42px;
         }
       }
-      #menu {
-        inset: 0;
-        pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(3, 14, 24, 0.55);
-        transition: opacity 0.4s;
-      }
       .dmg.gain {
         color: #8dff9c;
       }
@@ -229,21 +220,68 @@
   <body class="in-menu">
     <canvas id="game"></canvas>
     <div id="menu" class="overlay hidden">
-      <form id="menu-card" class="panel" autocomplete="off">
-        <h1 lang="en">Tidebreaker</h1>
-        <p class="sub" data-i18n="menu.goal"></p>
-        <label><span data-i18n="menu.name"></span><input id="menu-name" maxlength="16" /></label>
-        <label
-          ><span data-i18n="menu.ship"></span
-          ><select id="menu-ship"></select
-        ></label>
-        <button id="menu-play" type="submit" data-i18n="menu.play"></button>
-        <div id="menu-note"></div>
-        <a id="menu-offline" href="?offline=1" data-i18n="menu.offline"></a>
-        <div id="menu-sound"></div>
-        <div id="menu-lang"><button type="button" data-lang="tr">Türkçe</button><button type="button" data-lang="en">English</button></div>
-      </form>
+      <div class="mn-shade"></div>
+      <header class="mn-top">
+        <div class="mn-brand" lang="en">Tidebreaker<span>.io</span></div>
+        <div class="mn-top-right">
+          <div id="menu-sound"></div>
+          <div id="menu-lang"><button type="button" data-lang="tr">Türkçe</button><button type="button" data-lang="en">English</button></div>
+        </div>
+      </header>
+      <main class="mn-main">
+        <section class="mn-left">
+          <h1 class="mn-logo" lang="en"><span class="mn-logo-a">Tide</span><span class="mn-logo-b">breaker</span></h1>
+          <svg class="mn-wave" viewBox="0 0 400 18" preserveAspectRatio="none" aria-hidden="true">
+            <path class="mn-wave-a" d="M0 9 Q25 0 50 9 T100 9 T150 9 T200 9 T250 9 T300 9 T350 9 T400 9" />
+            <path class="mn-wave-b" d="M0 12 Q25 4 50 12 T100 12 T150 12 T200 12 T250 12 T300 12 T350 12 T400 12" />
+          </svg>
+          <p class="mn-goal" data-i18n="menu.goal"></p>
+          <form id="menu-card" autocomplete="off">
+            <label class="mn-field"><span data-i18n="menu.name"></span><input id="menu-name" maxlength="16" /></label>
+            <label class="mn-field"
+              ><span data-i18n="menu.ship"></span
+              ><select id="menu-ship"></select
+            ></label>
+            <button id="menu-play" type="submit"><span data-i18n="menu.play"></span><i class="mn-play-ico"></i></button>
+            <div id="menu-note"></div>
+            <div class="mn-links">
+              <button id="menu-howto" type="button" data-i18n="menu.howto"></button>
+              <a id="menu-offline" href="?offline=1" data-i18n="menu.offline"></a>
+            </div>
+          </form>
+        </section>
+        <aside class="mn-right">
+          <div class="mn-card mn-mission">
+            <div class="mn-card-title" data-i18n="menu.mission"></div>
+            <div class="mn-duel">
+              <img class="mn-carrier blue" alt="" src="/icons/ships/side/blue/aircraft_carrier.png" />
+              <div class="mn-vs">VS</div>
+              <img class="mn-carrier red" alt="" src="/icons/ships/side/red/aircraft_carrier.png" />
+            </div>
+            <div class="mn-card-text" data-i18n="menu.missionText"></div>
+          </div>
+          <div class="mn-card mn-ladder">
+            <div class="mn-card-title" data-i18n="menu.ladder"></div>
+            <div class="mn-steps">
+              <div class="mn-step"><img alt="" src="/icons/ships/side/blue/coast_guard_boat.png" /><b>T1</b></div>
+              <div class="mn-step"><img alt="" src="/icons/ships/side/blue/gunboat.png" /><b>T2</b></div>
+              <div class="mn-step"><img alt="" src="/icons/ships/side/blue/corvette.png" /><b>T3</b></div>
+              <div class="mn-step"><img alt="" src="/icons/ships/side/blue/frigate.png" /><b>T4</b></div>
+              <div class="mn-step"><img alt="" src="/icons/ships/side/blue/cruiser.png" /><b>T5</b></div>
+            </div>
+            <div class="mn-card-text" data-i18n="menu.ladderText"></div>
+          </div>
+        </aside>
+      </main>
+      <footer class="mn-keys">
+        <span class="mn-key"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><em data-i18n="menu.key.move"></em></span>
+        <span class="mn-key"><kbd class="wide" data-i18n="menu.key.mouse"></kbd><em data-i18n="menu.key.fire"></em></span>
+        <span class="mn-key"><kbd class="wide" data-i18n="menu.key.space"></kbd><em data-i18n="menu.key.auto"></em></span>
+        <span class="mn-key"><kbd>Tab</kbd><em data-i18n="menu.key.score"></em></span>
+        <span class="mn-key"><kbd>M</kbd><em data-i18n="menu.key.map"></em></span>
+      </footer>
     </div>
+    <div id="tour" class="overlay hidden"></div>
     <div id="match" class="overlay hidden">
       <img class="m-ship blue" alt="" src="/icons/ships/side/blue/aircraft_carrier.png" />
       <div class="m-bars blue">

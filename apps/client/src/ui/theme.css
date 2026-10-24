@@ -37,8 +37,7 @@
 #killfeed,
 #hint,
 #scoreboard,
-#banner,
-#menu-card {
+#banner {
   zoom: var(--ui-scale, 1);
 }
 
@@ -910,82 +909,6 @@ svg.ico,
   text-align: right;
 }
 
-/* ---- start menu ---- */
-#menu-card {
-  width: 360px;
-  box-sizing: border-box;
-  padding: 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-#menu-card h1 {
-  margin: 0;
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-#menu-card .sub {
-  margin: 0;
-  font-size: 14px;
-  color: var(--dim);
-}
-#menu-card label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-#menu-card input,
-#menu-card select {
-  font: inherit;
-  font-size: 17px;
-  letter-spacing: 0.01em;
-  text-transform: none;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  background: rgba(3, 12, 22, 0.75);
-  color: #fff;
-}
-#menu-play {
-  font: inherit;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 10px;
-  border: none;
-  cursor: pointer;
-  color: #fff;
-  background: linear-gradient(#3a9bf0, #1f6cc4);
-}
-#menu-play:hover:not(:disabled) {
-  background: linear-gradient(#58b0ff, #2a7ddc);
-}
-#menu-play:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-#menu-note {
-  min-height: 18px;
-  font-size: 13px;
-}
-#menu-note.error {
-  color: #ff8f8f;
-}
-#menu-offline {
-  font-size: 12px;
-  color: #9fd0ff;
-}
-#menu-card label.gone {
-  display: none;
-}
-
 /* ---- floating XP and class-up arrows ---- */
 .fx {
   position: absolute;
@@ -1561,29 +1484,6 @@ svg.ico,
   opacity: 0;
 }
 
-/* ---- language choice on the menu ---- */
-#menu-lang {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-#menu-lang button {
-  padding: 4px 12px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #9fb4c8;
-  cursor: pointer;
-  background: rgba(10, 26, 42, 0.8);
-  border: 1px solid var(--line);
-}
-#menu-lang button.on {
-  color: #fff;
-  border-color: #6dff9a;
-}
-
 /* ---- the aiming pointer ---- */
 #crosshair {
   left: 0;
@@ -1708,10 +1608,6 @@ svg.ico,
   display: flex;
   align-items: center;
   gap: 8px;
-}
-#menu-sound {
-  justify-content: center;
-  margin-top: 12px;
 }
 #sound-ctl {
   zoom: var(--ui-scale, 1);

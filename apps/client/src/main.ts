@@ -44,6 +44,7 @@ import '@fontsource/oxanium/latin-700.css';
 import '@fontsource/oxanium/latin-ext-500.css';
 import '@fontsource/oxanium/latin-ext-700.css';
 import './ui/theme.css';
+import './ui/menu.css';
 import { applyI18n, detectLanguage, setLanguage, t } from './i18n/index.ts';
 import type { MessageKey } from './i18n/index.ts';
 import { Input } from './input/input.ts';
@@ -299,10 +300,13 @@ let mapSeed = 0;
 let worldMap: WorldMap | null = null;
 
 function setWorld(map: WorldMap): void {
-  if (islands) for (const o of islands.objects) stage.scene.remove(o);
   worldMap = map;
-  islands = new IslandView(map, islandModels(), assets.rocks());
-  stage.scene.add(...islands.objects);
+  // (The start screen already shows the map of the default seed: the same seed is the same map, so its islands stay.)
+  if (!islands || mapSeed !== map.seed) {
+    if (islands) for (const o of islands.objects) stage.scene.remove(o);
+    islands = new IslandView(map, islandModels(), assets.rocks());
+    stage.scene.add(...islands.objects);
+  }
   minimapEl.replaceChildren();
   minimap = new Minimap(minimapEl, map);
   mapSeed = map.seed;
@@ -599,6 +603,8 @@ if (offline) {
   startOffline();
   document.body.classList.remove('in-menu');
 } else {
+  // The start screen shows the sea of the default map behind it (a joining player gets the room's own map).
+  setWorld(generateMap(TRAINING.mapSeed));
   menu.show();
 }
 
@@ -734,7 +740,16 @@ function update(nowMs: number): void {
     baseShop.show(false);
     wakeMap.begin(rig.focusX, rig.focusZ, dtSec);
     effects.update(dtSec);
-    rig.update(stage.camera, WORLD_CENTER + Math.cos(timeSec * 0.05) * 60, WORLD_CENTER, dtSec, 3);
+    // A slow drift over the map: the middle, the rigs, the rock channel.
+    const drift = timeSec * 0.035;
+    rig.update(
+      stage.camera,
+      WORLD_CENTER + Math.cos(drift) * 240,
+      WORLD_CENTER - 70 + Math.sin(drift * 1.3) * 150,
+      dtSec,
+      3,
+    );
+    islands?.update(timeSec);
     stage.followSun(rig.focusX, rig.focusZ);
     wakeMap.render(stage.renderer);
     water.setWake(wakeMap.texture, wakeMap.origin.x, wakeMap.origin.y);

@@ -2,11 +2,15 @@ import { SHIP_IDS } from '@tidebreaker/shared';
 import type { ShipId } from '@tidebreaker/shared';
 import { currentLanguage, saveLanguage, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
+import { Tour, tourSeen } from './tour.ts';
 
 const NAME_KEY = 'tidebreaker.name';
 const SHIP_KEY = 'tidebreaker.ship';
 
-/** Start screen: type a name, pick a class (temporary test option), press Play. */
+/**
+ * Start screen: type a name, pick a class (temporary test option), press Play. The first time a player presses Play
+ * the how-to-play tour opens first; the "How to play" button opens it at any time.
+ */
 export class Menu {
   private readonly root = document.getElementById('menu') as HTMLElement;
   private readonly form = document.getElementById('menu-card') as HTMLFormElement;
@@ -14,6 +18,7 @@ export class Menu {
   private readonly ship = document.getElementById('menu-ship') as HTMLSelectElement;
   private readonly play = document.getElementById('menu-play') as HTMLButtonElement;
   private readonly note = document.getElementById('menu-note') as HTMLElement;
+  private readonly tour = new Tour(document.getElementById('tour') as HTMLElement);
 
   /** `pickShip`: shows the class choice (test builds only); otherwise everyone starts as T1. */
   constructor(onPlay: (name: string, shipIdx: number) => void, pickShip = false) {
@@ -45,7 +50,12 @@ export class Menu {
       } catch {
         // Not remembering is fine.
       }
-      onPlay(name, idx);
+      // A first-time player sees the tour before the match starts (nothing happens to the ship meanwhile).
+      if (tourSeen()) onPlay(name, idx);
+      else this.tour.open(() => onPlay(name, idx));
+    });
+    document.getElementById('menu-howto')?.addEventListener('click', () => {
+      this.tour.open(() => this.name.focus());
     });
     // The language buttons: the choice is remembered and the page reloads so every text follows it.
     for (const b of this.root.querySelectorAll<HTMLButtonElement>('#menu-lang button')) {
