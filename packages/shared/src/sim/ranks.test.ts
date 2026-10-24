@@ -42,7 +42,7 @@ describe('ranks', () => {
   });
 
   it('ranks the teams separately', () => {
-    const rows = [player(1, 0, 1200), player(2, 1, 1200)];
+    const rows = [player(1, 0, RANKS.minScore[TOP]! + 10), player(2, 1, RANKS.minScore[TOP]! + 10)];
     const ranks = rankTable(rows);
     expect(ranks.get(1)).toBe(TOP);
     expect(ranks.get(2)).toBe(TOP);
@@ -65,7 +65,7 @@ describe('ranks', () => {
 
   it('property: ranks never rise as the position gets worse, and ranks are in range', () => {
     fc.assert(
-      fc.property(fc.array(fc.integer({ min: 0, max: 3000 }), { minLength: 1, maxLength: 24 }), (scores) => {
+      fc.property(fc.array(fc.integer({ min: 0, max: 4500 }), { minLength: 1, maxLength: 24 }), (scores) => {
         const sorted = [...scores].sort((a, b) => b - a);
         const ranks = sorted.map((s, p) => rankAt(p, sorted.length, s));
         for (let i = 0; i < ranks.length; i++) {
