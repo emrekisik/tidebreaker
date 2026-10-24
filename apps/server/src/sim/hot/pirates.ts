@@ -16,6 +16,7 @@ import {
   angleDiff,
   channelPointInto,
   clamp,
+  lineOfFire,
   resetShipState,
   segmentVsWorld,
 } from '@tidebreaker/shared';
@@ -39,6 +40,8 @@ const LANE = PIRATE_COVES.length;
 const LANE_OVERSHOOT = 0.14;
 /** A sentry more than this far to the side of the lane's line is off the lane (it has been chasing: it sails back to a mouth). */
 const OFF_LANE = 12;
+/** A pirate only shoots at (or goes after) a ship when the line is clear this far to either side of the middle line too. */
+const SHOT_HALF_WIDTH = 2;
 /** A pirate waiting at its cove picks a new spot to sail to this often (seconds). */
 const WANDER_MIN_SEC = 6;
 const WANDER_RANGE_SEC = 6;
@@ -283,7 +286,7 @@ export class Pirates {
         want = bearing + dir * (PI / 2);
         cruise = 0.7;
       }
-      this.lineClear[p] = segmentVsWorld(w.land, s.x, s.y, ts.x, ts.y) < 0 ? 1 : 0;
+      this.lineClear[p] = lineOfFire(w.land, s.x, s.y, ts.x, ts.y, SHOT_HALF_WIDTH) ? 1 : 0;
     } else if (st === PATROL && lane) {
       // Follow the lane toward the end the sentry is heading for (steering for a point a little ahead keeps it in the
       // middle); past the mouth it turns round in the open water and comes back.
@@ -384,7 +387,7 @@ export class Pirates {
       if (Math.hypot(ts.x - base.x, ts.y - base.y) < PIRATE.carrierAvoid) return false;
     }
     // A ship behind land (a rock wall) cannot be shot at or sailed to in a straight line: it is no target.
-    return segmentVsWorld(w.land, x, y, ts.x, ts.y) < 0;
+    return lineOfFire(w.land, x, y, ts.x, ts.y, SHOT_HALF_WIDTH);
   }
 
   /** The wanted heading, or the nearest one to it with open water ahead (whisker test). */

@@ -1,7 +1,7 @@
 /**
- * Keyboard + mouse state. A/D = rudder, W = throttle, S = brake, right mouse = throttle (same as
- * W), left mouse = fire, and the auto-fire switch keeps the guns firing without a held button. Aim is kept as
- * normalized device coordinates for the camera ray.
+ * Keyboard + mouse state. A/D = rudder, W = throttle, S = brake, left mouse = fire, and the auto-fire switch (right
+ * mouse or the space bar, handled by the page through `onRightClick`) keeps the guns firing without a held button. Aim
+ * is kept as normalized device coordinates for the camera ray.
  */
 export class Input {
   /** Rudder in [-1, 1]; positive turns clockwise on screen. */
@@ -14,7 +14,8 @@ export class Input {
   ndcX = 0;
   ndcY = 0;
   private readonly keys = new Set<string>();
-  private rightMouse = false;
+  /** The right button was pressed (it switches auto fire). */
+  onRightClick: (() => void) | null = null;
   private wheel = 0;
   private readonly canvas: HTMLCanvasElement;
 
@@ -33,24 +34,16 @@ export class Input {
       this.keys.clear();
       this.fire = false;
       this.autoFire = false;
-      this.rightMouse = false;
       this.recompute();
     });
     window.addEventListener('pointermove', (e) => this.pointer(e));
     canvas.addEventListener('pointerdown', (e) => {
       this.pointer(e);
       if (e.button === 0) this.fire = true;
-      if (e.button === 2) {
-        this.rightMouse = true;
-        this.recompute();
-      }
+      if (e.button === 2) this.onRightClick?.();
     });
     window.addEventListener('pointerup', (e) => {
       if (e.button === 0) this.fire = false;
-      if (e.button === 2) {
-        this.rightMouse = false;
-        this.recompute();
-      }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener(
@@ -86,7 +79,7 @@ export class Input {
     const right = k.has('KeyD') || k.has('ArrowRight') ? 1 : 0;
     const left = k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0;
     const brake = k.has('KeyS') || k.has('ArrowDown') ? 1 : 0;
-    const gas = k.has('KeyW') || k.has('ArrowUp') || this.rightMouse ? 1 : 0;
+    const gas = k.has('KeyW') || k.has('ArrowUp') ? 1 : 0;
     this.steer = right - left;
     // Brake wins over gas so a held brake always stops the ship.
     this.throttle = brake ? -1 : gas;

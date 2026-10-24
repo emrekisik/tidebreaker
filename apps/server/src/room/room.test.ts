@@ -31,6 +31,7 @@ import {
   STEP_SEC,
   TEAM_BLUE,
   TEAM_PIRATE,
+  TEAM_NAME_COUNT,
   TEAM_RED,
   TICK_RATE,
   ECONOMY,
@@ -398,6 +399,31 @@ describe('match flow', () => {
     expect(room.world.slots[1]!.state.alive).toBe(true);
     expect(red.heard.joined.length).toBeGreaterThan(joinedBefore);
     expect(red.heard.match[red.heard.match.length - 1]!.state).toBe(MATCH_STATE.PLAYING);
+  });
+
+  it('gives the two teams two different generic names, drawn again for every round', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A');
+    await tick(2);
+    const first = a.heard.match[a.heard.match.length - 1]!;
+    expect(first.nameBlue).toBeGreaterThanOrEqual(0);
+    expect(first.nameBlue).toBeLessThan(TEAM_NAME_COUNT);
+    expect(first.nameRed).toBeLessThan(TEAM_NAME_COUNT);
+    expect(first.nameBlue).not.toBe(first.nameRed);
+    // The names stay the same all through a round...
+    await tick(TICK_RATE * 3);
+    const later = a.heard.match[a.heard.match.length - 1]!;
+    expect([later.nameBlue, later.nameRed]).toEqual([first.nameBlue, first.nameRed]);
+    // ...and a new round (the world starting one) draws a new pair.
+    let changed = false;
+    for (let i = 0; i < 40 && !changed; i++) {
+      room.world.startRound();
+      await tick(2);
+      const m = a.heard.match[a.heard.match.length - 1]!;
+      expect(m.nameBlue).not.toBe(m.nameRed);
+      changed = m.nameBlue !== first.nameBlue || m.nameRed !== first.nameRed;
+    }
+    expect(changed).toBe(true);
   });
 });
 

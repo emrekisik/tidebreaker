@@ -101,6 +101,8 @@ export interface OnlineEvents extends GameEvents {
     restartSec: number,
     killsBlue: number,
     killsRed: number,
+    nameBlue: number,
+    nameRed: number,
   ): void;
   /** Someone sank someone (kill feed). */
   onKill(
@@ -477,11 +479,13 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     restartSec: number,
     killsBlue: number,
     killsRed: number,
+    nameBlue: number,
+    nameRed: number,
   ): void {
     this.teamKills[0] = killsBlue;
     this.teamKills[1] = killsRed;
     this.kills = this.teamKills[this.myTeam] ?? 0;
-    this.deps.events.onMatch(state, winner, restartSec, killsBlue, killsRed);
+    this.deps.events.onMatch(state, winner, restartSec, killsBlue, killsRed, nameBlue, nameRed);
   }
 
   youDied(killerId: number, killerName: string, respawnSec: number): void {

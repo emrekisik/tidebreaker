@@ -3,6 +3,7 @@ import type { ScoreEntry } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
+import { teamName } from './teamNames.ts';
 
 /** Two-column scoreboard (blue, red): hold Tab, or it stays up between rounds. */
 export class Scoreboard {
@@ -50,7 +51,7 @@ export class Scoreboard {
     const head = document.createElement('div');
     head.className = 'sb-row sb-head';
     head.append(
-      this.cell(team === TEAM_BLUE ? t('match.blue') : t('match.red'), 'sb-name'),
+      this.cell(teamName(team), 'sb-name'),
       this.cell(t('score.score'), 'sb-num'),
       this.cell(t('score.kills'), 'sb-num'),
       this.cell(t('score.deaths'), 'sb-num'),

@@ -2,6 +2,7 @@ import {
   DRONE,
   FX,
   KIND,
+  MATCH,
   MATCH_STATE,
   MAX_PROJECTILES,
   CHEAT,
@@ -85,6 +86,8 @@ import { NamePlates } from './ui/namePlates.ts';
 import { preloadRankIcons } from './ui/rankBadge.ts';
 import { RankBook } from './ui/rankBook.ts';
 import { RankUp } from './ui/rankUp.ts';
+import { NetStatus } from './ui/netStatus.ts';
+import { setTeamNames } from './ui/teamNames.ts';
 import { SettingsPanel } from './ui/settingsPanel.ts';
 import { ShipAlert } from './ui/shipAlert.ts';
 import { Tour } from './ui/tour.ts';
@@ -225,6 +228,17 @@ for (const type of ['pointerdown', 'keydown'] as const) {
   window.addEventListener(type, () => audio.unlock(), { capture: true });
 }
 new SoundSettings(document.getElementById('menu-sound') as HTMLElement);
+// Ping, frame rate, players and server, under the radar.
+const netStatus = new NetStatus(
+  document.getElementById('netstat') as HTMLElement,
+  offline ? t('net.offline') : serverUrl.replace(/^wss?:\/\//, '').replace(/\/$/, ''),
+);
+/** How many players the scoreboard lists (the pirates are not on it). */
+let playerCount = 0;
+// The right mouse button switches auto fire like the space bar does.
+input.onRightClick = () => {
+  if (session && !document.body.classList.contains('in-menu')) setAutoFire(!input.autoFire, true);
+};
 // In a match the sound lives in the settings panel (the gear button in the top right corner).
 const gameTour = new Tour(document.getElementById('tour') as HTMLElement);
 const settings = new SettingsPanel(() => gameTour.open(() => undefined));
@@ -472,8 +486,9 @@ const events: OnlineEvents = {
     rig.shake(0.9);
     sfx.died();
   },
-  onMatch(state, winner, restartSec) {
-    matchHud.setMatch(state, winner, restartSec);
+  onMatch(state, winner, restartSec, _killsBlue, _killsRed, nameBlue, nameRed) {
+    setTeamNames(nameBlue, nameRed);
+    matchHud.setMatch(state, winner, restartSec, online?.myTeam ?? TEAM_BLUE);
     if (state === MATCH_STATE.ENDED && !matchEnded) sfx.matchEnded(winner === online?.myTeam);
     matchEnded = state === MATCH_STATE.ENDED;
     scoreboard.pin(state === MATCH_STATE.ENDED);
@@ -507,6 +522,7 @@ const events: OnlineEvents = {
     );
   },
   onScores(rows, myId) {
+    playerCount = rows.length;
     ranks.update(rows, myId);
     plates.applyRanks((id) => ranks.of(id));
     scoreboard.update(rows, myId);
@@ -728,6 +744,8 @@ function update(nowMs: number): void {
   const timeSec = nowMs / 1000;
   setHologramTime(timeSec);
 
+  netStatus.frame(frameMs);
+  netStatus.update(nowMs, online ? online.clock.rtt : null, playerCount, MATCH.maxPlayers);
   crosshair.setAuto(input.autoFire);
   crosshair.update(
     dtSec,

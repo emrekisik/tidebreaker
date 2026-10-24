@@ -29,6 +29,7 @@ import {
   encodeJoined,
   encodeKill,
   encodeMatch,
+  TEAM_NAME_COUNT,
   encodePong,
   encodeReject,
   encodeRigs,
@@ -176,6 +177,9 @@ export class Room {
   /** Fraction of the tick budget spent on the last ticks (exponential moving average). */
   tickBusyEma = 0;
   private ticksSinceMatch = 0;
+  /** The names (numbers, see `TEAM_NAME_COUNT`) of the blue and red team in this round, and the round they were drawn for. */
+  private teamNames: [number, number] = [0, 1];
+  private namedRound = -1;
   private lastScoresTick = -TICK_RATE;
   /** Last oil rig state sent: gauge byte and owner for each rig. */
   private readonly lastRigs = new Int16Array(RIG.count * 2).fill(-999);
@@ -430,11 +434,23 @@ export class Room {
     else for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
   }
 
+  /** Every new round the two teams get two different names at random (cosmetic: nothing in the simulation depends on it). */
+  private drawTeamNames(): void {
+    const w = this.world;
+    if (w.round === this.namedRound) return;
+    this.namedRound = w.round;
+    const a = Math.floor(Math.random() * TEAM_NAME_COUNT);
+    let b = Math.floor(Math.random() * (TEAM_NAME_COUNT - 1));
+    if (b >= a) b++;
+    this.teamNames = [a, b];
+  }
+
   private broadcastMatch(): void {
     const w = this.world;
     w.matchChanged = false;
     this.ticksSinceMatch = 0;
     this.small.reset();
+    this.drawTeamNames();
     encodeMatch(
       this.small,
       w.matchState,
@@ -442,6 +458,8 @@ export class Room {
       Math.max(0, Math.min(255, Math.ceil(w.restartLeft))),
       w.teamKills[0]!,
       w.teamKills[1]!,
+      this.teamNames[0],
+      this.teamNames[1],
     );
     const bytes = this.small.toBytes();
     for (const c of this.clients) if (c.stage >= Stage.Welcomed) this.send(c, bytes);

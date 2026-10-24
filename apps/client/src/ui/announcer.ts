@@ -5,6 +5,7 @@ import repairIcon from './icons/repair.svg?raw';
 import rigIcon from './icons/rig.svg?raw';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
+import { teamName } from './teamNames.ts';
 
 const MAX_ROWS = 4;
 const LIFETIME_MS = 6500;
@@ -29,7 +30,7 @@ export class Announcer {
 
   /** `name`: the player behind it (empty when it is the team's doing, like a rig). Shown as text only. */
   show(kind: number, arg: number, team: number, name: string): void {
-    const teamName = t(team === TEAM_BLUE ? 'team.blue' : 'team.red');
+    const teamLabel = teamName(team);
     let text: string;
     switch (kind) {
       case ANNOUNCE.RIG_CAPTURED:
@@ -48,7 +49,7 @@ export class Announcer {
         return;
     }
     text = text
-      .replace('{team}', teamName)
+      .replace('{team}', teamLabel)
       .replace('{rig}', String.fromCharCode(65 + arg))
       .replace('{name}', name)
       .replace('{pct}', String(arg))

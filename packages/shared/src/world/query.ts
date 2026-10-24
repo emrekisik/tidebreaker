@@ -108,6 +108,33 @@ export function circleVsWorld(
 }
 
 /**
+ * True when a shot can fly from (x0, y0) to (x1, y1): no island, reef or rock wall on the way. A shot has some width
+ * and leaves the gun a little off the middle line of the hull, so the segment and two lines `half` to either side of
+ * it must all be clear (a gap between two rocks that the middle line slips through is not enough). Allocation-free.
+ */
+export function lineOfFire(
+  map: WorldMap,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  half: number,
+): boolean {
+  if (segmentVsWorld(map, x0, y0, x1, y1) >= 0) return false;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1e-6) return true;
+  // The unit normal times `half`.
+  const nx = (-dy / len) * half;
+  const ny = (dx / len) * half;
+  return (
+    segmentVsWorld(map, x0 + nx, y0 + ny, x1 + nx, y1 + ny) < 0 &&
+    segmentVsWorld(map, x0 - nx, y0 - ny, x1 - nx, y1 - ny) < 0
+  );
+}
+
+/**
  * First point where the segment (x0, y0) -> (x1, y1) enters an island or reef, as a fraction
  * 0..1 of the segment, or -1 when it stays in open water. A segment that starts inside an
  * island reports 0. Swept test, so fast projectiles cannot tunnel through a thin coast.

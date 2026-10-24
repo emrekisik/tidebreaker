@@ -283,7 +283,7 @@
     </div>
     <div id="tour" class="overlay hidden"></div>
     <div id="match" class="overlay hidden">
-      <img class="m-ship blue" alt="" src="/icons/ships/side/blue/aircraft_carrier.png" />
+      <img class="m-ship blue" alt="" src="/icons/ships/card/aircraft_carrier_blue.png" />
       <div class="m-bars blue">
         <div class="m-bar hull"><div id="m-blue-hull" class="fill"></div></div>
         <div class="m-bar shield"><div id="m-blue-shield" class="fill"></div></div>
@@ -293,7 +293,7 @@
         <div class="m-bar hull"><div id="m-red-hull" class="fill"></div></div>
         <div class="m-bar shield"><div id="m-red-shield" class="fill"></div></div>
       </div>
-      <img class="m-ship red" alt="" src="/icons/ships/side/red/aircraft_carrier.png" />
+      <img class="m-ship red" alt="" src="/icons/ships/card/aircraft_carrier_red.png" />
     </div>
     <div id="rigs" class="overlay hidden"></div>
     <div id="progress" class="overlay hidden">
@@ -306,10 +306,24 @@
     <div id="announce" class="overlay"></div>
     <div id="scoreboard" class="overlay panel hidden"></div>
     <div id="banner" class="overlay hidden">
-      <div id="banner-title"></div>
-      <div id="banner-sub"></div>
+      <div class="bn-card">
+        <div id="banner-tag" class="bn-tag"></div>
+        <div id="banner-title"></div>
+        <div id="banner-sub"></div>
+        <div class="bn-versus">
+          <img class="blue" alt="" src="/icons/ships/card/aircraft_carrier_blue.png" />
+          <b id="banner-score">0 : 0</b>
+          <img class="red" alt="" src="/icons/ships/card/aircraft_carrier_red.png" />
+        </div>
+        <div class="bn-count">
+          <span id="banner-count-label"></span>
+          <div class="bn-bar"><i id="banner-bar"></i></div>
+          <b id="banner-count-num"></b>
+        </div>
+      </div>
     </div>
     <div id="minimap" class="overlay panel"></div>
+    <div id="netstat" class="overlay"></div>
     <div id="storm" class="overlay"><span data-i18n="hud.storm"></span></div>
     <div id="dmg-layer" class="overlay"></div>
     <div id="emote-layer" class="overlay"></div>
@@ -356,15 +370,14 @@
         <span class="hd-cap" data-i18n="hud.score"></span>
         <b class="hud-score" id="hud-score">0</b>
       </div>
-      <div class="hd-line hd-cash">
-        <span id="hud-cash-ico" class="ico"></span>
-        <span class="hd-cap" data-i18n="hud.cash"></span>
-        <b id="hud-cash" class="hud-cash">0</b>
-      </div>
-      <div class="hd-line hd-class">
-        <span class="hud-lv" id="hud-lv">LV 1</span>
+      <div class="hd-line hd-money">
+        <div class="hd-money-top">
+          <span id="hud-cash-ico" class="ico"></span>
+          <b id="hud-cash" class="hud-cash">0</b>
+          <span class="hd-tier"><span id="hud-lv">T1</span><i class="hd-step"></i><span id="hud-tier-next">T2</span></span>
+          <b class="hud-next" id="hud-next"></b>
+        </div>
         <div class="hud-classbar"><div id="hud-classfill"></div></div>
-        <span class="hud-next" id="hud-next"></span>
       </div>
       <div id="missile-hud" class="hidden"></div>
     </div>

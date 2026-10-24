@@ -7,7 +7,7 @@ import { CHANNEL, MAP, WORLD_CENTER, WORLD_SIZE } from '../config/world.ts';
 import { CHANNEL_REACH, channelDistance, channelRocks, channelSpots } from './channel.ts';
 import { generateMap } from './generate.ts';
 import { mapHash } from './hash.ts';
-import { circleVsWorld, pointInIsland, segmentVsWorld } from './query.ts';
+import { circleVsWorld, lineOfFire, pointInIsland, segmentVsWorld } from './query.ts';
 import { ISLAND_TYPES } from './types.ts';
 import type { WorldMap } from './types.ts';
 
@@ -353,5 +353,34 @@ describe('rock channel', () => {
       expect(Math.hypot(rock.x - WORLD_CENTER, rock.y - WORLD_CENTER)).toBeGreaterThan(MAP.spawnClear + rock.r);
       expect(channelDistance(rock.x, rock.y)).toBeLessThanOrEqual(CHANNEL_REACH);
     }
+  });
+});
+
+describe('line of fire', () => {
+  // Two reefs with a 2-unit gap between them: a thin line slips through, a shot with some width does not.
+  const gap: WorldMap = {
+    seed: 0,
+    islandCount: 0,
+    islandType: new Uint8Array(0),
+    islandX: new Float32Array(0),
+    islandY: new Float32Array(0),
+    islandR: new Float32Array(0),
+    vertStart: Uint16Array.of(0),
+    verts: new Float32Array(0),
+    reefCount: 2,
+    reefX: Float32Array.of(100, 100),
+    reefY: Float32Array.of(95, 105),
+    reefR: Float32Array.of(4, 4),
+  };
+
+  it('a thin line passes between two rocks, a line of fire does not', () => {
+    expect(segmentVsWorld(gap, 0, 100, 200, 100)).toBe(-1);
+    expect(lineOfFire(gap, 0, 100, 200, 100, 2)).toBe(false);
+  });
+
+  it('is clear in open water and when the rocks are far from the line', () => {
+    expect(lineOfFire(gap, 0, 50, 200, 50, 2)).toBe(true);
+    expect(lineOfFire(gap, 0, 100, 40, 100, 2)).toBe(true);
+    expect(lineOfFire(gap, 0, 0, 0, 0, 2)).toBe(true);
   });
 });

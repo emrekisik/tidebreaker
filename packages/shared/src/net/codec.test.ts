@@ -269,7 +269,7 @@ describe('server messages', () => {
     send();
     encodeJoined(w, 7, 1, 2);
     send();
-    encodeMatch(w, 1, 0, 14, 3, 9);
+    encodeMatch(w, 1, 0, 14, 3, 9, 5, 17);
     send();
     encodeYouDied(w, 4, 'Aaa', 5);
     send();
@@ -307,7 +307,7 @@ describe('server messages', () => {
     expect(log).toEqual([
       'welcome {"version":1,"mapSeed":99,"tickRate":20,"snapshotEvery":2,"serverTimeMs":5000,"configHash":3735928559}',
       'joined 7,1,2',
-      'match 1,0,14,3,9',
+      'match 1,0,14,3,9,5,17',
       'youDied 4,Aaa,5',
       'kill 3,9,0,1,2,Ali,Çınar',
       'kill 1,4,1,0,255,Carrier,Veli',

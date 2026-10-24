@@ -332,6 +332,8 @@ export function encodeMatch(
   restartSec: number,
   killsBlue: number,
   killsRed: number,
+  nameBlue: number,
+  nameRed: number,
 ): void {
   w.u8(S2C.MATCH);
   w.u8(state);
@@ -339,6 +341,8 @@ export function encodeMatch(
   w.u8(restartSec);
   w.u16(killsBlue);
   w.u16(killsRed);
+  w.u8(nameBlue);
+  w.u8(nameRed);
 }
 
 export function encodeYouDied(
@@ -827,6 +831,8 @@ export interface ServerHandler {
     restartSec: number,
     killsBlue: number,
     killsRed: number,
+    nameBlue: number,
+    nameRed: number,
   ): void;
   youDied(killerId: number, killerName: string, respawnSec: number): void;
   kill(
@@ -962,8 +968,10 @@ export function decodeServer(data: Uint8Array, h: ServerHandler): boolean {
       const restart = r.u8();
       const kb = r.u16();
       const kr = r.u16();
+      const nb = r.u8();
+      const nr = r.u8();
       if (!r.ok || r.remaining !== 0) return false;
-      h.match(state, winner, restart, kb, kr);
+      h.match(state, winner, restart, kb, kr, nb, nr);
       return true;
     }
     case S2C.YOU_DIED: {

@@ -4,9 +4,11 @@
  * 1600 x 900 window; the whole HUD is scaled from there (--ui-scale, set in main.ts).
  */
 :root {
+  /* The player's panel opacity setting (settings panel): 1 is the default look. */
+  --hud-alpha: 1;
   --font-ui: 'Oxanium', system-ui, sans-serif;
-  --panel: rgba(12, 31, 49, 0.62);
-  --panel-dark: rgba(8, 21, 35, 0.64);
+  --panel: rgba(12, 31, 49, calc(0.62 * var(--hud-alpha, 1)));
+  --panel-dark: rgba(8, 21, 35, calc(0.64 * var(--hud-alpha, 1)));
   --line: rgba(130, 180, 225, 0.16);
   --text: #f1f6fb;
   --dim: #8fa9c2;
@@ -34,6 +36,7 @@
 #hud,
 #base-shop,
 #minimap,
+#netstat,
 #killfeed,
 #hint,
 #scoreboard,
@@ -72,7 +75,7 @@ svg.ico,
   display: flex;
   flex-direction: column;
   gap: 8px;
-  --panel: rgba(11, 21, 31, 0.8);
+  --panel: rgba(11, 21, 31, calc(0.8 * var(--hud-alpha, 1)));
   border: 1px solid rgba(165, 190, 210, 0.26);
   border-top: 2px solid rgba(165, 190, 210, 0.5);
 }
@@ -88,20 +91,32 @@ svg.ico,
   align-items: center;
   justify-content: space-between;
 }
-/* Lives: one small square for each, hollow when lost. */
+/* Lives: a sharp-edged heart for each, solid while it is left, hollow when lost. */
 .hd-lives {
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }
 .hd-lives .life {
-  width: 9px;
-  height: 9px;
-  box-sizing: border-box;
-  border: 1px solid #9fb4c6;
+  width: 13px;
+  height: 12px;
+  color: #dfe8ef;
 }
-.hd-lives .life.on {
-  background: #dce6ee;
-  border-color: #dce6ee;
+.hd-lives .life svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.hd-lives .life path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: miter;
+  opacity: 0.55;
+}
+.hd-lives .life.on path {
+  fill: currentColor;
+  opacity: 1;
 }
 .hd-bars {
   display: flex;
@@ -199,34 +214,64 @@ svg.ico,
   color: #f1f5f8;
   font-variant-numeric: tabular-nums;
 }
-.hd-cash .ico {
+/* Money and the class it buys: one block. The figure is the cash in hand, the bar under it fills toward the price of
+   the next class ("T1 > T2  70"). */
+.hd-money {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.hd-money-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.hd-money .ico {
   flex: none;
   width: 16px;
   height: 16px;
   color: #8fd6a0;
 }
 .hud-cash {
+  flex: 1;
   font-size: 17px;
   font-weight: 700;
   line-height: 1;
   color: #8fd6a0;
   font-variant-numeric: tabular-nums;
 }
-/* How much of the next class's price the money in hand covers. */
-.hd-class {
-  gap: 9px;
-  padding-top: 7px;
-}
-.hud-lv {
-  flex: none;
-  font-size: 10px;
+.hd-tier {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: #8aa0b4;
 }
+.hd-tier #hud-lv {
+  color: #dfe8ef;
+}
+.hd-step {
+  width: 0;
+  height: 0;
+  border-left: 5px solid #8aa0b4;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+}
+.hd-tier.max .hd-step {
+  display: none;
+}
+.hud-next {
+  flex: none;
+  min-width: 26px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #b4c3d0;
+}
 .hud-classbar {
-  flex: 1;
   height: 4px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(165, 190, 210, 0.22);
@@ -237,15 +282,6 @@ svg.ico,
   width: 0;
   background: #8fd6a0;
   transition: width 0.4s;
-}
-.hud-next {
-  flex: none;
-  min-width: 30px;
-  text-align: right;
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #b4c3d0;
 }
 
 /* ---- top centre: both carriers, the score between them, the oil rigs below ---- */
@@ -266,9 +302,11 @@ svg.ico,
   border-top: 0;
   border-bottom: 0;
 }
+/* The carriers are rendered from their 3D models, bows toward each other (the red one is the blue one turned round). */
 .m-ship {
-  width: 46px;
-  height: 23px;
+  width: 104px;
+  height: 42px;
+  margin: -4px 0;
   object-fit: contain;
   flex: none;
 }
@@ -299,10 +337,10 @@ svg.ico,
   left: 0;
 }
 .m-bar.hull .fill {
-  background: linear-gradient(90deg, #22e070, #46ff93);
+  background: #4cc27c;
 }
 .m-bar.shield .fill {
-  background: linear-gradient(90deg, #10d8d6, #4ffffb);
+  background: #58b9d8;
 }
 #m-kills {
   min-width: 72px;
@@ -402,7 +440,7 @@ svg.ico,
   flex: 1;
   max-width: 180px;
   min-width: 0;
-  background: rgba(11, 21, 31, 0.86);
+  background: rgba(11, 21, 31, calc(0.86 * var(--hud-alpha, 1)));
   border: 1px solid rgba(165, 190, 210, 0.3);
   cursor: pointer;
 }
@@ -434,7 +472,7 @@ svg.ico,
   gap: 12px;
   height: 28px;
   padding: 0 10px;
-  background: rgba(34, 50, 64, 0.95);
+  background: rgba(34, 50, 64, calc(0.95 * var(--hud-alpha, 1)));
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -552,7 +590,7 @@ svg.ico,
   border: 1px solid var(--line);
 }
 .p-btn:hover:not(:disabled) {
-  background: rgba(24, 52, 80, 0.95);
+  background: rgba(24, 52, 80, calc(0.95 * var(--hud-alpha, 1)));
   border-color: var(--c);
 }
 .p-btn:disabled {
@@ -629,12 +667,10 @@ svg.ico,
 /* ---- bottom left: the radar map ---- */
 #minimap {
   right: 12px;
-  bottom: 12px;
+  bottom: 56px;
   padding: 4px;
-  border: 2px solid #5fdbe8;
-  border-radius: 6px;
+  border: 1px solid rgba(165, 190, 210, 0.3);
   background: #071a22;
-  box-shadow: 0 0 10px rgba(95, 219, 232, 0.25);
 }
 #minimap canvas {
   display: block;
@@ -752,28 +788,132 @@ svg.ico,
   color: #9fb4c8;
 }
 
+/* The big messages (a round won or lost, a ship sunk, a lost connection): a plain card, a coloured top edge that says
+   what kind it is, a bar that counts down to what happens next. */
 #banner {
-  top: 26%;
+  --bn: #8aa0b4;
+  top: 20%;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
+  text-shadow: none;
   transition: opacity 0.25s;
 }
-#banner-title {
-  font-size: 52px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+#banner[data-kind='win'] {
+  --bn: #d9b25f;
+}
+#banner[data-kind='lose'],
+#banner[data-kind='death'] {
+  --bn: #c9604f;
+}
+.bn-card {
+  min-width: 480px;
+  box-sizing: border-box;
+  padding: 14px 34px 16px;
+  background: rgba(8, 14, 20, calc(0.9 * var(--hud-alpha, 1)));
+  border: 1px solid rgba(165, 190, 210, 0.28);
+  border-top: 3px solid var(--bn);
+}
+#banner:not(.hidden) .bn-card {
+  animation: bn-in 0.3s ease-out both;
+}
+@keyframes bn-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.bn-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
-  text-shadow: 0 3px 12px #000;
+  color: var(--bn);
+}
+#banner-title {
+  margin: 4px 0 2px;
+  font-size: 50px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+}
+#banner[data-kind='death'] #banner-title,
+#banner[data-kind='lost'] #banner-title {
+  font-size: 36px;
+  white-space: nowrap;
 }
 #banner-sub {
-  margin-top: 6px;
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: #b9c8d5;
+}
+#banner-sub:empty {
+  display: none;
+}
+.bn-versus {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 12px;
+}
+#banner[data-kind='win'] .bn-versus,
+#banner[data-kind='lose'] .bn-versus {
+  display: flex;
+}
+.bn-versus img {
+  width: 150px;
+  height: auto;
+}
+.bn-versus img.red {
+  transform: scaleX(-1);
+}
+.bn-versus b {
+  font-size: 30px;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.bn-count {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #bcd6f0;
-  text-shadow: 0 2px 8px #000;
+  color: #8aa0b4;
+}
+#banner:not([data-kind='lost']) .bn-count {
+  display: flex;
+}
+.bn-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(165, 190, 210, 0.22);
+  box-sizing: border-box;
+}
+.bn-bar i {
+  display: block;
+  height: 100%;
+  background: var(--bn);
+  transform-origin: left;
+}
+.bn-count b {
+  min-width: 36px;
+  text-align: right;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: #e3eaf0;
 }
 
 #hint {
@@ -1001,6 +1141,7 @@ svg.ico,
 }
 #hud-cash {
   display: inline-block;
+  transform-origin: left center;
 }
 
 /* ---- the base shop: opens when the player is at their own carrier (bottom left, above the radar) ---- */
@@ -1010,7 +1151,7 @@ svg.ico,
   width: 310px;
   box-sizing: border-box;
   padding: 11px 13px 12px;
-  --panel: rgba(13, 32, 50, 0.62);
+  --panel: rgba(13, 32, 50, calc(0.62 * var(--hud-alpha, 1)));
 }
 #base-shop .ds-head {
   display: flex;
@@ -1040,11 +1181,11 @@ svg.ico,
   text-align: left;
   font: inherit;
   cursor: pointer;
-  background: rgba(10, 26, 42, 0.8);
+  background: rgba(10, 26, 42, calc(0.8 * var(--hud-alpha, 1)));
   border: 1px solid var(--line);
 }
 .ds-btn:hover:not(:disabled) {
-  background: rgba(24, 52, 80, 0.95);
+  background: rgba(24, 52, 80, calc(0.95 * var(--hud-alpha, 1)));
   border-color: #6dff9a;
 }
 .ds-btn:disabled {
@@ -1166,7 +1307,7 @@ svg.ico,
   height: 270px;
   box-sizing: border-box;
   border-radius: 50%;
-  background: rgba(8, 22, 36, 0.5);
+  background: rgba(8, 22, 36, calc(0.5 * var(--hud-alpha, 1)));
   border: 3px solid rgba(220, 235, 245, 0.55);
   box-shadow: 0 0 18px rgba(0, 0, 0, 0.35);
 }
@@ -1214,7 +1355,7 @@ svg.ico,
   line-height: 12px;
   text-align: center;
   color: #6dff9a;
-  background: rgba(4, 14, 24, 0.85);
+  background: rgba(4, 14, 24, calc(0.85 * var(--hud-alpha, 1)));
   border: 1px solid #6dff9a;
 }
 .ew-name {
@@ -1424,7 +1565,7 @@ svg.ico,
 /* ---- announcements (top middle): rigs, carrier repairs and gun upgrades ---- */
 #announce {
   zoom: var(--ui-scale, 1);
-  top: 86px;
+  top: 138px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1567,7 +1708,7 @@ svg.ico,
   font-size: 11px;
   line-height: 1.25;
   color: #9fb4c8;
-  background: rgba(22, 36, 48, 0.6);
+  background: rgba(22, 36, 48, calc(0.6 * var(--hud-alpha, 1)));
 }
 #p-tier.choosing {
   cursor: default;
@@ -1584,7 +1725,7 @@ svg.ico,
   font: inherit;
   color: #cfdae6;
   cursor: pointer;
-  background: rgba(10, 26, 42, 0.8);
+  background: rgba(10, 26, 42, calc(0.8 * var(--hud-alpha, 1)));
   border: 1px solid var(--line);
 }
 .ss-mute {
@@ -1621,7 +1762,7 @@ svg.ico,
   padding: 3px;
   color: #8fd0ff;
   cursor: pointer;
-  background: rgba(10, 26, 42, 0.8);
+  background: rgba(10, 26, 42, calc(0.8 * var(--hud-alpha, 1)));
   border: 1px solid var(--line);
 }
 .ss-sea svg {
@@ -1874,16 +2015,16 @@ svg.ico,
   color: #eafff3;
   cursor: pointer;
   pointer-events: auto;
-  background: rgba(10, 36, 26, 0.88);
+  background: rgba(10, 36, 26, calc(0.88 * var(--hud-alpha, 1)));
   border: 1px solid #6dff9a;
   will-change: transform;
   animation: shop-pulse 1.8s ease-in-out infinite;
 }
 .shop-btn:hover {
-  background: rgba(20, 70, 46, 0.9);
+  background: rgba(20, 70, 46, calc(0.9 * var(--hud-alpha, 1)));
 }
 .shop-btn.open {
-  background: rgba(50, 18, 22, 0.88);
+  background: rgba(50, 18, 22, calc(0.88 * var(--hud-alpha, 1)));
   border-color: #ff9a9a;
   animation: none;
 }
@@ -1911,7 +2052,7 @@ svg.ico,
 @keyframes shop-pulse {
   50% {
     border-color: #d9ffe6;
-    background: rgba(18, 62, 42, 0.92);
+    background: rgba(18, 62, 42, calc(0.92 * var(--hud-alpha, 1)));
   }
 }
 
@@ -1982,7 +2123,7 @@ svg.ico,
   color: #b4c3d0;
   cursor: pointer;
   pointer-events: auto;
-  background: rgba(11, 21, 31, 0.8);
+  background: rgba(11, 21, 31, calc(0.8 * var(--hud-alpha, 1)));
   border: 1px solid rgba(165, 190, 210, 0.3);
 }
 #settings-btn:hover,
@@ -2005,7 +2146,7 @@ body.in-menu #settings {
   box-sizing: border-box;
   padding: 0 0 12px;
   pointer-events: auto;
-  --panel: rgba(11, 21, 31, 0.9);
+  --panel: rgba(11, 21, 31, calc(0.9 * var(--hud-alpha, 1)));
   border: 1px solid rgba(165, 190, 210, 0.3);
   border-top: 2px solid rgba(165, 190, 210, 0.5);
 }
@@ -2161,4 +2302,83 @@ body.in-menu #settings {
 }
 .st-btn:hover {
   background: rgba(165, 190, 210, 0.22);
+}
+
+/* ---- under the radar: ping, frame rate, players, server ---- */
+#netstat {
+  right: 12px;
+  bottom: 12px;
+  width: 230px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 8px 6px;
+  background: rgba(11, 21, 31, calc(0.8 * var(--hud-alpha, 1)));
+  border: 1px solid rgba(165, 190, 210, 0.3);
+  text-shadow: none;
+}
+body.in-menu #netstat {
+  display: none;
+}
+.ns-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ns-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #c9d6e1;
+}
+.ns-item i {
+  display: block;
+  width: 14px;
+  height: 12px;
+  color: #8aa0b4;
+}
+.ns-item svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ns-item b {
+  font-weight: 700;
+}
+.ns-item.wide {
+  font-size: 11px;
+  color: #8aa0b4;
+}
+.ns-item.wide b {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ns-item.ping[data-q='good'] i,
+.ns-item.ping[data-q='good'] b {
+  color: #7fd197;
+}
+.ns-item.ping[data-q='fair'] i,
+.ns-item.ping[data-q='fair'] b {
+  color: #d9b25f;
+}
+.ns-item.ping[data-q='poor'] i,
+.ns-item.ping[data-q='poor'] b {
+  color: #d9706a;
+}
+
+.st-note {
+  margin: 10px 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8aa0b4;
 }

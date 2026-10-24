@@ -28,6 +28,7 @@ import {
   qAimDist,
   qAngle16,
   qAxis,
+  lineOfFire,
   segmentVsWorld,
   statCap,
   statCost,
@@ -82,6 +83,8 @@ function pickupValue(p: Seen): number {
   return [10, 35, 100, 200][p.tier] ?? 10; // banknote piles: by size
 }
 
+/** A bot only shoots when the line of fire is clear this far to either side of the middle line too. */
+const SHOT_HALF_WIDTH = 2.4;
 /** Steering offsets tried (radians from the wanted heading) until one is free of land. */
 const SWERVES = [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 1.9, -1.9];
 /** Pickups this close are collected on the way. */
@@ -402,11 +405,11 @@ export class BotClient {
     return true;
   }
 
-  /** True when no island, reef or rock wall lies between this bot and (x, y): shots and missiles would get there. */
+  /** True when shots from this bot's guns would reach (x, y): no island, reef or rock wall in the way (see `lineOfFire`). */
   private seesPoint(x: number, y: number): boolean {
     const land = this.land;
     if (!land) return true;
-    return segmentVsWorld(land, this.me.x, this.me.y, x, y) < 0;
+    return lineOfFire(land, this.me.x, this.me.y, x, y, SHOT_HALF_WIDTH);
   }
 
   /**
@@ -417,16 +420,22 @@ export class BotClient {
    */
   private pickShot(nearest: Seen | null, nearestD: number, carrier: Seen | null): boolean {
     const range = this.weaponRange * 0.95;
-    let t = nearest && nearestD < range ? nearest : carrier;
-    // The nearest ship may be hidden behind rocks while the carrier is in the open.
-    if (t && !this.seesPoint(t.x, t.y)) t = t === carrier ? null : carrier && this.seesPoint(carrier.x, carrier.y) ? carrier : null;
-    if (!t) return false;
-    const d = Math.hypot(t.x - this.me.x, t.y - this.me.y);
-    if (d >= range) return false;
-    const flight = d / this.shotSpeed;
-    this.shot.angle = Math.atan2(t.y + t.vy * flight - this.me.y, t.x + t.vx * flight - this.me.x);
-    this.shot.dist = d;
-    return true;
+    // The nearest ship may be hidden behind rocks while the carrier is in the open: try each in turn.
+    for (let i = 0; i < 2; i++) {
+      const t = i === 0 ? (nearest && nearestD < range ? nearest : null) : carrier;
+      if (!t) continue;
+      const d = Math.hypot(t.x - this.me.x, t.y - this.me.y);
+      if (d >= range) continue;
+      const flight = d / this.shotSpeed;
+      const leadX = t.x + t.vx * flight;
+      const leadY = t.y + t.vy * flight;
+      // The shells fly toward the lead point: both it and the ship itself must be reachable.
+      if (!this.seesPoint(t.x, t.y) || !this.seesPoint(leadX, leadY)) continue;
+      this.shot.angle = Math.atan2(leadY - this.me.y, leadX - this.me.x);
+      this.shot.dist = d;
+      return true;
+    }
+    return false;
   }
 
   private think(): void {

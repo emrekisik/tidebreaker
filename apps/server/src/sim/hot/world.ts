@@ -224,6 +224,8 @@ export class World
   matchState: number = MATCH_STATE.PLAYING;
   winner = NO_TEAM;
   restartLeft = 0;
+  /** Counts the rounds started (the room draws new team names for each). */
+  round = 0;
   matchChanged = false;
   tick = 0;
 
@@ -927,6 +929,7 @@ export class World
 
   /** Sets up a fresh round: carriers at full strength, everyone back at their carrier. */
   startRound(): void {
+    this.round++;
     this.matchState = MATCH_STATE.PLAYING;
     this.winner = NO_TEAM;
     this.restartLeft = 0;

@@ -43,6 +43,10 @@ function el(tag: string, cls: string, text?: string): HTMLElement {
   return e;
 }
 
+/** A sharp-edged heart (straight facets), filled for a life that is left and hollow for one that is lost (see `.life` in theme.css). */
+const HEART =
+  '<svg viewBox="0 0 12 11" aria-hidden="true"><path d="M6 10.4 0.9 5 0.9 2.5 2.6 0.9 4.6 0.9 6 2.3 7.4 0.9 9.4 0.9 11.1 2.5 11.1 5Z"/></svg>';
+
 /**
  * The player's progress UI: lives, money and XP (in the top-left panel), the row of six upgrade
  * tiles (keys 1-6) and the class offer (key T) with the card of the next ship. The server decides
@@ -61,6 +65,7 @@ export class ProgressHud {
   private readonly rankSlot = document.getElementById('hud-rank') as HTMLElement;
   private readonly next = document.getElementById('hud-next') as HTMLElement;
   private readonly lv = document.getElementById('hud-lv') as HTMLElement;
+  private readonly tierNext = document.getElementById('hud-tier-next') as HTMLElement;
   private readonly classFill = document.getElementById('hud-classfill') as HTMLElement;
   private readonly levels: HTMLElement[] = [];
   private readonly buttons: HTMLButtonElement[] = [];
@@ -80,6 +85,7 @@ export class ProgressHud {
     (document.getElementById('hud-cash-ico') as HTMLElement).innerHTML = ico(cashIcon);
     for (let i = 0; i < ECONOMY.death.lives; i++) {
       const pip = el('span', 'life on');
+      pip.innerHTML = HEART;
       this.lives.append(pip);
       this.lifePips.push(pip);
     }
@@ -187,7 +193,10 @@ export class ProgressHud {
     this.score.textContent = String(m.score);
     const price = tierCost(m.tier);
     const top = price === Infinity;
-    this.lv.textContent = `${t('hud.level')} ${m.tier + 1}`;
+    // The bar is the money toward the next class: it says which class that is and what it costs.
+    this.lv.textContent = `T${m.tier + 1}`;
+    this.tierNext.textContent = top ? '' : `T${m.tier + 2}`;
+    this.tierNext.parentElement?.classList.toggle('max', top);
     this.classFill.style.width = `${(top ? 1 : Math.max(0, Math.min(1, m.cash / price))) * 100}%`;
     this.next.textContent = top ? 'MAX' : String(price);
     this.next.title = top ? t('progress.max') : `${t('progress.tierNeed')} ${price}`;

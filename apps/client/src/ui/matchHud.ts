@@ -1,12 +1,16 @@
-import { MATCH_STATE, TEAM_BLUE } from '@tidebreaker/shared';
+import { MATCH, MATCH_STATE } from '@tidebreaker/shared';
 import type { Combatant } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
+import { teamName } from './teamNames.ts';
 
 const el = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
 
+type BannerKind = '' | 'win' | 'lose' | 'death' | 'lost';
+
 /**
  * Online-only HUD: both carriers' health at the top (the objective of the match), the team score,
- * and the big messages: sunk (respawn countdown), round over, connection lost.
+ * and the big messages: the end of a round (victory or defeat, the score, the time to the next round), a sunk ship
+ * (what sank it and the respawn countdown), connection lost.
  */
 export class MatchHud {
   private readonly root = el('match');
@@ -18,17 +22,27 @@ export class MatchHud {
   };
   private readonly kills = el('m-kills');
   private readonly banner = el('banner');
+  private readonly tag = el('banner-tag');
   private readonly title = el('banner-title');
   private readonly sub = el('banner-sub');
+  private readonly score = el('banner-score');
+  private readonly countLabel = el('banner-count-label');
+  private readonly countBar = el('banner-bar');
+  private readonly countNum = el('banner-count-num');
   private deathLeft = 0;
+  /** The respawn time of this death (the bar drains from it). */
+  private deathTotal = 1;
   private deathBy = '';
   /** The ship wrecked itself on land (nobody sank it). */
   private crashed = false;
   private restartLeft = 0;
   private winner = 0;
+  private myTeam = 0;
   private ended = false;
   private lost = false;
   private lastKills = '';
+  private shown: BannerKind = '';
+  private lastNum = '';
 
   show(on: boolean): void {
     this.root.classList.toggle('hidden', !on);
@@ -43,6 +57,7 @@ export class MatchHud {
     const k = `${killsBlue} : ${killsRed}`;
     if (k !== this.lastKills) {
       this.kills.textContent = k;
+      this.score.textContent = k;
       this.lastKills = k;
     }
   }
@@ -54,6 +69,7 @@ export class MatchHud {
 
   died(killerName: string, respawnSec: number, crashed = false): void {
     this.deathLeft = respawnSec;
+    this.deathTotal = Math.max(1, respawnSec);
     this.deathBy = killerName;
     this.crashed = crashed;
     this.refresh();
@@ -64,10 +80,12 @@ export class MatchHud {
     this.refresh();
   }
 
-  setMatch(state: number, winner: number, restartSec: number): void {
+  /** `myTeam`: the player's team (the end of the round is a victory or a defeat for them). */
+  setMatch(state: number, winner: number, restartSec: number, myTeam: number): void {
     this.ended = state === MATCH_STATE.ENDED;
     this.winner = winner;
     this.restartLeft = restartSec;
+    this.myTeam = myTeam;
     this.refresh();
   }
 
@@ -85,27 +103,56 @@ export class MatchHud {
   }
 
   private refresh(): void {
-    let title = '';
-    let sub = '';
-    if (this.lost) {
-      title = t('net.lost');
-    } else if (this.ended) {
-      title = t('match.win').replace(
-        '{team}',
-        this.winner === TEAM_BLUE ? t('match.blue') : t('match.red'),
-      );
-      sub = t('match.next').replace('{n}', String(Math.max(0, Math.ceil(this.restartLeft))));
-    } else if (this.deathLeft > 0) {
-      title = t(this.crashed ? 'death.crashed' : 'death.sunk');
-      sub = [
-        this.deathBy ? t('death.by').replace('{name}', this.deathBy) : '',
-        t('death.respawn').replace('{n}', String(Math.ceil(this.deathLeft))),
-      ]
-        .filter((x) => x)
-        .join(' · ');
+    let kind: BannerKind = '';
+    if (this.lost) kind = 'lost';
+    else if (this.ended) kind = this.winner === this.myTeam ? 'win' : 'lose';
+    else if (this.deathLeft > 0) kind = 'death';
+
+    if (kind !== this.shown) {
+      this.shown = kind;
+      this.banner.classList.toggle('hidden', kind === '');
+      this.banner.dataset['kind'] = kind;
+      this.fillText(kind);
     }
-    this.banner.classList.toggle('hidden', title === '');
-    this.title.textContent = title;
-    this.sub.textContent = sub;
+    if (kind === 'death') this.count(this.deathLeft / this.deathTotal, this.deathLeft);
+    else if (kind === 'win' || kind === 'lose') this.count(this.restartLeft / MATCH.intermissionSec, this.restartLeft);
+  }
+
+  /** The words of a banner (they change only when its kind does). */
+  private fillText(kind: BannerKind): void {
+    switch (kind) {
+      case 'win':
+      case 'lose':
+        this.tag.textContent = t('banner.tag.round');
+        this.title.textContent = t(kind === 'win' ? 'banner.win' : 'banner.lose');
+        this.sub.textContent = t('banner.winSub').replace('{team}', teamName(this.winner));
+        this.countLabel.textContent = t('banner.next');
+        break;
+      case 'death':
+        this.tag.textContent = t('banner.tag.death');
+        this.title.textContent = t(this.crashed ? 'death.crashed' : 'death.sunk');
+        this.sub.textContent = this.deathBy ? t('death.by').replace('{name}', this.deathBy) : '';
+        this.countLabel.textContent = t('banner.respawn');
+        break;
+      case 'lost':
+        this.tag.textContent = t('banner.tag.net');
+        this.title.textContent = t('net.lost');
+        this.sub.textContent = '';
+        this.countLabel.textContent = '';
+        break;
+      default:
+        break;
+    }
+    this.lastNum = '';
+  }
+
+  /** The bar under the message and the seconds beside it. */
+  private count(frac: number, left: number): void {
+    this.countBar.style.transform = `scaleX(${Math.max(0, Math.min(1, frac)).toFixed(3)})`;
+    const num = `${Math.max(0, Math.ceil(left))} ${t('banner.sec')}`;
+    if (num !== this.lastNum) {
+      this.lastNum = num;
+      this.countNum.textContent = num;
+    }
   }
 }

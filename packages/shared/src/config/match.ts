@@ -5,6 +5,12 @@ import { WORLD_CENTER, WORLD_SIZE } from './world.ts';
 export const TEAM_BLUE = 0;
 export const TEAM_RED = 1;
 export const TEAM_COUNT = 2;
+/**
+ * Teams have generic names instead of "Blue" and "Red" (the colours stay): the room picks two different ones at random
+ * for every round and tells the clients their numbers in the MATCH message; the names are `team.name.<n>` in the
+ * client's language files, n below this count.
+ */
+export const TEAM_NAME_COUNT = 24;
 
 /**
  * The team base: an aircraft carrier anchored near the world edge. It cannot move (vMax 0) and

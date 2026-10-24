@@ -98,7 +98,16 @@ async function save(path: string): Promise<void> {
 }
 
 if (new URLSearchParams(location.search).get('only') === 'card') {
-  for (const icon of icons) if (icon.id !== CARRIER.id && icon.id !== 'pirate_ship') await renderCard(icon);
+  for (const icon of icons) {
+    if (icon.id === 'pirate_ship') continue;
+    if (icon.id === CARRIER.id) {
+      // The carriers of the match bar: wide pictures, one for each team (the red one is shown turned round).
+      await renderCard(icon, 'blue', 360, 144, `${icon.id}_blue`);
+      await renderCard(icon, 'red', 360, 144, `${icon.id}_red`);
+    } else {
+      await renderCard(icon, 'blue', CARD_W, CARD_H, icon.id);
+    }
+  }
 } else {
   for (const icon of icons) {
     for (const orient of ['up', 'side'] as const) {
@@ -110,8 +119,8 @@ say('done');
 (window as unknown as { iconsDone: boolean }).iconsDone = true;
 
 /** One class card: the ship in the game's light, seen from an angle, with its shadow on the water. */
-async function renderCard(icon: Icon): Promise<void> {
-  renderer.setSize(CARD_W, CARD_H);
+async function renderCard(icon: Icon, team: Team, width: number, height: number, file: string): Promise<void> {
+  renderer.setSize(width, height);
   renderer.shadowMap.enabled = true;
   const L = FX.light;
   const cardScene = new Scene();
@@ -131,14 +140,14 @@ async function renderCard(icon: Icon): Promise<void> {
   water.receiveShadow = true;
   cardScene.add(water);
 
-  const model = assets.createShip(icon.modelKey, 'blue', false);
+  const model = assets.createShip(icon.modelKey, team, false);
   model.root.traverse((o) => {
     if ((o as Mesh).isMesh) (o as Mesh).castShadow = true;
   });
   cardScene.add(model.root);
 
   const fov = 26;
-  const camera = new PerspectiveCamera(fov, CARD_W / CARD_H, 1, 500);
+  const camera = new PerspectiveCamera(fov, width / height, 1, 500);
   const el = (CARD_ELEVATION * Math.PI) / 180;
   const az = (CARD_TURN * Math.PI) / 180;
   const dirToCamera = new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
@@ -173,14 +182,14 @@ async function renderCard(icon: Icon): Promise<void> {
     right.setFromMatrixColumn(camera.matrixWorld, 0);
     up.setFromMatrixColumn(camera.matrixWorld, 1);
     // Shift toward the middle of what is drawn, and scale so the larger side fills `FILL_CARD` of the card.
-    target.addScaledVector(right, ((minX + maxX) / 2) * halfH * (CARD_W / CARD_H));
+    target.addScaledVector(right, ((minX + maxX) / 2) * halfH * (width / height));
     target.addScaledVector(up, ((minY + maxY) / 2) * halfH);
     distance *= Math.max((maxX - minX) / 2, (maxY - minY) / 2) / FILL_CARD;
   }
   camera.position.copy(target).addScaledVector(dirToCamera, distance);
   camera.lookAt(target);
   renderer.render(cardScene, camera);
-  const path = `card/${icon.id}.png`;
+  const path = `card/${file}.png`;
   await save(path);
   say(path);
   cardScene.remove(model.root);

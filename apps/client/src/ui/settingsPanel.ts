@@ -5,13 +5,31 @@ import type { MessageKey } from '../i18n/index.ts';
 const GEAR =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3h3.4l.5 2.4c.5.2 1 .5 1.5.9l2.3-.8 1.7 2.9-1.8 1.6c.1.5.1 1.1 0 1.6l1.8 1.6-1.7 2.9-2.3-.8c-.5.4-1 .7-1.5.9l-.5 2.4h-3.4l-.5-2.4c-.5-.2-1-.5-1.5-.9l-2.3.8-1.7-2.9 1.8-1.6a5 5 0 0 1 0-1.6L4.8 8.4l1.7-2.9 2.3.8c.5-.4 1-.7 1.5-.9L10.3 3z"/><circle cx="12" cy="12" r="2.6"/></svg>';
 
+const OPACITY_KEY = 'tidebreaker.hudOpacity';
+/** The slider's middle is the default look; the panels' opacity is multiplied by 0.2 (left) ... 1.8 (right). */
+const OPACITY_DEFAULT = 50;
+
+function applyOpacity(value: number): void {
+  document.documentElement.style.setProperty('--hud-alpha', String(0.2 + (1.6 * value) / 100));
+}
+
+function savedOpacity(): number {
+  try {
+    const v = Number(localStorage.getItem(OPACITY_KEY));
+    if (localStorage.getItem(OPACITY_KEY) !== null && Number.isFinite(v)) return Math.max(0, Math.min(100, v));
+  } catch {
+    // No saved choice: the default.
+  }
+  return OPACITY_DEFAULT;
+}
+
 /** The keys of the game, as [what to press (letters as they are, words as a text key), text key]. */
 const KEYS: readonly (readonly [string, MessageKey])[] = [
   ['W  A  S  D', 'keys.move'],
   ['keys.chip.mouse', 'keys.aim'],
   ['keys.chip.left', 'keys.fire'],
-  ['keys.chip.space', 'keys.auto'],
-  ['keys.chip.right', 'keys.gas'],
+  ['keys.chip.right', 'keys.auto'],
+  ['keys.chip.space', 'keys.gas'],
   ['keys.chip.wheel', 'keys.zoom'],
   ['1 – 6', 'keys.upgrade'],
   ['T  Y', 'keys.tier'],
@@ -39,6 +57,8 @@ export class SettingsPanel {
   private readonly arcade = document.createElement('button');
   private readonly real = document.createElement('button');
   private readonly sea = document.createElement('button');
+  private readonly opacity = document.createElement('input');
+  private readonly opacityNum = document.createElement('span');
   private readonly tabs: HTMLButtonElement[] = [];
   private readonly pages: HTMLElement[] = [];
 
@@ -54,6 +74,7 @@ export class SettingsPanel {
         if (e.code !== 'Escape') e.stopPropagation();
       });
     }
+    applyOpacity(savedOpacity());
     this.build();
     audio.subscribe(() => this.refresh());
     this.refresh();
@@ -109,7 +130,7 @@ export class SettingsPanel {
 
     const bar = document.createElement('div');
     bar.className = 'st-tabs';
-    for (const [i, key] of (['settings.tab.sound', 'settings.tab.keys'] as const).entries()) {
+    for (const [i, key] of (['settings.tab.sound', 'settings.tab.display', 'settings.tab.keys'] as const).entries()) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'st-tab';
@@ -163,6 +184,43 @@ export class SettingsPanel {
       this.row(t('settings.ambient'), this.sea),
     );
 
+    // Display: how see-through the panels are.
+    const display = document.createElement('div');
+    display.className = 'st-page';
+    this.opacity.type = 'range';
+    this.opacity.min = '0';
+    this.opacity.max = '100';
+    this.opacity.className = 'st-slider';
+    this.opacity.value = String(savedOpacity());
+    this.opacityNum.className = 'st-num';
+    this.opacityNum.textContent = this.opacity.value;
+    this.opacity.addEventListener('input', () => {
+      const v = Number(this.opacity.value);
+      applyOpacity(v);
+      this.opacityNum.textContent = String(v);
+      try {
+        localStorage.setItem(OPACITY_KEY, String(v));
+      } catch {
+        // Not remembering is fine.
+      }
+    });
+    this.opacity.addEventListener('change', () => this.opacity.blur());
+    const opacityBox = document.createElement('div');
+    opacityBox.className = 'st-slider-box';
+    opacityBox.append(this.opacity, this.opacityNum);
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'st-btn';
+    reset.textContent = t('settings.reset');
+    reset.addEventListener('click', () => {
+      this.opacity.value = String(OPACITY_DEFAULT);
+      this.opacity.dispatchEvent(new Event('input'));
+    });
+    const note = document.createElement('p');
+    note.className = 'st-note';
+    note.textContent = t('settings.opacityNote');
+    display.append(this.row(t('settings.opacity'), opacityBox), note, reset);
+
     // Keys.
     const keys = document.createElement('div');
     keys.className = 'st-page st-keys';
@@ -176,7 +234,7 @@ export class SettingsPanel {
       row.append(kbd, desc);
       keys.append(row);
     }
-    this.pages.push(sound, keys);
+    this.pages.push(sound, display, keys);
 
     const foot = document.createElement('div');
     foot.className = 'st-foot';
@@ -190,7 +248,7 @@ export class SettingsPanel {
     });
     foot.append(howto);
 
-    this.panel.append(head, bar, sound, keys, foot);
+    this.panel.append(head, bar, sound, display, keys, foot);
     this.page(0);
   }
 
