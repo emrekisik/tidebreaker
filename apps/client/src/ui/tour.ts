@@ -127,6 +127,7 @@ export class Tour {
     if (tip) {
       const p = document.createElement('p');
       p.className = 'tr-tip';
+      p.dataset['tag'] = t('tour.note');
       p.textContent = tip;
       text.append(p);
     }

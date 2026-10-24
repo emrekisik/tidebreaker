@@ -85,7 +85,9 @@ import { NamePlates } from './ui/namePlates.ts';
 import { preloadRankIcons } from './ui/rankBadge.ts';
 import { RankBook } from './ui/rankBook.ts';
 import { RankUp } from './ui/rankUp.ts';
+import { SettingsPanel } from './ui/settingsPanel.ts';
 import { ShipAlert } from './ui/shipAlert.ts';
+import { Tour } from './ui/tour.ts';
 import { ShopButton } from './ui/shopButton.ts';
 import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
@@ -223,8 +225,9 @@ for (const type of ['pointerdown', 'keydown'] as const) {
   window.addEventListener(type, () => audio.unlock(), { capture: true });
 }
 new SoundSettings(document.getElementById('menu-sound') as HTMLElement);
-const soundCtl = document.getElementById('sound-ctl') as HTMLElement;
-new SoundSettings(soundCtl);
+// In a match the sound lives in the settings panel (the gear button in the top right corner).
+const gameTour = new Tour(document.getElementById('tour') as HTMLElement);
+const settings = new SettingsPanel(() => gameTour.open(() => undefined));
 const emoteWheel = new EmoteWheel((index) => online?.net.emote(index));
 const missileLock = new MissileLock(
   document.getElementById('lock-layer') as HTMLElement,
@@ -330,6 +333,7 @@ window.addEventListener('keydown', (e) => {
     else if (e.code === 'F9') online.net.cheat(CHEAT.MONEY);
     else if (e.code === 'KeyQ') pressLock();
   }
+  if (e.code === 'Escape' && !e.repeat && session && !document.body.classList.contains('in-menu')) settings.toggle();
   if (e.code === 'Space' && !e.repeat && session && (e.target as HTMLElement).tagName !== 'INPUT') {
     if (!document.body.classList.contains('in-menu')) setAutoFire(!input.autoFire, true);
   }
@@ -514,7 +518,7 @@ const events: OnlineEvents = {
     missileLock.reset();
     sfx.appeared();
     audio.startAmbient();
-    soundCtl.classList.remove('hidden');
+    settings.show(true);
   },
   onClosed() {
     plates.clear();
@@ -539,7 +543,7 @@ new LookPanel(document.getElementById('look') as HTMLElement, (look) => {
 
 function startOffline(): void {
   audio.startAmbient();
-  soundCtl.classList.remove('hidden');
+  settings.show(true);
   // The practice map comes from a seed (`?seed=<n>` picks another one).
   const seedParam = Number(params.get('seed'));
   const seed =

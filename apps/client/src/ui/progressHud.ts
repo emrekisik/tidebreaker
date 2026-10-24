@@ -1,4 +1,4 @@
-import { STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
+import { ECONOMY, STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
@@ -55,6 +55,7 @@ export class ProgressHud {
   private readonly cards = document.getElementById('p-cards') as HTMLElement;
   private readonly tierBtn = document.getElementById('p-tier') as HTMLButtonElement;
   private readonly lives = document.getElementById('hud-lives') as HTMLElement;
+  private readonly lifePips: HTMLElement[] = [];
   private readonly cash = document.getElementById('hud-cash') as HTMLElement;
   private readonly score = document.getElementById('hud-score') as HTMLElement;
   private readonly rankSlot = document.getElementById('hud-rank') as HTMLElement;
@@ -77,6 +78,11 @@ export class ProgressHud {
     private readonly onTierUp: (choice: number) => void,
   ) {
     (document.getElementById('hud-cash-ico') as HTMLElement).innerHTML = ico(cashIcon);
+    for (let i = 0; i < ECONOMY.death.lives; i++) {
+      const pip = el('span', 'life on');
+      this.lives.append(pip);
+      this.lifePips.push(pip);
+    }
 
     for (let i = 0; i < STAT_COUNT; i++) {
       const tile = TILES[i]!;
@@ -173,7 +179,8 @@ export class ProgressHud {
 
   /** The player's own progress changed. */
   update(m: StatsMsg): void {
-    this.lives.textContent = String(Math.max(0, m.lives));
+    for (let i = 0; i < this.lifePips.length; i++) this.lifePips[i]!.classList.toggle('on', i < m.lives);
+    this.lives.title = `${t('hud.lives')}: ${Math.max(0, m.lives)}`;
     this.cash.textContent = String(m.cash);
     // The score only counts; the next class is bought with money, and the bar shows how much of
     // its price the money in hand covers.

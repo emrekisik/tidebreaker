@@ -15,8 +15,8 @@ const server = createServer((req, res) => {
   if (req.method === 'OPTIONS') return res.end();
   const url = new URL(req.url ?? '/', 'http://localhost');
   const path = url.searchParams.get('path') ?? '';
-  // Only plain "orientation/color/name.png" under the output directory.
-  if (!/^[a-z]+\/[a-z]+\/[a-z0-9_]+\.png$/.test(path)) {
+  // Only plain "orientation/color/name.png" (or "card/name.png") under the output directory.
+  if (!/^(?:[a-z]+\/[a-z]+|card)\/[a-z0-9_]+\.png$/.test(path)) {
     res.statusCode = 400;
     return res.end('bad path');
   }

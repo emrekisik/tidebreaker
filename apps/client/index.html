@@ -318,7 +318,8 @@
     <div id="shop-layer" class="overlay"></div>
     <div id="lock-layer" class="overlay"></div>
     <div id="crosshair" class="overlay hidden"></div>
-    <div id="sound-ctl" class="overlay panel hidden"></div>
+    <button id="settings-btn" class="overlay hidden" type="button"></button>
+    <div id="settings" class="overlay panel hidden"></div>
     <div id="missile-warning" class="overlay hidden"></div>
     <div id="emote-wheel" class="overlay hidden"></div>
     <div id="hint" class="overlay panel" data-i18n="hint.controls"></div>
@@ -326,16 +327,11 @@
       <span data-i18n="hud.sunk"></span>: <b id="sunk-count">0</b>
     </div>
     <div id="hud" class="overlay panel">
-      <div class="hud-lives">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M12 21.5S2.5 15.4 2.5 8.9C2.5 5.6 5 3.5 7.6 3.5c1.9 0 3.5 1 4.4 2.6.9-1.6 2.5-2.6 4.4-2.6 2.6 0 5.1 2.1 5.1 5.4 0 6.5-9.5 12.6-9.5 12.6z"
-            fill="currentColor"
-          />
-        </svg>
-        <b id="hud-lives">3</b>
+      <div class="hd-head">
+        <span class="hd-cap" data-i18n="hud.lives"></span>
+        <div id="hud-lives" class="hd-lives"></div>
       </div>
-      <div class="hud-bars">
+      <div class="hd-bars">
         <div class="bar-line hull">
           <span class="bar-ico" id="ico-hull"></span>
           <div class="track">
@@ -355,23 +351,20 @@
           <span id="num-shield" class="bar-num"></span>
         </div>
       </div>
-      <div class="hud-sep"></div>
-      <div class="hud-standing">
+      <div class="hd-line hd-standing">
         <span id="hud-rank"></span>
-        <div class="hud-standing-info">
-          <span class="hud-tag" data-i18n="hud.score"></span>
-          <b class="hud-score" id="hud-score">0</b>
-        </div>
+        <span class="hd-cap" data-i18n="hud.score"></span>
+        <b class="hud-score" id="hud-score">0</b>
       </div>
-      <div class="hud-wallet">
-        <span class="hud-cash"
-          ><span id="hud-cash-ico" class="ico"></span><span id="hud-cash">0</span></span
-        >
-        <div class="hud-classrow">
-          <span class="hud-lv" id="hud-lv">LV 1</span>
-          <div class="hud-classbar"><div id="hud-classfill"></div></div>
-          <span class="hud-next" id="hud-next"></span>
-        </div>
+      <div class="hd-line hd-cash">
+        <span id="hud-cash-ico" class="ico"></span>
+        <span class="hd-cap" data-i18n="hud.cash"></span>
+        <b id="hud-cash" class="hud-cash">0</b>
+      </div>
+      <div class="hd-line hd-class">
+        <span class="hud-lv" id="hud-lv">LV 1</span>
+        <div class="hud-classbar"><div id="hud-classfill"></div></div>
+        <span class="hud-next" id="hud-next"></span>
       </div>
       <div id="missile-hud" class="hidden"></div>
     </div>

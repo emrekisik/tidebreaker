@@ -1,14 +1,20 @@
 import {
   AmbientLight,
+  Box3,
   DirectionalLight,
   Group,
+  HemisphereLight,
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
+  PerspectiveCamera,
+  PlaneGeometry,
   Scene,
+  ShadowMaterial,
+  Vector3,
   WebGLRenderer,
 } from 'three';
-import { CARRIER, PIRATE_TYPES, SHIPS } from '@tidebreaker/shared';
+import { CARRIER, FX, PIRATE_TYPES, SHIPS } from '@tidebreaker/shared';
 import { AssetProvider } from '../render/assets.ts';
 import type { Team } from '../render/assets.ts';
 import { MODEL_SPECS } from '../render/modelSpecs.ts';
@@ -21,7 +27,17 @@ import { MODEL_SPECS } from '../render/modelSpecs.ts';
  *   side/<color>/<id>.png  128x64, bow pointing right (fits a row of text)
  * where color is blue or red (the model in that team's paint; the pirate ship is the same in both)
  * or white (a flat silhouette, to tint with CSS `mask-image` or in an editor).
+ * Open it with `?only=card` to draw just the class cards: card/<id>.png, 288x192, the ship in blue paint seen from an
+ * angle (a perspective camera like the game's, lit like the game, with a soft shadow on a transparent background).
  */
+
+const CARD_W = 288;
+const CARD_H = 192;
+/** Where the card camera looks from: height above the water and the turn from the beam toward the bow (degrees). */
+const CARD_ELEVATION = 42;
+const CARD_TURN = 30;
+/** The ship fills this much of the card (the larger of its width and height). */
+const FILL_CARD = 0.86;
 
 const SIZE = 128;
 /** The ship's length fills this much of the icon height. */
@@ -81,13 +97,95 @@ async function save(path: string): Promise<void> {
   if (!res.ok) throw new Error(`saver said ${res.status}`);
 }
 
-for (const icon of icons) {
-  for (const orient of ['up', 'side'] as const) {
-    await renderIcon(icon, orient);
+if (new URLSearchParams(location.search).get('only') === 'card') {
+  for (const icon of icons) if (icon.id !== CARRIER.id && icon.id !== 'pirate_ship') await renderCard(icon);
+} else {
+  for (const icon of icons) {
+    for (const orient of ['up', 'side'] as const) {
+      await renderIcon(icon, orient);
+    }
   }
 }
 say('done');
 (window as unknown as { iconsDone: boolean }).iconsDone = true;
+
+/** One class card: the ship in the game's light, seen from an angle, with its shadow on the water. */
+async function renderCard(icon: Icon): Promise<void> {
+  renderer.setSize(CARD_W, CARD_H);
+  renderer.shadowMap.enabled = true;
+  const L = FX.light;
+  const cardScene = new Scene();
+  const sunLight = new DirectionalLight(L.sunColor, L.sunIntensity);
+  const dir = new Vector3(...L.sunDir).normalize();
+  sunLight.position.copy(dir).multiplyScalar(80);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(1024, 1024);
+  const reach = icon.length * 0.8;
+  Object.assign(sunLight.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 1, far: 200 });
+  sunLight.shadow.bias = L.bias;
+  sunLight.shadow.normalBias = L.normalBias;
+  cardScene.add(sunLight, sunLight.target, new HemisphereLight(L.skyColor, L.groundColor, L.hemiIntensity));
+  // (Only its shadow shows: the water behind the card is drawn by the page.)
+  const water = new Mesh(new PlaneGeometry(400, 400), new ShadowMaterial({ opacity: 0.4 }));
+  water.rotation.x = -Math.PI / 2;
+  water.receiveShadow = true;
+  cardScene.add(water);
+
+  const model = assets.createShip(icon.modelKey, 'blue', false);
+  model.root.traverse((o) => {
+    if ((o as Mesh).isMesh) (o as Mesh).castShadow = true;
+  });
+  cardScene.add(model.root);
+
+  const fov = 26;
+  const camera = new PerspectiveCamera(fov, CARD_W / CARD_H, 1, 500);
+  const el = (CARD_ELEVATION * Math.PI) / 180;
+  const az = (CARD_TURN * Math.PI) / 180;
+  const dirToCamera = new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+  // Fit the camera to the ship itself (a wide hovercraft needs more room than a long frigate): the eight corners of
+  // its box are projected and the camera pulled back and shifted until they fill the middle of the card.
+  const box = new Box3().setFromObject(model.root);
+  const corners: Vector3[] = [];
+  for (const x of [box.min.x, box.max.x]) {
+    for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new Vector3(x, y, z));
+  }
+  const target = box.getCenter(new Vector3());
+  let distance = icon.length * 2;
+  const right = new Vector3();
+  const up = new Vector3();
+  const spot = new Vector3();
+  for (let pass = 0; pass < 8; pass++) {
+    camera.position.copy(target).addScaledVector(dirToCamera, distance);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const c of corners) {
+      spot.copy(c).project(camera);
+      minX = Math.min(minX, spot.x);
+      maxX = Math.max(maxX, spot.x);
+      minY = Math.min(minY, spot.y);
+      maxY = Math.max(maxY, spot.y);
+    }
+    const halfH = distance * Math.tan(((fov / 2) * Math.PI) / 180);
+    right.setFromMatrixColumn(camera.matrixWorld, 0);
+    up.setFromMatrixColumn(camera.matrixWorld, 1);
+    // Shift toward the middle of what is drawn, and scale so the larger side fills `FILL_CARD` of the card.
+    target.addScaledVector(right, ((minX + maxX) / 2) * halfH * (CARD_W / CARD_H));
+    target.addScaledVector(up, ((minY + maxY) / 2) * halfH);
+    distance *= Math.max((maxX - minX) / 2, (maxY - minY) / 2) / FILL_CARD;
+  }
+  camera.position.copy(target).addScaledVector(dirToCamera, distance);
+  camera.lookAt(target);
+  renderer.render(cardScene, camera);
+  const path = `card/${icon.id}.png`;
+  await save(path);
+  say(path);
+  cardScene.remove(model.root);
+  sunLight.dispose();
+}
 
 async function renderIcon(icon: Icon, orient: 'up' | 'side'): Promise<void> {
   // The bow is +x in the game. Looking straight down, "up" = +x puts it at the top of the

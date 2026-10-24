@@ -1,0 +1,219 @@
+import { audio } from '../audio/engine.ts';
+import { t } from '../i18n/index.ts';
+import type { MessageKey } from '../i18n/index.ts';
+
+const GEAR =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3h3.4l.5 2.4c.5.2 1 .5 1.5.9l2.3-.8 1.7 2.9-1.8 1.6c.1.5.1 1.1 0 1.6l1.8 1.6-1.7 2.9-2.3-.8c-.5.4-1 .7-1.5.9l-.5 2.4h-3.4l-.5-2.4c-.5-.2-1-.5-1.5-.9l-2.3.8-1.7-2.9 1.8-1.6a5 5 0 0 1 0-1.6L4.8 8.4l1.7-2.9 2.3.8c.5-.4 1-.7 1.5-.9L10.3 3z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+
+/** The keys of the game, as [what to press (letters as they are, words as a text key), text key]. */
+const KEYS: readonly (readonly [string, MessageKey])[] = [
+  ['W  A  S  D', 'keys.move'],
+  ['keys.chip.mouse', 'keys.aim'],
+  ['keys.chip.left', 'keys.fire'],
+  ['keys.chip.space', 'keys.auto'],
+  ['keys.chip.right', 'keys.gas'],
+  ['keys.chip.wheel', 'keys.zoom'],
+  ['1 – 6', 'keys.upgrade'],
+  ['T  Y', 'keys.tier'],
+  ['B', 'keys.shop'],
+  ['Q', 'keys.missile'],
+  ['F', 'keys.mine'],
+  ['C', 'keys.emote'],
+  ['M', 'keys.map'],
+  ['Tab', 'keys.score'],
+  ['Esc', 'keys.settings'],
+];
+
+/**
+ * The settings of a running match: a gear button in the top right corner that opens a plain panel with the sound
+ * (volume, style, sea and engine) and the list of keys, and a way back to the how-to-play tour. The match goes on
+ * while it is open (there is no pause in a multiplayer game). The panel and the start screen's sound control follow
+ * each other through the audio engine.
+ */
+export class SettingsPanel {
+  private readonly button = document.getElementById('settings-btn') as HTMLButtonElement;
+  private readonly panel = document.getElementById('settings') as HTMLElement;
+  private readonly mute = document.createElement('button');
+  private readonly volume = document.createElement('input');
+  private readonly volumeNum = document.createElement('span');
+  private readonly arcade = document.createElement('button');
+  private readonly real = document.createElement('button');
+  private readonly sea = document.createElement('button');
+  private readonly tabs: HTMLButtonElement[] = [];
+  private readonly pages: HTMLElement[] = [];
+
+  /** `onHowTo`: the player asked for the how-to-play tour. */
+  constructor(private readonly onHowTo: () => void) {
+    this.button.innerHTML = GEAR;
+    this.button.title = t('settings.title');
+    this.button.addEventListener('click', () => this.toggle());
+    // Nothing clicked here may reach the game (it would fire the guns), and typing must not steer the ship.
+    for (const el of [this.button, this.panel]) {
+      el.addEventListener('pointerdown', (e) => e.stopPropagation());
+      el.addEventListener('keydown', (e) => {
+        if (e.code !== 'Escape') e.stopPropagation();
+      });
+    }
+    this.build();
+    audio.subscribe(() => this.refresh());
+    this.refresh();
+  }
+
+  /** Shown or hidden with the match (the start screen has its own sound control). */
+  show(on: boolean): void {
+    this.button.classList.toggle('hidden', !on);
+    if (!on) this.close();
+  }
+
+  get isOpen(): boolean {
+    return !this.panel.classList.contains('hidden');
+  }
+
+  toggle(): void {
+    if (this.isOpen) this.close();
+    else this.open();
+  }
+
+  open(): void {
+    this.panel.classList.remove('hidden');
+    this.button.classList.add('on');
+  }
+
+  close(): void {
+    this.panel.classList.add('hidden');
+    this.button.classList.remove('on');
+    (document.activeElement as HTMLElement | null)?.blur();
+  }
+
+  private row(label: string, control: HTMLElement): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'st-row';
+    const name = document.createElement('span');
+    name.className = 'st-label';
+    name.textContent = label;
+    row.append(name, control);
+    return row;
+  }
+
+  private build(): void {
+    const head = document.createElement('div');
+    head.className = 'st-head';
+    const title = document.createElement('span');
+    title.textContent = t('settings.title');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'st-close';
+    close.textContent = 'Esc';
+    close.addEventListener('click', () => this.close());
+    head.append(title, close);
+
+    const bar = document.createElement('div');
+    bar.className = 'st-tabs';
+    for (const [i, key] of (['settings.tab.sound', 'settings.tab.keys'] as const).entries()) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'st-tab';
+      b.textContent = t(key);
+      b.addEventListener('click', () => this.page(i));
+      bar.append(b);
+      this.tabs.push(b);
+    }
+
+    // Sound.
+    const sound = document.createElement('div');
+    sound.className = 'st-page';
+    this.mute.type = 'button';
+    this.mute.className = 'st-switch';
+    this.mute.addEventListener('click', () => {
+      audio.unlock();
+      audio.setMuted(!audio.muted);
+    });
+    this.volume.type = 'range';
+    this.volume.min = '0';
+    this.volume.max = '100';
+    this.volume.className = 'st-slider';
+    this.volume.addEventListener('input', () => {
+      audio.unlock();
+      audio.setVolume(Number(this.volume.value) / 100);
+    });
+    this.volume.addEventListener('change', () => this.volume.blur());
+    this.volumeNum.className = 'st-num';
+    const slider = document.createElement('div');
+    slider.className = 'st-slider-box';
+    slider.append(this.volume, this.volumeNum);
+    this.arcade.type = 'button';
+    this.real.type = 'button';
+    this.arcade.textContent = t('sound.style.arcade');
+    this.real.textContent = t('sound.style.real');
+    this.arcade.addEventListener('click', () => this.setStyle('arcade'));
+    this.real.addEventListener('click', () => this.setStyle('real'));
+    const seg = document.createElement('div');
+    seg.className = 'st-seg';
+    seg.append(this.real, this.arcade);
+    this.sea.type = 'button';
+    this.sea.className = 'st-switch';
+    this.sea.addEventListener('click', () => {
+      audio.unlock();
+      audio.setAmbient(!audio.ambientOn);
+    });
+    sound.append(
+      this.row(t('settings.sound'), this.mute),
+      this.row(t('sound.volume'), slider),
+      this.row(t('sound.style'), seg),
+      this.row(t('settings.ambient'), this.sea),
+    );
+
+    // Keys.
+    const keys = document.createElement('div');
+    keys.className = 'st-page st-keys';
+    for (const [chip, text] of KEYS) {
+      const row = document.createElement('div');
+      row.className = 'st-key';
+      const kbd = document.createElement('kbd');
+      kbd.textContent = chip.startsWith('keys.chip.') ? t(chip as MessageKey) : chip;
+      const desc = document.createElement('span');
+      desc.textContent = t(text);
+      row.append(kbd, desc);
+      keys.append(row);
+    }
+    this.pages.push(sound, keys);
+
+    const foot = document.createElement('div');
+    foot.className = 'st-foot';
+    const howto = document.createElement('button');
+    howto.type = 'button';
+    howto.className = 'st-btn';
+    howto.textContent = t('menu.howto');
+    howto.addEventListener('click', () => {
+      this.close();
+      this.onHowTo();
+    });
+    foot.append(howto);
+
+    this.panel.append(head, bar, sound, keys, foot);
+    this.page(0);
+  }
+
+  private page(i: number): void {
+    this.tabs.forEach((b, k) => b.classList.toggle('on', k === i));
+    this.pages.forEach((p, k) => p.classList.toggle('hidden', k !== i));
+  }
+
+  private setStyle(style: 'arcade' | 'real'): void {
+    audio.unlock();
+    audio.setStyle(style);
+    // A sample, so the change can be heard at once.
+    audio.play('cannon', { own: true, gain: 0.8 });
+  }
+
+  private refresh(): void {
+    this.mute.textContent = t(audio.muted ? 'settings.off' : 'settings.on');
+    this.mute.classList.toggle('on', !audio.muted);
+    this.volume.value = String(Math.round(audio.volume * 100));
+    this.volumeNum.textContent = `${Math.round(audio.volume * 100)}`;
+    this.real.classList.toggle('on', audio.style === 'real');
+    this.arcade.classList.toggle('on', audio.style === 'arcade');
+    this.sea.textContent = t(audio.ambientOn ? 'settings.on' : 'settings.off');
+    this.sea.classList.toggle('on', audio.ambientOn);
+  }
+}

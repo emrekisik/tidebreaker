@@ -60,46 +60,50 @@ svg.ico,
   height: 100%;
 }
 
-/* ---- top left: the player's own ship ---- */
+/* ---- top left: the player's own ship ----
+   A plain instrument plate: flat dark steel, a hairline edge, small capital labels, tabular figures, one thin rule
+   between the parts (the ship, the standing, the money). No gradients, no glow. */
 #hud {
   top: 22px;
   left: 30px;
-  width: 252px;
+  width: 244px;
   box-sizing: border-box;
-  padding: 13px 15px 13px 15px;
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  column-gap: 12px;
-  row-gap: 9px;
-  align-items: center;
-  --panel: rgba(13, 32, 50, 0.62);
+  padding: 10px 12px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  --panel: rgba(11, 21, 31, 0.8);
+  border: 1px solid rgba(165, 190, 210, 0.26);
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
 }
-.hud-lives {
-  position: relative;
-  grid-row: 1;
-  width: 32px;
-  height: 30px;
-  color: #b9dfe8;
+.hd-cap {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8aa0b4;
 }
-.hud-lives svg {
-  width: 100%;
-  height: 100%;
-}
-.hud-lives b {
-  position: absolute;
-  inset: 0;
+.hd-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  line-height: 1;
-  font-size: 15px;
-  font-weight: 700;
-  color: #0d2236;
-  /* (The digit sits 1px above the middle of its line box: nudge it into the exact centre.) */
-  transform: translateY(1px);
+  justify-content: space-between;
 }
-.hud-bars {
-  grid-row: 1;
+/* Lives: one small square for each, hollow when lost. */
+.hd-lives {
+  display: flex;
+  gap: 4px;
+}
+.hd-lives .life {
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 1px solid #9fb4c6;
+}
+.hd-lives .life.on {
+  background: #dce6ee;
+  border-color: #dce6ee;
+}
+.hd-bars {
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -111,32 +115,36 @@ svg.ico,
 }
 .bar-ico {
   flex: none;
-  width: 22px;
-  height: 16px;
+  width: 16px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #9fb4c6;
 }
 .bar-ico svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 /* The number beside a bar; a fixed width so the bars do not jump while it changes. */
 .bar-num {
   flex: none;
-  width: 34px;
+  width: 32px;
+  text-align: right;
   font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: #e8eef4;
+  color: #e6edf3;
 }
 .track {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 11px;
-  background: rgba(3, 12, 22, 0.75);
+  height: 9px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+  box-sizing: border-box;
   overflow: hidden;
 }
 .fill {
@@ -158,44 +166,23 @@ svg.ico,
 /* Recently lost health is shown in white (width driven by GhostTracker). */
 .ghost {
   background: #fff;
-  opacity: 0.9;
+  opacity: 0.85;
 }
 #bar-hull {
-  background: linear-gradient(
-    100deg,
-    #27e873 0%,
-    #3dff86 45%,
-    #8dffb6 52%,
-    #34f07d 56%,
-    #26e06b 100%
-  );
+  background: #4cc27c;
 }
 #bar-shield {
-  background: linear-gradient(
-    100deg,
-    #12e8e4 0%,
-    #2ffffb 45%,
-    #aefffd 52%,
-    #20f4f0 56%,
-    #10dcd8 100%
-  );
+  background: #58b9d8;
 }
-/* The panel has three clearly separate parts: the ship (lives, hull, shield), the standing (rank and score: gold)
-   and the wallet (money and class level: green). */
-.hud-sep {
-  grid-column: 1 / 3;
-  height: 1px;
-  margin: 1px -6px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
-}
-.hud-standing {
-  grid-column: 1 / 3;
+.hd-line {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 9px 6px 8px;
-  background: linear-gradient(90deg, rgba(255, 205, 90, 0.2), rgba(255, 205, 90, 0.03));
-  border-left: 3px solid var(--gold);
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(165, 190, 210, 0.2);
+}
+.hd-line > .hd-cap {
+  flex: 1;
 }
 #hud-rank {
   flex: none;
@@ -205,80 +192,60 @@ svg.ico,
   height: 23px;
   margin: 0;
 }
-.hud-standing-info {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-}
-.hud-tag {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-}
 .hud-score {
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 700;
   line-height: 1;
-  color: var(--gold);
-  letter-spacing: 0.02em;
+  color: #f1f5f8;
   font-variant-numeric: tabular-nums;
 }
-.hud-wallet {
-  grid-column: 1 / 3;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 9px;
-  background: linear-gradient(90deg, rgba(55, 255, 92, 0.14), rgba(55, 255, 92, 0.02));
-  border-left: 3px solid var(--cash);
+.hd-cash .ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: #8fd6a0;
 }
 .hud-cash {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--cash);
-}
-.hud-cash .ico {
-  flex: none;
-  width: 17px;
-  height: 17px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  color: #8fd6a0;
+  font-variant-numeric: tabular-nums;
 }
 /* How much of the next class's price the money in hand covers. */
-.hud-classrow {
-  display: flex;
-  align-items: center;
+.hd-class {
   gap: 9px;
+  padding-top: 7px;
 }
 .hud-lv {
   flex: none;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #cfe9d8;
+  color: #8aa0b4;
 }
 .hud-classbar {
   flex: 1;
-  height: 5px;
-  background: rgba(3, 12, 22, 0.6);
+  height: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(165, 190, 210, 0.22);
+  box-sizing: border-box;
 }
 #hud-classfill {
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, #1fbf5f, #6dff9a);
+  background: #8fd6a0;
   transition: width 0.4s;
 }
 .hud-next {
   flex: none;
+  min-width: 30px;
+  text-align: right;
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: #6dff9a;
+  color: #b4c3d0;
 }
 
 /* ---- top centre: both carriers, the score between them, the oil rigs below ---- */
@@ -433,26 +400,32 @@ svg.ico,
 .up-card {
   pointer-events: auto;
   flex: 1;
-  max-width: 168px;
+  max-width: 180px;
   min-width: 0;
-  background: var(--panel-dark);
+  background: rgba(11, 21, 31, 0.86);
+  border: 1px solid rgba(165, 190, 210, 0.3);
   cursor: pointer;
 }
-.up-card:hover .uc-name {
-  background: rgba(40, 70, 100, 0.95);
+.up-card:hover {
+  border-color: rgba(230, 240, 248, 0.75);
 }
+.up-card:hover .uc-name {
+  background: rgba(60, 84, 104, 0.95);
+}
+/* The ship is a picture rendered from its 3D model (pnpm icons, ?only=card), on the colour of the game's sea. */
 .uc-img {
-  height: 88px;
+  height: 120px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 26, 42, 0.5);
+  background:
+    radial-gradient(circle at 25% 30%, rgba(255, 255, 255, 0.08) 0 2px, transparent 3px) 0 0 / 46px 36px,
+    linear-gradient(#2d7897, #1e5a78);
 }
 .uc-img img {
-  width: 124px;
-  height: 124px;
-  max-width: none;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 .uc-name {
@@ -461,7 +434,7 @@ svg.ico,
   gap: 12px;
   height: 28px;
   padding: 0 10px;
-  background: rgba(28, 52, 76, 0.6);
+  background: rgba(34, 50, 64, 0.95);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -719,7 +692,7 @@ svg.ico,
 
 /* ---- messages ---- */
 #killfeed {
-  top: 22px;
+  top: 66px;
   right: 30px;
   align-items: flex-end;
   display: flex;
@@ -1404,20 +1377,19 @@ svg.ico,
   }
 }
 #missile-hud {
-  grid-column: 1 / 3;
   display: flex;
   align-items: center;
   gap: 9px;
   padding-top: 8px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(165, 190, 210, 0.2);
 }
 #missile-hud.hidden {
   display: none;
 }
 #missile-hud .mb-ico {
-  width: 24px;
-  height: 24px;
-  color: #ff5fdc;
+  width: 22px;
+  height: 22px;
+  color: #c4d2de;
 }
 #missile-hud .mb-ico svg {
   display: block;
@@ -1434,7 +1406,6 @@ svg.ico,
   opacity: 0.45;
 }
 #missile-hud .mb-ico.mine {
-  color: #ffb067;
   margin-left: 6px;
 }
 #missile-hud .mb-key {
@@ -1444,10 +1415,10 @@ svg.ico,
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #6dff9a;
+  border: 1px solid #9fb4c6;
   font-size: 11px;
   font-weight: 700;
-  color: #6dff9a;
+  color: #dce6ee;
 }
 
 /* ---- announcements (top middle): rigs, carrier repairs and gun upgrades ---- */
@@ -1596,29 +1567,17 @@ svg.ico,
   font-size: 11px;
   line-height: 1.25;
   color: #9fb4c8;
-  background: rgba(28, 52, 76, 0.35);
+  background: rgba(22, 36, 48, 0.6);
 }
 #p-tier.choosing {
   cursor: default;
 }
 
 /* ---- sound settings: mute, volume, style (on the menu and in a corner of the match) ---- */
-#menu-sound,
-#sound-ctl {
+#menu-sound {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-#sound-ctl {
-  zoom: var(--ui-scale, 1);
-  top: 246px;
-  left: 30px;
-  padding: 5px 9px;
-  pointer-events: auto;
-  --panel: rgba(13, 32, 50, 0.62);
-}
-#sound-ctl.hidden {
-  display: none;
 }
 .ss-mute,
 .ss-style {
@@ -2004,4 +1963,202 @@ svg.ico,
 }
 .ann-row.lost .ann-chip {
   background: #ff8a8a;
+}
+
+/* ---- settings: a gear button in the top right corner and a plain panel under it ---- */
+#settings-btn,
+#settings {
+  zoom: var(--ui-scale, 1);
+  right: 30px;
+  z-index: 10;
+  text-shadow: none;
+}
+#settings-btn {
+  top: 22px;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 7px;
+  color: #b4c3d0;
+  cursor: pointer;
+  pointer-events: auto;
+  background: rgba(11, 21, 31, 0.8);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+}
+#settings-btn:hover,
+#settings-btn.on {
+  color: #fff;
+  border-color: rgba(220, 232, 242, 0.7);
+}
+#settings-btn svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+body.in-menu #settings-btn,
+body.in-menu #settings {
+  display: none;
+}
+#settings {
+  top: 66px;
+  width: 340px;
+  box-sizing: border-box;
+  padding: 0 0 12px;
+  pointer-events: auto;
+  --panel: rgba(11, 21, 31, 0.9);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
+}
+#settings.hidden {
+  display: none;
+}
+.st-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #dce6ee;
+}
+.st-close {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  color: #9fb4c6;
+  cursor: pointer;
+  background: none;
+  border: 1px solid rgba(165, 190, 210, 0.35);
+}
+.st-close:hover {
+  color: #fff;
+}
+.st-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(165, 190, 210, 0.22);
+  padding: 0 14px;
+  gap: 18px;
+}
+.st-tab {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 0;
+  color: #8aa0b4;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.st-tab.on {
+  color: #fff;
+  border-bottom-color: #dce6ee;
+}
+.st-page {
+  padding: 12px 14px 4px;
+}
+.st-page.hidden {
+  display: none;
+}
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(165, 190, 210, 0.12);
+}
+.st-label {
+  font-size: 13px;
+  color: #c9d6e1;
+}
+.st-switch,
+.st-seg button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  color: #8aa0b4;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+}
+.st-switch.on,
+.st-seg button.on {
+  color: #0b1520;
+  background: #cfdbe6;
+  border-color: #cfdbe6;
+}
+.st-seg {
+  display: flex;
+}
+.st-seg button + button {
+  border-left: none;
+}
+.st-slider-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.st-slider {
+  width: 120px;
+  accent-color: #cfdbe6;
+}
+.st-num {
+  width: 26px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #b4c3d0;
+}
+.st-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.st-key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #c9d6e1;
+}
+.st-key kbd {
+  flex: none;
+  width: 84px;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: #e6edf3;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(165, 190, 210, 0.35);
+}
+.st-foot {
+  padding: 10px 14px 0;
+}
+.st-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  color: #dce6ee;
+  cursor: pointer;
+  background: rgba(165, 190, 210, 0.1);
+  border: 1px solid rgba(165, 190, 210, 0.4);
+}
+.st-btn:hover {
+  background: rgba(165, 190, 210, 0.22);
 }

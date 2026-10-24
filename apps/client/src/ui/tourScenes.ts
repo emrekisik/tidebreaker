@@ -88,8 +88,8 @@ function upgrade(): string {
     `<div class="a s4-rows">${bars}</div>`,
     `<div class="a s4-class"><div class="a s4-tier">T<b>1</b> → T<b>2</b></div>` +
       '<div class="a s4-burst"></div>' +
-      img('s4-ship t1', side('blue', 'coast_guard_boat')) +
-      img('s4-ship t2', side('blue', 'gunboat')) +
+      img('s4-ship t1', `${import.meta.env.BASE_URL}icons/ships/card/coast_guard_boat.png`) +
+      img('s4-ship t2', `${import.meta.env.BASE_URL}icons/ships/card/gunboat.png`) +
       `<div class="a s4-btn">${t('tour.s4.button')} [T]</div></div>`,
   ].join('');
 }

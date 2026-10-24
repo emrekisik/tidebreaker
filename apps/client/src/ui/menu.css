@@ -535,15 +535,24 @@ body.in-menu #look {
   display: none;
 }
 
-/* ---------- the how-to-play tour ---------- */
+/* ---------- the how-to-play tour ----------
+   A briefing card: flat charcoal, a hairline edge, small capitals, one muted amber for emphasis. No glow, no gradient. */
 #tour {
+  --t-bg: #10171e;
+  --t-line: rgba(160, 185, 205, 0.3);
+  --t-ink: #e3eaf0;
+  --t-dim: #8ea3b5;
+  --t-amber: #d9b25f;
+  --t-blue: #6fa3cf;
+  --t-red: #c9606b;
+  --t-green: #6fb585;
   inset: 0;
   z-index: 20;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(2, 10, 18, 0.86);
+  background: rgba(5, 9, 13, 0.88);
   text-shadow: none;
   transition: opacity 0.3s;
 }
@@ -551,19 +560,17 @@ body.in-menu #look {
   zoom: var(--ui-scale, 1);
   width: 960px;
   box-sizing: border-box;
-  padding: 22px 26px 22px;
-  background: rgba(8, 24, 40, 0.96);
-  border: 1px solid rgba(130, 180, 225, 0.25);
-  border-top: 4px solid #ffe14d;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
+  padding: 0 0 20px;
+  background: var(--t-bg);
+  border: 1px solid var(--t-line);
 }
 #tour:not(.hidden) .tr-card {
-  animation: tr-card-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: tr-card-in 0.3s ease-out both;
 }
 @keyframes tr-card-in {
   from {
     opacity: 0;
-    transform: translateY(24px) scale(0.97);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -574,25 +581,28 @@ body.in-menu #look {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  padding: 11px 24px 10px;
+  border-bottom: 1px solid var(--t-line);
 }
 .tr-label {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.28em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: #ffe14d;
+  color: var(--t-dim);
 }
 .tr-count {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  color: #8fb4d2;
+  letter-spacing: 0.16em;
+  color: var(--t-ink);
+  font-variant-numeric: tabular-nums;
 }
 .tr-body {
   display: flex;
-  gap: 28px;
+  gap: 30px;
   align-items: stretch;
+  padding: 22px 24px 0;
 }
 .tr-stage {
   flex: none;
@@ -607,85 +617,93 @@ body.in-menu #look {
 }
 .tr-text h2 {
   margin: 0 0 12px;
-  font-size: 30px;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: #fff;
 }
 .tr-text p {
   margin: 0;
   font-size: 16px;
-  line-height: 1.5;
-  color: #bcd3e6;
-}
-.tr-text p b {
-  color: #ffe14d;
+  line-height: 1.55;
+  color: #b9c8d5;
 }
 .tr-tip {
-  margin-top: 14px !important;
-  padding: 8px 12px;
+  position: relative;
+  margin-top: 18px !important;
+  padding: 10px 0 0 !important;
   font-size: 14px !important;
-  color: #ffe9a8 !important;
-  background: rgba(255, 225, 77, 0.1);
-  border-left: 3px solid #ffe14d;
+  color: var(--t-dim) !important;
+  border-top: 1px solid var(--t-line);
+}
+.tr-tip::before {
+  content: attr(data-tag);
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--t-amber);
 }
 .tr-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 20px;
+  margin-top: 22px;
+  padding: 0 24px;
 }
 .tr-dots {
   display: flex;
-  gap: 9px;
+  gap: 6px;
 }
 .tr-dot {
-  width: 26px;
-  height: 5px;
-  background: rgba(143, 180, 210, 0.3);
+  width: 22px;
+  height: 4px;
+  background: rgba(160, 185, 205, 0.22);
   cursor: pointer;
-  transition: background 0.2s;
 }
 .tr-dot.on {
-  background: #ffe14d;
+  background: var(--t-ink);
 }
 .tr-dot.done {
-  background: rgba(255, 225, 77, 0.5);
+  background: rgba(160, 185, 205, 0.55);
 }
 .tr-buttons {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 .tr-btn {
   font: inherit;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 11px 26px;
-  color: #fff;
+  padding: 10px 24px;
+  color: var(--t-ink);
   cursor: pointer;
-  background: rgba(130, 180, 225, 0.14);
-  border: 1px solid rgba(130, 180, 225, 0.35);
+  background: none;
+  border: 1px solid var(--t-line);
 }
 .tr-btn:hover {
-  background: rgba(130, 180, 225, 0.28);
+  border-color: rgba(220, 232, 242, 0.75);
 }
 .tr-btn.primary {
-  background: linear-gradient(95deg, #1768d6, #2e9bff);
-  border-color: transparent;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  color: #0d141a;
+  background: #d5dfe8;
+  border-color: #d5dfe8;
 }
 .tr-btn.primary:hover {
-  filter: brightness(1.15);
+  background: #fff;
+  border-color: #fff;
 }
 .tr-btn.skip {
-  padding-left: 4px;
-  padding-right: 4px;
-  font-size: 13px;
-  color: #8fb4d2;
-  background: none;
+  padding-left: 6px;
+  padding-right: 10px;
+  font-size: 12px;
+  color: var(--t-dim);
   border: none;
 }
 .tr-btn.skip:hover {
@@ -695,31 +713,50 @@ body.in-menu #look {
   visibility: hidden;
 }
 
-/* ---------- the little scenes of the tour ---------- */
+/* ---------- the little scenes of the tour: a tactical map, muted colours, real ship pictures ---------- */
 .tr-scene {
   position: relative;
   width: 520px;
   height: 292px;
   overflow: hidden;
-  background: linear-gradient(#0f4a70, #0a3452);
-  border: 1px solid rgba(130, 180, 225, 0.22);
+  background:
+    linear-gradient(rgba(160, 185, 205, 0.07) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, rgba(160, 185, 205, 0.07) 1px, transparent 1px) 0 0 / 40px 40px,
+    #16313f;
+  border: 1px solid var(--t-line);
+}
+/* Corner marks, like the frame of a map. */
+.tr-scene::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(#aebfcc, #aebfcc) 0 0 / 14px 1px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 0 0 / 1px 14px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 100% 0 / 14px 1px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 0 100% / 14px 1px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 0 100% / 1px 14px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 100% 100% / 14px 1px no-repeat,
+    linear-gradient(#aebfcc, #aebfcc) 100% 100% / 1px 14px no-repeat;
+  opacity: 0.55;
 }
 .tr-scene::before {
   content: '';
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0 2px, transparent 3px) 0 0 / 86px 64px,
-    radial-gradient(circle at 70% 65%, rgba(255, 255, 255, 0.07) 0 3px, transparent 4px) 0 0 / 124px 88px,
-    linear-gradient(rgba(120, 200, 255, 0.1), rgba(0, 0, 0, 0));
-  animation: tr-sea 9s linear infinite;
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.07) 0 2px, transparent 3px) 0 0 / 86px 64px,
+    radial-gradient(circle at 70% 65%, rgba(255, 255, 255, 0.05) 0 2px, transparent 3px) 0 0 / 124px 88px;
+  animation: tr-sea 12s linear infinite;
 }
 @keyframes tr-sea {
   from {
-    background-position: 0 0, 0 0, 0 0;
+    background-position: 0 0, 0 0;
   }
   to {
-    background-position: -86px 32px, -124px 44px, 0 0;
+    background-position: -86px 32px, -124px 44px;
   }
 }
 .tr-scene .a {
@@ -783,7 +820,7 @@ body.in-menu #look {
 }
 .s1-bar.blue i {
   width: 100%;
-  background: #2cf27a;
+  background: #4cc27c;
 }
 .s1-bar.red {
   right: 17px;
@@ -791,7 +828,7 @@ body.in-menu #look {
 }
 .s1-bar.red i {
   width: 100%;
-  background: #2cf27a;
+  background: #4cc27c;
   transform-origin: left;
   animation: s1-drain 7s linear infinite;
 }
@@ -830,9 +867,8 @@ body.in-menu #look {
   left: 276px;
   width: 8px;
   height: 8px;
-  background: #ffe14d;
+  background: #d9b25f;
   border-radius: 50%;
-  box-shadow: 0 0 6px #ffb300;
   opacity: 0;
   animation: s1-shoot 1.4s linear infinite;
 }
@@ -939,9 +975,8 @@ body.in-menu #look {
   top: 26px;
   width: 9px;
   height: 9px;
-  background: #ffe14d;
+  background: #d9b25f;
   border-radius: 50%;
-  box-shadow: 0 0 6px #ffb300;
   opacity: 0;
   animation: s2-fire 1.1s linear infinite;
 }
@@ -988,10 +1023,7 @@ body.in-menu #look {
   }
   76%,
   100% {
-    border-color: #ff6a5a;
-    box-shadow:
-      0 0 10px #ff6a5a,
-      inset 0 0 10px #ff6a5a;
+    border-color: #c9604f;
   }
 }
 .s2-keys {
@@ -1038,7 +1070,7 @@ body.in-menu #look {
 @keyframes kf-w {
   0%,
   26% {
-    background: #2e9bff;
+    background: #6fa3cf;
     color: #fff;
   }
   30%,
@@ -1053,7 +1085,7 @@ body.in-menu #look {
   }
   36%,
   50% {
-    background: #2e9bff;
+    background: #6fa3cf;
     color: #fff;
   }
   52%,
@@ -1068,7 +1100,7 @@ body.in-menu #look {
   }
   58%,
   70% {
-    background: #2e9bff;
+    background: #6fa3cf;
     color: #fff;
   }
   72%,
@@ -1083,7 +1115,7 @@ body.in-menu #look {
   }
 }
 .s2-mouse {
-  left: 214px;
+  left: 142px;
   bottom: 14px;
   width: 30px;
   height: 44px;
@@ -1099,7 +1131,7 @@ body.in-menu #look {
   width: 13px;
   height: 18px;
   border-radius: 13px 0 0 0;
-  background: #ffe14d;
+  background: #d9b25f;
   animation: s2-click 1.1s steps(1) infinite;
 }
 @keyframes s2-click {
@@ -1119,12 +1151,12 @@ body.in-menu #look {
   color: #cfe3f3;
 }
 .s2-mouse-label {
-  left: 252px;
+  left: 180px;
 }
 .s2-space {
   right: 16px;
   bottom: 14px;
-  width: 190px;
+  width: 176px;
   height: 32px;
   white-space: nowrap;
   font-size: 12px;
@@ -1139,9 +1171,9 @@ body.in-menu #look {
   }
   76%,
   100% {
-    background: #c8402f;
+    background: #9c3a30;
     color: #fff;
-    border-color: #ff8a7a;
+    border-color: #d98a7c;
   }
 }
 
@@ -1201,21 +1233,20 @@ body.in-menu #look {
 .s3-gold {
   width: 36px;
   height: 20px;
-  background: #ffcf3a;
+  background: #d6b24a;
   border: 2px solid #b8860b;
   box-sizing: border-box;
-  box-shadow: 0 0 10px 2px rgba(255, 207, 58, 0.8);
 }
 .s3-pop {
   top: 84px;
   font-size: 15px;
   font-weight: 800;
-  color: #8dff9c;
+  color: #8fd6a0;
   opacity: 0;
   animation: s3-pop 7s linear infinite;
 }
 .s3-pop.gold {
-  color: #ffe14d;
+  color: #d9b25f;
   font-size: 18px;
 }
 @keyframes s3-pop {
@@ -1252,7 +1283,7 @@ body.in-menu #look {
   width: 68px;
   height: 68px;
   box-sizing: border-box;
-  border: 2px solid #ff5a47;
+  border: 2px solid #c9604f;
   border-radius: 50%;
   animation: s3-warn 1.4s ease-out infinite;
 }
@@ -1274,7 +1305,7 @@ body.in-menu #look {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #ff9a8b;
+  color: #d98a7c;
 }
 .s3-gold-label {
   left: 340px;
@@ -1284,7 +1315,7 @@ body.in-menu #look {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #ffe14d;
+  color: #d9b25f;
   animation: s3-take 7s linear infinite;
   animation-delay: 4.2s;
 }
@@ -1351,9 +1382,9 @@ body.in-menu #look {
   height: 214px;
 }
 .s4-ship {
-  left: 30px;
-  top: 64px;
-  width: 150px;
+  left: 4px;
+  top: 40px;
+  width: 202px;
 }
 .s4-ship.t1 {
   animation: s4-t1 9s linear infinite;
@@ -1402,8 +1433,8 @@ body.in-menu #look {
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #162000;
-  background: #8dff6a;
+  color: #0d141a;
+  background: #d5dfe8;
   animation: s4-btn 9s linear infinite;
 }
 @keyframes s4-btn {
@@ -1433,7 +1464,7 @@ body.in-menu #look {
   color: #fff;
 }
 .s4-tier b {
-  color: #ffe14d;
+  color: #d9b25f;
 }
 .s4-burst {
   left: 45px;
@@ -1441,7 +1472,7 @@ body.in-menu #look {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  border: 3px solid #ffe14d;
+  border: 3px solid #d9b25f;
   opacity: 0;
   animation: s4-burst 9s linear infinite;
 }
@@ -1478,7 +1509,7 @@ body.in-menu #look {
 }
 .s5-ring .gauge {
   fill: none;
-  stroke: #4fe3ff;
+  stroke: #7fb6d1;
   stroke-dasharray: 427;
   stroke-dashoffset: 427;
   transform: rotate(-90deg);
@@ -1526,7 +1557,7 @@ body.in-menu #look {
 .s5-cash {
   font-size: 18px;
   font-weight: 800;
-  color: #8dff9c;
+  color: #8fd6a0;
   opacity: 0;
   animation: s5-cash 9s linear infinite;
 }
@@ -1575,7 +1606,7 @@ body.in-menu #look {
   display: block;
   height: 100%;
   width: 0;
-  background: #4fe3ff;
+  background: #7fb6d1;
   animation: s5-meter 9s linear infinite;
 }
 @keyframes s5-meter {
@@ -1599,7 +1630,7 @@ body.in-menu #look {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #9fe9ff;
+  color: #a9cfe0;
 }
 
 /* scene 6: the carrier and its shop */
@@ -1626,7 +1657,7 @@ body.in-menu #look {
   display: block;
   height: 100%;
   width: 20%;
-  background: #2cf27a;
+  background: #4cc27c;
   animation: s6-hp 8s linear infinite;
 }
 @keyframes s6-hp {
@@ -1649,7 +1680,7 @@ body.in-menu #look {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #8dff9c;
+  color: #8fd6a0;
 }
 .s6-shop {
   left: 76px;
@@ -1662,8 +1693,8 @@ body.in-menu #look {
   font-weight: 800;
   letter-spacing: 0.1em;
   color: #fff;
-  background: rgba(20, 150, 90, 0.92);
-  border: 1px solid #6dff9a;
+  background: rgba(34, 62, 50, 0.95);
+  border: 1px solid #9fc6a8;
   opacity: 0;
   animation: s6-shop 8s linear infinite;
 }
@@ -1671,8 +1702,8 @@ body.in-menu #look {
   font: inherit;
   font-size: 12px;
   padding: 1px 6px;
-  color: #062;
-  background: #fff;
+  color: #0d141a;
+  background: #d5dfe8;
 }
 @keyframes s6-shop {
   0%,
