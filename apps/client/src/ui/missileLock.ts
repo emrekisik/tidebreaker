@@ -270,8 +270,6 @@ export class MissileLock {
 export class MissileBadge {
   private readonly count = document.createElement('b');
   private readonly mineCount = document.createElement('b');
-  private readonly note = document.createElement('span');
-  private noteLeft = 0;
 
   constructor(private readonly root: HTMLElement) {
     const strip = (svg: string): string => svg.replace(/ width="\d+" height="\d+"/, '');
@@ -289,8 +287,7 @@ export class MissileBadge {
     mineKey.className = 'mb-key';
     mineKey.textContent = 'F';
     this.mineCount.className = 'mb-count';
-    this.note.className = 'mb-note';
-    root.append(icon, this.count, key, mineIc, this.mineCount, mineKey, this.note);
+    root.append(icon, this.count, key, mineIc, this.mineCount, mineKey);
   }
 
   /** Shows the stock (only for ships that may carry missiles and mines). */
@@ -299,19 +296,5 @@ export class MissileBadge {
     this.root.classList.toggle('empty', missiles === 0 && mines === 0);
     this.count.textContent = `${missiles}/${MISSILE.maxStock}`;
     this.mineCount.textContent = `${mines}/${MINE.maxStock}`;
-  }
-
-  /** A short message next to the badge (why the lock did not start, why no mine was laid). */
-  flash(text: string): void {
-    audio.play('ui_deny', { own: true });
-    this.note.textContent = text;
-    this.root.classList.add('noting');
-    this.noteLeft = 1.6;
-  }
-
-  update(dtSec: number): void {
-    if (this.noteLeft <= 0) return;
-    this.noteLeft -= dtSec;
-    if (this.noteLeft <= 0) this.root.classList.remove('noting');
   }
 }

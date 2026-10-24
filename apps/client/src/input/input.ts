@@ -1,6 +1,7 @@
 /**
  * Keyboard + mouse state. A/D = rudder, W = throttle, S = brake, right mouse = throttle (same as
- * W), left mouse = fire. Aim is kept as normalized device coordinates for the camera ray.
+ * W), left mouse = fire, and the auto-fire switch keeps the guns firing without a held button. Aim is kept as
+ * normalized device coordinates for the camera ray.
  */
 export class Input {
   /** Rudder in [-1, 1]; positive turns clockwise on screen. */
@@ -8,6 +9,8 @@ export class Input {
   /** 1 = accelerate, -1 = brake, 0 = coast. */
   throttle = 0;
   fire = false;
+  /** The auto-fire switch: while on, the guns fire whether or not the button is held. */
+  autoFire = false;
   ndcX = 0;
   ndcY = 0;
   private readonly keys = new Set<string>();
@@ -29,6 +32,7 @@ export class Input {
     window.addEventListener('blur', () => {
       this.keys.clear();
       this.fire = false;
+      this.autoFire = false;
       this.rightMouse = false;
       this.recompute();
     });
@@ -57,6 +61,11 @@ export class Input {
       },
       { passive: false },
     );
+  }
+
+  /** Whether the guns should fire now: the button is held, or auto fire is on. */
+  get firing(): boolean {
+    return this.fire || this.autoFire;
   }
 
   /** Wheel movement since the last call (positive = scrolled away from the user = zoom out). */

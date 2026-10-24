@@ -22,6 +22,8 @@ export class MatchHud {
   private readonly sub = el('banner-sub');
   private deathLeft = 0;
   private deathBy = '';
+  /** The ship wrecked itself on land (nobody sank it). */
+  private crashed = false;
   private restartLeft = 0;
   private winner = 0;
   private ended = false;
@@ -50,9 +52,10 @@ export class MatchHud {
     shield.style.width = `${Math.max(0, 100 * (c.state.shield / c.def.shield))}%`;
   }
 
-  died(killerName: string, respawnSec: number): void {
+  died(killerName: string, respawnSec: number, crashed = false): void {
     this.deathLeft = respawnSec;
     this.deathBy = killerName;
+    this.crashed = crashed;
     this.refresh();
   }
 
@@ -93,7 +96,7 @@ export class MatchHud {
       );
       sub = t('match.next').replace('{n}', String(Math.max(0, Math.ceil(this.restartLeft))));
     } else if (this.deathLeft > 0) {
-      title = t('death.sunk');
+      title = t(this.crashed ? 'death.crashed' : 'death.sunk');
       sub = [
         this.deathBy ? t('death.by').replace('{name}', this.deathBy) : '',
         t('death.respawn').replace('{n}', String(Math.ceil(this.deathLeft))),

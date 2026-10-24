@@ -402,14 +402,24 @@ export class BotClient {
     return true;
   }
 
+  /** True when no island, reef or rock wall lies between this bot and (x, y): shots and missiles would get there. */
+  private seesPoint(x: number, y: number): boolean {
+    const land = this.land;
+    if (!land) return true;
+    return segmentVsWorld(land, this.me.x, this.me.y, x, y) < 0;
+  }
+
   /**
    * What to shoot at, whatever the ship is doing (fleeing bots keep firing back): the nearest enemy
-   * ship in range, else the enemy carrier if it is in range. Writes the lead angle and distance
-   * into `shot` and returns true, or returns false when nothing is in range.
+   * ship in range, else the enemy carrier if it is in range. A target behind land (a rock wall) is not shot at:
+   * the shells would end on the rocks. Writes the lead angle and distance into `shot` and returns true, or returns
+   * false when nothing is in range.
    */
   private pickShot(nearest: Seen | null, nearestD: number, carrier: Seen | null): boolean {
     const range = this.weaponRange * 0.95;
-    const t = nearest && nearestD < range ? nearest : carrier;
+    let t = nearest && nearestD < range ? nearest : carrier;
+    // The nearest ship may be hidden behind rocks while the carrier is in the open.
+    if (t && !this.seesPoint(t.x, t.y)) t = t === carrier ? null : carrier && this.seesPoint(carrier.x, carrier.y) ? carrier : null;
     if (!t) return false;
     const d = Math.hypot(t.x - this.me.x, t.y - this.me.y);
     if (d >= range) return false;
@@ -460,7 +470,13 @@ export class BotClient {
     const myTier = this.def.tier - 1;
 
     // A guided missile for the nearest enemy ship that is in reach: lock on (the server fires after the lock time).
-    if (this.missiles > 0 && nearest !== null && nearestD < MISSILE_REACH && this.tick >= this.lockUntilTick) {
+    if (
+      this.missiles > 0 &&
+      nearest !== null &&
+      nearestD < MISSILE_REACH &&
+      this.tick >= this.lockUntilTick &&
+      this.seesPoint(nearest.x, nearest.y)
+    ) {
       this.lockUntilTick = this.tick + Math.round(MISSILE.lockSec * 20) + 40;
       const target = nearestId;
       this.write(() => encodeLock(this.out, target));

@@ -30,6 +30,8 @@ import {
   TEAM_RED,
   TICK_RATE,
   ECONOMY,
+  ISLAND_COLLISION,
+  KILL_CAUSE,
   KIND,
   applyWorldBounds,
   channelSpots,
@@ -464,6 +466,82 @@ describe('collisions on the server', () => {
     });
     expect(touching).toBe(false);
     expect(a.heard.bumps.some((b) => b.other === 0xffff)).toBe(true);
+  });
+
+  it('hitting land hard costs hull points; a slow scrape, a protected ship and a carrier take nothing', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A', 'coast_guard_boat');
+    await tick(1);
+    const w = room.world;
+    const map = w.land;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const s = w.slots[slot]!.state;
+    const out = new Float32Array(3);
+    // Just short of the west coast of the first island, bow to the island.
+    const cy = map.islandY[0]!;
+    let x = map.islandX[0]! - map.islandR[0]! - 40;
+    while (!circleVsWorld(map, x, cy, 1.5, out)) x += 0.25;
+    const park = (speed: number): void => {
+      s.x = x - 1;
+      s.y = cy;
+      s.heading = 0;
+      s.speed = speed;
+      s.kx = 0;
+      s.ky = 0;
+      s.hull = SHIPS.coast_guard_boat.hull;
+      s.shield = SHIPS.coast_guard_boat.shield;
+    };
+    const total = (): number => s.hull + s.shield;
+    const full = SHIPS.coast_guard_boat.hull + SHIPS.coast_guard_boat.shield;
+    const I = ISLAND_COLLISION;
+
+    // A hard hit hurts, by the speed above the limit.
+    w.protectLeft[slot] = 0;
+    park(16);
+    await tick(2);
+    const lost = full - total();
+    expect(lost).toBeGreaterThan(0);
+    expect(lost).toBeLessThanOrEqual(I.maxDamage);
+    expect(a.heard.hits.some((h) => h.target === slot + 1 && h.attacker === 0)).toBe(true);
+
+    // A slow scrape does not.
+    park(I.minDamageSpeed - 1);
+    await tick(2);
+    expect(total()).toBe(full);
+
+    // A ship under spawn protection is not hurt.
+    w.protectLeft[slot] = 5;
+    park(16);
+    await tick(2);
+    expect(total()).toBe(full);
+    w.protectLeft[slot] = 0;
+  });
+
+  it('a crash that sinks a ship credits nobody and tells the kill feed it was the rocks', async () => {
+    const { room, join, tick } = setup();
+    const a = await join('A', 'coast_guard_boat');
+    await tick(1);
+    const w = room.world;
+    const map = w.land;
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const s = w.slots[slot]!.state;
+    const out = new Float32Array(3);
+    const cy = map.islandY[0]!;
+    let x = map.islandX[0]! - map.islandR[0]! - 40;
+    while (!circleVsWorld(map, x, cy, 1.5, out)) x += 0.25;
+    w.protectLeft[slot] = 0;
+    s.x = x - 1;
+    s.y = cy;
+    s.heading = 0;
+    s.speed = 18;
+    s.hull = 1;
+    s.shield = 0;
+    await tick(2);
+    expect(s.alive).toBe(false);
+    const kill = a.heard.kills.find((k) => k.victimId === slot + 1);
+    expect(kill).toBeDefined();
+    expect(kill!.killerId).toBe(0);
+    expect(kill!.weapon).toBe(KILL_CAUSE.ROCKS);
   });
 });
 

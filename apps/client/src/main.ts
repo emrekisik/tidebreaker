@@ -84,6 +84,7 @@ import { NamePlates } from './ui/namePlates.ts';
 import { preloadRankIcons } from './ui/rankBadge.ts';
 import { RankBook } from './ui/rankBook.ts';
 import { RankUp } from './ui/rankUp.ts';
+import { ShipAlert } from './ui/shipAlert.ts';
 import { ShopButton } from './ui/shopButton.ts';
 import { Scoreboard } from './ui/scoreboard.ts';
 import { Menu } from './ui/menu.ts';
@@ -193,6 +194,17 @@ function projectRankUp(out: Float32Array): boolean {
   return true;
 }
 
+/** Over the own ship, just above the name plate (short warnings pop up there). */
+function projectAlert(out: Float32Array): boolean {
+  const me = session?.player;
+  if (!me) return false;
+  plateSpot.set(me.pose.x, PLATE_HEIGHT + 1, me.pose.y).project(stage.camera);
+  if (plateSpot.z > 1) return false;
+  out[0] = (plateSpot.x * 0.5 + 0.5) * window.innerWidth;
+  out[1] = (-plateSpot.y * 0.5 + 0.5) * window.innerHeight - 24;
+  return true;
+}
+
 const emoteBubbles = new EmoteBubbles();
 const wreckMarks = new WreckMarks();
 const crosshair = new Crosshair();
@@ -237,6 +249,18 @@ ranks.onOwnRank = (rank) => progressHud.setRank(rank);
 const plateLayer = document.getElementById('plate-layer') as HTMLElement;
 const plates = new NamePlates(plateLayer);
 const rankUp = new RankUp(plateLayer);
+const shipAlert = new ShipAlert(plateLayer);
+/** Something the player tried did not work: a red message over the ship and a short dull sound. */
+function warn(text: string): void {
+  sfx.deny();
+  shipAlert.show(text, performance.now(), 'warn');
+}
+/** Switches auto fire (the guns fire without a held button) and tells the player. */
+function setAutoFire(on: boolean, say: boolean): void {
+  if (input.autoFire === on) return;
+  input.autoFire = on;
+  if (say) shipAlert.show(t(on ? 'autofire.on' : 'autofire.off'), performance.now(), 'info');
+}
 ranks.onPromoted = (rank) => {
   announcer.rankUp(rank, online?.myTeam ?? TEAM_BLUE);
   rankUp.show(rank, performance.now());
@@ -301,6 +325,9 @@ window.addEventListener('keydown', (e) => {
     else if (e.code === 'KeyB') baseShop.toggle();
     else if (e.code === 'F9') online.net.cheat(CHEAT.MONEY);
     else if (e.code === 'KeyQ') pressLock();
+  }
+  if (e.code === 'Space' && !e.repeat && session && (e.target as HTMLElement).tagName !== 'INPUT') {
+    if (!document.body.classList.contains('in-menu')) setAutoFire(!input.autoFire, true);
   }
   if (e.code === 'Tab') {
     // The scoreboard replaces the browser's focus change.
@@ -432,8 +459,8 @@ const events: OnlineEvents = {
     sfx.sunk(x, y, entity.combatant.def.length, entity.combatant.def.flying === true);
   },
   onDied(killerId, killerName, respawnSec) {
-    // Carriers are entities 1 and 2.
-    matchHud.died(killerId <= 2 ? t('death.byCarrier') : killerName, respawnSec);
+    // Carriers are entities 1 and 2; nobody (0) sank a ship that hit the rocks.
+    matchHud.died(killerId === 0 ? '' : killerId <= 2 ? t('death.byCarrier') : killerName, respawnSec, killerId === 0);
     rig.shake(0.9);
     sfx.died();
   },
@@ -461,7 +488,7 @@ const events: OnlineEvents = {
   onKill(killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) {
     const me = online?.myId ?? 0;
     killFeed.add(
-      killerId <= 2 ? t('feed.carrier') : killerName,
+      killerId === 0 ? '' : killerId <= 2 ? t('feed.carrier') : killerName,
       victimName,
       killerTeam,
       victimTeam,
@@ -661,10 +688,10 @@ function pressLock(): void {
   }
   const mine = online.progress;
   if (!session.player.combatant.state.alive) return;
-  if (mine.tier < MISSILE.minTier) return missileBadge.flash(t('lock.tier'));
-  if (mine.missiles <= 0) return missileBadge.flash(t('lock.empty'));
+  if (mine.tier < MISSILE.minTier) return warn(t('lock.tier'));
+  if (mine.missiles <= 0) return warn(t('lock.empty'));
   const target = pickLockTarget(session.player.combatant);
-  if (target === 0) return missileBadge.flash(t('lock.none'));
+  if (target === 0) return warn(t('lock.none'));
   missileLock.begin(target);
   online.net.lock(target);
 }
@@ -674,11 +701,11 @@ function pressLayMine(): void {
   const me = session.player.combatant;
   if (!me.state.alive) return;
   const mine = online.progress;
-  if (mine.tier < MINE.minTier) return missileBadge.flash(t('lock.tier'));
-  if (mine.mines <= 0) return missileBadge.flash(t('mine.empty'));
+  if (mine.tier < MINE.minTier) return warn(t('lock.tier'));
+  if (mine.mines <= 0) return warn(t('mine.empty'));
   const blocked = mineBlocked(me.state.x, me.state.y, me.team);
-  if (blocked === MINE_BLOCK.RIG) return missileBadge.flash(t('mine.blockedRig'));
-  if (blocked === MINE_BLOCK.CARRIER) return missileBadge.flash(t('mine.blockedCarrier'));
+  if (blocked === MINE_BLOCK.RIG) return warn(t('mine.blockedRig'));
+  if (blocked === MINE_BLOCK.CARRIER) return warn(t('mine.blockedCarrier'));
   online.net.layMine();
 }
 const teamNameOf = (team: number): string => (team === 0 ? 'blue' : team === 1 ? 'red' : 'pirate');
@@ -691,6 +718,7 @@ function update(nowMs: number): void {
   const timeSec = nowMs / 1000;
   setHologramTime(timeSec);
 
+  crosshair.setAuto(input.autoFire);
   crosshair.update(
     dtSec,
     (input.ndcX * 0.5 + 0.5) * window.innerWidth,
@@ -720,12 +748,14 @@ function update(nowMs: number): void {
   const game = session;
   const steps = fixedStep.advance(frameMs);
   const ps = game.player.combatant.state;
+  // A sunk ship does not keep firing: the shield of a new ship (spawn protection) ends with its first shot.
+  if (input.autoFire && !ps.alive) setAutoFire(false, false);
   for (let i = 0; i < steps; i++) {
     if (aimFromScreen(stage.camera, input.ndcX, input.ndcY, ps.x, ps.y, aimOut)) {
       aim = aimOut[0]!;
       aimDist = aimOut[1]!;
     }
-    game.step(input.steer, input.throttle, aim, aimDist, input.fire);
+    game.step(input.steer, input.throttle, aim, aimDist, input.firing);
   }
 
   const alpha = fixedStep.alpha;
@@ -770,7 +800,6 @@ function update(nowMs: number): void {
   wreckMarks.update(nowMs, projectWreck);
   missileLock.update(dtSec, lockProjector);
   mines.update(timeSec, rig.focusX, rig.focusZ);
-  missileBadge.update(dtSec);
   if (emoteWheel.isOpen) {
     // The wheel is drawn around the player's own ship, where the camera sees it (the smoothed pose,
     // not the 20 Hz tick state, and the camera matrices of this very frame, else it shakes).
@@ -801,6 +830,7 @@ function update(nowMs: number): void {
   }
   plates.update(projectPlate);
   rankUp.update(nowMs, projectRankUp, plateOut);
+  shipAlert.update(nowMs, projectAlert, plateOut);
   const storm = boundaryDepth(p.x, p.y);
   if (storm !== lastStorm) {
     lastStorm = storm;

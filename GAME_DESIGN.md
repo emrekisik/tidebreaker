@@ -118,7 +118,7 @@ Toplam 22 ada (3 liman, 3 kale, 4 hazine, 12 düz; liman ve hazine adası yalnı
 | **Düz ada** | 5 | Siper ve navigasyon engeli. Mermileri engeller |
 | **Fener** (opsiyonel, Faz 10) | 1 (merkez) | Ele geçirme noktası |
 
-- Adalar **katıdır**: gemi çokgen kenarında kayar (hızın adaya doğru bileşeni sıfırlanır, kalan teğet hız her tick `ISLAND_COLLISION.tangentKeep` = ×0.96 ile sönümlenir; tek seferlik ×0.9 yerine sürtünme gibi çalışır), hasar yok. Mermiler adalara ve resiflere çarpınca biter (swept test, tünelleme yok); vuruş yerinde toz, kaya parçası ve kıvılcım çıkar. Adanın arkasına ateş edilemez.
+- Adalar **katıdır**: gemi çokgen kenarında kayar (hızın adaya doğru bileşeni sıfırlanır, kalan teğet hız her tick `ISLAND_COLLISION.tangentKeep` = ×0.96 ile sönümlenir; tek seferlik ×0.9 yerine sürtünme gibi çalışır). **Sert çarpma hasar verir** (ada, resif ve kaya duvarı aynı): adaya doğru hız 4 birim/sn'yi (`minDamageSpeed`) aşarsa aşan her birim için 2,2 (`damagePerSpeed`) can gider, çarpma başına en çok 40 (`maxDamage`); kıyıda sürtünmek hasar vermez. Yalnızca oyuncu gemileri etkilenir (uçak gemisi hareket etmez, korsanlar kıyıdan kaçar), doğuş korumasındaki gemi zarar görmez. Bu hasarla batan gemiyi kimse batırmış sayılmaz (katil 0; kill feed'de kaya işareti, ölüm ekranında "Kayalara çarpıp battın"). **Aynı takımın gemileri birbirine çarpınca hasar olmaz** (itişirler). Mermiler adalara ve resiflere çarpınca biter (swept test, tünelleme yok); vuruş yerinde toz, kaya parçası ve kıvılcım çıkar. Adanın arkasına ateş edilemez.
 - Harita kodu: `packages/shared/src/world/` (`generateMap(seed)`, `mapHash`, `circleVsWorld`, `segmentVsWorld`). Köşeler 1/16 birime yuvarlanır; böylece Node ile tarayıcı `sin/cos` farkları haritayı değiştirmez. Hash testi üç seed için sabit değer kontrol eder, 200 seed için kural testleri (sayı, boşluk, bölge, basit çokgen) koşar. İstemcide `?seed=<sayı>` ile başka harita denenebilir; debug HUD seed, hash, ada ve resif sayısını gösterir.
 - Resifler: küçük dairesel engeller (yarıçap 4–8), görsel olarak kayalık.
 
@@ -154,7 +154,7 @@ Haritanın kuzeyinde, merkezin 140 birim yukarısında ve **iki takıma da eşit
 |---|---|
 | Hareket | **W** = gaz, **S** = fren, durunca **geri vites** (ileri hızın %40'ı), **A/D** = dümen (gemi kendi başına döner). **Sağ tık** = gaz (W ile aynı). Gazı bırakınca gemi yavaşça durur |
 | Nişan | Fare konumu |
-| Ateş | Sol tık basılı tut |
+| Ateş | Sol tık basılı tut. **Boşluk** = sürekli ateş açık/kapalı (basılı tutmak gerekmez): açıkken imleç kırmızı olur, altında "SÜREKLİ ATEŞ" yazar. Gemi batınca ve pencere odağı kaybolunca kapanır (yeni gemideki doğuş koruması ilk atışta biter, o yüzden kendiliğinden ateş etmemeli). Sağ tık gaz olarak kaldı |
 | Upgrade | 1–5 tuşları veya paneldeki butonlar | Panel butonları |
 | Sınıf atla | `U` veya buton | Buton |
 | Emote | `E` tekerleği / 1–4 | Emote butonu |
@@ -499,7 +499,7 @@ Basit, ucuz **sonlu durum makinesi (FSM)**. Amaç zeka değil, oyuncuya hedef ve
 | 0x81 | `WELCOME` | `u8 protoVersion, u32 mapSeed, u8 tickRate, u8 snapshotEvery, u32 serverTimeMs, u32 configHash` |
 | 0x8A | `JOINED` | `PLAY`'e yanıt: `u16 entityId, u8 team, u8 shipId`; her yeniden doğuşta da gönderilir |
 | 0x8B | `MATCH` | `u8 state (0 oynanıyor, 1 bitti), u8 winnerTeam, u8 restartSec, u16 killsBlue, u16 killsRed` (değişince ve 1 sn'de bir) |
-| 0x8C | `KILL` | Kill feed: `u16 killerId, u16 victimId, u8 killerTeam, u8 victimTeam, u8 weapon (255 = çarpışma), u8 len+killerName, u8 len+victimName`. Uçak gemisi katil ise `killerId` 1 ya da 2 |
+| 0x8C | `KILL` | Kill feed: `u16 killerId, u16 victimId, u8 killerTeam, u8 victimTeam, u8 weapon (silah indeksi; 255 = gemi çarpışması, 254 = varil, 253 = mayın, 252 = kayaya çarpma, bkz. `KILL_CAUSE`), u8 len+killerName, u8 len+victimName`. Uçak gemisi katil ise `killerId` 1 ya da 2 |
 | 0x8D | `SCORES` | Skor tablosu: `u8 count`, her satır `u16 id, u8 team, u16 kills, u16 deaths, u32 score, u8 tier, u8 shipId (`SHIP_IDS` indeksi: sınıf ve dal), u8 len+name`. Değişince, en çok 1 sn'de bir |
 | 0x82 | `SNAPSHOT` | aşağıda |
 | 0x83 | `EVENTS` | `u32 tick, u8 count, event[]` |
@@ -673,7 +673,9 @@ Starblast geliştiricisinin ana tavsiyesi: sıcak döngüde nesne üretme, GC ta
 Tüm HUD tek bir temayı paylaşır (`apps/client/src/ui/theme.css`): **düz (köşesiz) koyu lacivert yarı saydam paneller**, ince kenar, kalın büyük harfli etiketler, yazı tipi **Oxanium** (`@fontsource` ile pakete gömülü, 500/700, latin + latin-ext; Türkçe karakterler için), her yükseltmenin kendi rengi. Yerleşim (1600×900 için çizilir, pencereye göre 0,6–1,3 ölçeklenir, `--ui-scale`):
 - **Sol üst:** oyuncunun gemisi: can sayısı (kalp içinde sayı), gövde (yeşil) ve kalkan (turkuaz) çubukları, para (yeşil banknot simgesi) ve **skor** (sarı, "Skor 450"; XP yoktur). Altında `Sv 2` ve yeşil bir çubuk: eldeki paranın bir üst sınıfın bedelinin ne kadarını karşıladığı, sağında bedelin kendisi.
 - **Üst orta:** ince şerit: solda mavi, sağda kırmızı kenar; iki uçak gemisinin simgesi ve çift çubuğu (gövde yeşil, kalkan turkuaz; dışarı doğru boşalır), ortada takım skoru. Altında 3 petrol kuyusu için **altıgen A / B / C** rozetleri: kenar çizgisi kapmada kimin önde olduğunu gösterir (mavi saat yönünde, kırmızı ters yönde), tutulan kuyu sahibinin rengiyle dolar.
-- **Sağ üst:** kill feed (kim kimi batırdı).
+- **Sağ üst:** kill feed (kim kimi batırdı). İki ismin arasında **nedeni gösteren işaret** vardır: nişangâh (silahla batırma), füze, **baş-çarpışma** (çarparak batırma), varil, deniz mayını, **kayalar** (gemi kendi kendine kayaya çarpıp battı; katil yoktur, işaret ismin başına gelir). Kod: `ui/killFeed.ts`, `KILL_CAUSE` (`net/messages.ts`).
+- **Gemi üstü uyarılar:** "Füze yok", "Mayın yok", "T3 ve üstü", "Hedef yok" gibi uyarılar artık sol alttaki rozetin yanında değil **geminin üstünde** çıkar (kırmızı kutu, kısa sarsılıp yükselerek kaybolur); sürekli ateşin açılıp kapandığı da aynı yerde (altın kutu) yazar (`ui/shipAlert.ts`).
+- **Skor tablosu (Tab):** ekran genişliğinin çoğunu kaplar, oyuncu adları (en çok 16 harf) kısaltılmadan sığar; **kendi satırın** altın renkli şerit, sıcak arka plan, altın isim ve "SEN" etiketiyle öne çıkar.
 - **Üst orta, şeridin altında:** duyurular (`ANNOUNCE` olayı, 6,5 sn görünür, en çok 4 satır, takım renginde kenarlı): *"Mavi takımı B kuyusunu ele geçirdi"*, *"Kırmızı takımı A kuyusunu kaybetti"* (kuyunun sahibi değişince), *"<oyuncu> uçak gemisini onardı (%72)"* ve *"<oyuncu> uçak gemisinin silahlarını güçlendirdi (Sv 3)"* (üs mağazasından alınca). Her satırın solunda konuya uygun **ikon** vardır: kuyu simgesi (köşede kuyunun harfiyle; kaybedilince soluk, kırmızı harf), onarım anahtarı, silah hasarı simgesi; terfi satırında yeni rütbenin nişanı.
 - **Alt orta:** sınıf atlanabildiğinde bir sonraki geminin **kartı** (yukarıdan görünüm resmi, `T` tuşu, ad) ve altında altın **SINIF ATLA** çubuğu. Altta **6 yükseltme kutusu yan yana** (anahtar kutusu, simge, ad, maliyet, 8 küçük dikdörtgen seviye göstergesi): 1 kalkan, 2 atış hızı, 3 hasar, 4 hız, 5 dönüş, 6 tamir.
 - **Yükseltme satırı sıkışır:** hiçbir şey alınamıyorsa (para yetmiyor ya da hepsi sonuna geldi) satır aşağı kayıp küçülür; her kutuda yalnızca simge ve seviye kalır. Alınabilir bir şey olunca yukarı açılır. Harita dışındaki tüm paneller %60 civarı saydamdır.

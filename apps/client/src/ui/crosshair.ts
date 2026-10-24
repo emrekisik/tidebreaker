@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.ts';
 import crosshairSvg from './icons/crosshair1.svg?raw';
 
 /** How hard a shot kicks the crosshair, by projectile visual (1 = the biggest kick). */
@@ -20,11 +21,22 @@ export class Crosshair {
   /** Alternates the twist direction of heavy shots. */
   private side = 1;
   private shown = false;
+  private readonly tag = document.createElement('div');
+  private auto = false;
 
   constructor() {
     this.pic.className = 'ch-pic';
     this.pic.innerHTML = crosshairSvg.replace(/ width="\d+" height="\d+"/, '');
-    this.root.append(this.pic);
+    this.tag.className = 'ch-tag';
+    this.root.append(this.pic, this.tag);
+  }
+
+  /** Auto fire is on or off: while on, the pointer turns red and says so under itself. */
+  setAuto(on: boolean): void {
+    if (on === this.auto) return;
+    this.auto = on;
+    this.root.classList.toggle('auto', on);
+    this.tag.textContent = on ? t('autofire.tag') : '';
   }
 
   /** The player's ship fired a shot of this weight (`KICK.*`). */

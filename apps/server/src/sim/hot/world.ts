@@ -22,6 +22,8 @@ import {
   Mulberry32,
   NO_TEAM,
   NO_WEAPON,
+  KILL_CAUSE,
+  ISLAND_COLLISION,
   PICKUP_ID_BASE,
   PIRATE_COUNT,
   PIRATE_TYPES,
@@ -608,7 +610,7 @@ export class World
       this.noteDamage(credit, s, damage);
       if (s < this.playerEnd) this.combatAge[s] = 0;
       if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
-      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, NO_WEAPON);
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, KILL_CAUSE.MINE);
     }
   }
 
@@ -1330,6 +1332,27 @@ export class World
 
   onIslandHit(shipId: number, x: number, y: number, impact: number): void {
     this.events.bump(shipId, 0xffff, x, y, impact);
+    this.crash(shipId - 1, impact, x, y);
+  }
+
+  /**
+   * A hull hit land (an island, a reef, a rock wall) at `impact` units/s head-on: a hard hit costs hull points
+   * (`ISLAND_COLLISION`); scraping along a coast costs nothing. If it sinks the ship nobody gets the kill.
+   */
+  private crash(s: number, impact: number, x: number, y: number): void {
+    const I = ISLAND_COLLISION;
+    if (impact <= I.minDamageSpeed) return;
+    // (A carrier never moves, pirates steer clear of land, drones fly.)
+    if (s < CARRIER_SLOTS || s >= this.playerEnd) return;
+    if (this.used[s] === 0 || this.protectLeft[s]! > 0 || this.ghostLeft[s]! > 0) return;
+    const c = this.slots[s]!;
+    const st = c.state;
+    if (!st.alive) return;
+    const damage = Math.min(I.maxDamage, (impact - I.minDamageSpeed) * I.damagePerSpeed);
+    const flags = applyDamage(st, damage);
+    this.events.shipHit(c.id, 0, damage, (flags & HIT_SHIELD) !== 0, NO_WEAPON, x, y);
+    this.combatAge[s] = 0;
+    if ((flags & HIT_KILLED) !== 0) this.sunk(s, 0, st.x, st.y, KILL_CAUSE.ROCKS);
   }
 
   segmentHit(x0: number, y0: number, x1: number, y1: number): number {
@@ -1663,7 +1686,7 @@ export class World
       this.noteDamage(credit, s, damage);
       if (s < this.playerEnd) this.combatAge[s] = 0;
       if (credit >= CARRIER_SLOTS) this.combatAge[credit] = 0;
-      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, NO_WEAPON);
+      if ((flags & HIT_KILLED) !== 0) this.sunk(s, credit + 1, st.x, st.y, KILL_CAUSE.BARREL);
     }
     // Chain reaction: barrels within most of the blast go off as well.
     for (let b = BARREL_START; b < CHEST_START; b++) {

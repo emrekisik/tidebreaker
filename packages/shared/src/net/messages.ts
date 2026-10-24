@@ -44,8 +44,13 @@ export const S2C = {
   SCORES: 0x8d,
 } as const;
 
-/** `weapon` of a KILL that no weapon caused (a collision). */
+/** `weapon` of a KILL that no weapon caused (a collision between ships: a ram). */
 export const NO_WEAPON = 0xff;
+/**
+ * What else can stand in the `weapon` field of a KILL instead of a weapon index: ramming (`NO_WEAPON`), a barrel
+ * blast, a sea mine, or hitting land (then nobody gets the kill: `killer` is 0). Used for the icon in the kill feed.
+ */
+export const KILL_CAUSE = { RAM: NO_WEAPON, BARREL: 0xfe, MINE: 0xfd, ROCKS: 0xfc } as const;
 
 export const NAME_MAX_BYTES = 48;
 /** Names as the room shows them (characters, after sanitizing). */

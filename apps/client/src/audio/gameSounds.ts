@@ -97,6 +97,11 @@ export const sfx = {
     audio.play('pickup', gold ? { own: true, pitch: 1.45, gain: 1.2 } : { own: true });
   },
 
+  /** Something the player tried did not work (no missiles, no mines...). */
+  deny(): void {
+    audio.play('ui_deny', { own: true });
+  },
+
   scored(): void {
     audio.play('kill_ping', { own: true });
   },

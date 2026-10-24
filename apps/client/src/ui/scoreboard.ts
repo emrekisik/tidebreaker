@@ -84,7 +84,19 @@ export class Scoreboard {
     icon.title = `T${r.tier + 1}`;
     icon.src = `${import.meta.env.BASE_URL}icons/ships/side/${r.team === TEAM_BLUE ? 'blue' : 'red'}/${ship}.png`;
     const rank = this.ranks.of(r.id);
-    el.append(rankBadge(rank, RankBook.title(rank)), icon, document.createTextNode(r.name));
+    // The name is its own element, so only it is shortened (and only when the row really is too narrow).
+    const text = document.createElement('span');
+    text.className = 'sb-text';
+    text.textContent = r.name;
+    text.title = r.name;
+    el.append(rankBadge(rank, RankBook.title(rank)), icon, text);
+    // The own row says so, so the player finds themselves at a glance.
+    if (r.id === this.myId) {
+      const you = document.createElement('span');
+      you.className = 'sb-you';
+      you.textContent = t('score.you');
+      el.append(you);
+    }
     return el;
   }
 
