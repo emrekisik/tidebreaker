@@ -192,6 +192,17 @@ export const FX = {
   pickupContact: { shadow: 0.45, foam: 0.26, radius: 0.95 },
 
   /**
+   * Where the team paint goes on a ship. Only some of the hull is painted, so the team is plain to see but the ship is
+   * not painted from head to toe. The place of a point of the ship is written as (u, v, w): u = from stern (-1) to bow
+   * (+1), v = from keel (0) to the top of the hull (1), w = from the port edge (-1) to the starboard edge (+1). Paint goes
+   * on where |w| >= `flank` and v is between `lo` and `hi` (a stripe along each flank of the hull), where u >= `bow` (a cap
+   * at the bow) and where u <= -`stern` (a cap at the stern); a value above 1 switches that part off. `soft` is how wide the
+   * soft edge of the paint is. Only the grey "hull paint" texels of the model take the paint at all (see the team material in
+   * render/assets.ts).
+   */
+  livery: { flank: 0.8, lo: 0.2, hi: 0.56, bow: 0.55, stern: 9, soft: 0.06 },
+
+  /**
    * The ship's silhouette seen through whatever hides it (an island, a cliff, a rig...): a flat shape of the hull in the
    * team's colour, `fill` opaque, with fine diagonal hatching (`hatch` more opaque, one stripe every `hatchPx` pixels)
    * and a thin outline `rimPx` pixels wide (`rim` opaque, mixed `rimLight` of the way toward white). The shape lies over

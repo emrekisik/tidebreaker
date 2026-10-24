@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ship viewer (dev tool)</title>
+    <style>
+      body {
+        margin: 0;
+        background: #1e566f;
+        overflow: hidden;
+        font:
+          12px system-ui,
+          sans-serif;
+        color: #fff;
+      }
+      #log {
+        position: fixed;
+        left: 6px;
+        top: 6px;
+        white-space: pre;
+        text-shadow: 0 1px 2px #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="log">loading</div>
+    <script type="module" src="/src/dev/shipView.ts"></script>
+  </body>
+</html>

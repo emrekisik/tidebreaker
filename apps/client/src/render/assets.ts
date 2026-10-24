@@ -27,7 +27,9 @@ import {
   ShaderMaterial,
   RingGeometry,
   Quaternion,
+  Vector2,
   Vector3,
+  Vector4,
 } from 'three';
 import type { Texture } from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -73,6 +75,9 @@ export const DEFAULT_TEAM_GLOW = 0.2;
 /** Shared, live-editable team paint settings: materials read these uniforms every frame. */
 export interface TeamStyle {
   tint: Record<Team, Color>;
+  /** Where the paint goes (see `FX.livery`): flank, bow, stern and soft edge; and the lowest and highest v of the flank stripe. */
+  livery: { value: Vector4 };
+  liveryBand: { value: Vector2 };
   boost: { value: number };
   glow: { value: number };
 }
@@ -307,10 +312,16 @@ function teamMaterial(
     shader.uniforms['uTeam'] = { value: style.tint[team] };
     shader.uniforms['uBoost'] = style.boost;
     shader.uniforms['uGlow'] = style.glow;
+    shader.uniforms['uLivery'] = style.livery;
+    shader.uniforms['uLiveryBand'] = style.liveryBand;
+    // Where each point lies in the ship (`bakeShipPlace`): the paint goes only on some parts of the hull.
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 aShip;\nvarying vec3 vShip;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vShip = aShip;');
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nuniform vec3 uTeam;\nuniform float uBoost;\nuniform float uGlow;',
+        '#include <common>\nuniform vec3 uTeam;\nuniform float uBoost;\nuniform float uGlow;\nuniform vec4 uLivery;\nuniform vec2 uLiveryBand;\nvarying vec3 vShip;',
       )
       .replace(
         '#include <map_fragment>',
@@ -319,6 +330,13 @@ function teamMaterial(
         float tl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
         float ts = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
         float tm = smoothstep(0.17, 0.21, tl) * (1.0 - smoothstep(0.47, 0.51, tl)) * (1.0 - smoothstep(0.03, 0.08, ts));
+        // ...and only on a stripe along each flank and on the bow and stern caps (FX.livery).
+        float lf = smoothstep(uLivery.x, uLivery.x + uLivery.w, abs(vShip.z))
+          * smoothstep(uLiveryBand.x, uLiveryBand.x + uLivery.w, vShip.y)
+          * (1.0 - smoothstep(uLiveryBand.y, uLiveryBand.y + uLivery.w, vShip.y));
+        float lb = smoothstep(uLivery.y, uLivery.y + uLivery.w, vShip.x);
+        float ls = smoothstep(uLivery.z, uLivery.z + uLivery.w, -vShip.x);
+        tm *= max(lf, max(lb, ls));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * uBoost, tm);`,
       )
       .replace(
@@ -328,6 +346,31 @@ function teamMaterial(
   };
   mat.customProgramCacheKey = () => 'team-tint';
   return mat;
+}
+
+/**
+ * Gives the mesh's geometry the attribute `aShip` (once): the place of each vertex in the ship as (u, v, w) with u from the
+ * stern (-1) to the bow (+1), v from the keel (0) to the top of the hull (1) and w from port (-1) to starboard (+1), measured
+ * against the hull box `box` (ship space: bow on +x, the mesh's world matrix already includes the fit).
+ */
+export function bakeShipPlace(mesh: Mesh, box: { min: Vector3; max: Vector3 }): void {
+  const geo = mesh.geometry;
+  if (geo.getAttribute('aShip')) return;
+  const pos = geo.getAttribute('position');
+  const out = new Float32Array(pos.count * 3);
+  const cx = (box.min.x + box.max.x) / 2;
+  const cz = (box.min.z + box.max.z) / 2;
+  const hx = Math.max(1e-6, (box.max.x - box.min.x) / 2);
+  const hz = Math.max(1e-6, (box.max.z - box.min.z) / 2);
+  const height = Math.max(1e-6, box.max.y - box.min.y);
+  const v = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mesh.matrixWorld);
+    out[i * 3] = (v.x - cx) / hx;
+    out[i * 3 + 1] = (v.y - box.min.y) / height;
+    out[i * 3 + 2] = (v.z - cz) / hz;
+  }
+  geo.setAttribute('aShip', new BufferAttribute(out, 3));
 }
 
 /** One rock of the rock pack: its triangles (corners as x, y, z), the linear color of each corner and its size. Centered on x/z, lowest point at y = 0. */
@@ -471,6 +514,8 @@ export class AssetProvider {
       b: new Color(DEFAULT_TEAM_TINT.b),
       pirate: new Color(DEFAULT_TEAM_TINT.pirate),
     },
+    livery: { value: new Vector4(FX.livery.flank, FX.livery.bow, FX.livery.stern, FX.livery.soft) },
+    liveryBand: { value: new Vector2(FX.livery.lo, FX.livery.hi) },
     boost: { value: DEFAULT_TEAM_BOOST },
     glow: { value: DEFAULT_TEAM_GLOW },
   };
@@ -792,6 +837,9 @@ export class AssetProvider {
     scene.traverse((o) => {
       if ((o as Mesh).isMesh) meshes.push(o as Mesh);
     });
+    // Where each vertex lies in the ship (it decides which parts take the team paint): written once per geometry.
+    const shipBox = hullBox();
+    for (const m of meshes) bakeShipPlace(m, shipBox);
     for (const m of meshes) {
       m.castShadow = true;
       m.receiveShadow = true;
