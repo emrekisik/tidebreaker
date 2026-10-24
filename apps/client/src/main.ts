@@ -51,7 +51,7 @@ import type { MessageKey } from './i18n/index.ts';
 import { Input } from './input/input.ts';
 import { AssetProvider, setHologramTime } from './render/assets.ts';
 import { BarKit } from './render/barKit.ts';
-import { IslandView } from './render/islands.ts';
+import { IslandView, TROPICAL_SHARE } from './render/islands.ts';
 import type { IslandModel } from './render/islands.ts';
 import { ISLAND_FOOTPRINTS } from './render/islandFootprints.ts';
 import { createParticleKit } from './render/particleKit.ts';
@@ -149,8 +149,10 @@ await Promise.all([
   document.fonts.load("500 14px 'Oxanium'"),
 ]);
 await assets.preload(Object.keys(MODEL_SPECS));
-await assets.preloadProps(Object.keys(PROP_SPECS));
+// (The tropical island model is only loaded when it is used: TROPICAL_SHARE.)
+await assets.preloadProps(Object.keys(PROP_SPECS).filter((k) => k !== 'island_tropical' || TROPICAL_SHARE > 0));
 await assets.preloadRocks();
+await assets.preloadForest();
 preloadRankIcons();
 const bars = new BarKit();
 
@@ -321,7 +323,7 @@ function setWorld(map: WorldMap): void {
   // (The start screen already shows the map of the default seed: the same seed is the same map, so its islands stay.)
   if (!islands || mapSeed !== map.seed) {
     if (islands) for (const o of islands.objects) stage.scene.remove(o);
-    islands = new IslandView(map, islandModels(), assets.rocks());
+    islands = new IslandView(map, islandModels(), assets.rocks(), assets.forest());
     stage.scene.add(...islands.objects);
   }
   minimapEl.replaceChildren();

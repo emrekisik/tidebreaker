@@ -13,4 +13,6 @@ Thumbs.db
 
 # Purchased source models: license unknown, never commit (see ASSETS.md)
 models/
+cliffmodels/
+treemodels/
 apps/client/public/models/

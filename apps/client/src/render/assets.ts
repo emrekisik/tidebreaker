@@ -342,6 +342,42 @@ function floats(src: BufferAttribute | InterleavedBufferAttribute, items: number
   return out;
 }
 
+/**
+ * Every mesh of a model pack as a list of pieces: corners in triangle order with a color for each, in the pack's own
+ * units and placed as in the file (the converters in tools/assets put each piece where the game wants it).
+ */
+function piecesOf(gltf: GLTF): RockPiece[] {
+  gltf.scene.updateMatrixWorld(true);
+  const out: RockPiece[] = [];
+  gltf.scene.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    const src = mesh.geometry;
+    const position = src.attributes['position'];
+    const color = src.attributes['color'];
+    if (!position || !color) return;
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(floats(position, 3), 3));
+    geo.setAttribute('color', new Float32BufferAttribute(floats(color, 3), 3));
+    if (src.index) geo.setIndex(src.index.clone());
+    geo.applyMatrix4(mesh.matrixWorld);
+    // Corners in triangle order (the pack may come indexed).
+    const flat = geo.index ? geo.toNonIndexed() : geo;
+    flat.computeBoundingBox();
+    const b = flat.boundingBox!;
+    const name = mesh.name || (mesh.parent?.name ?? '').replace(/\.mesh$/, '');
+    out.push({
+      name,
+      pos: flat.attributes['position']!.array as Float32Array,
+      col: flat.attributes['color']!.array as Float32Array,
+      w: b.max.x - b.min.x,
+      h: b.max.y - b.min.y,
+      d: b.max.z - b.min.z,
+    });
+  });
+  return out;
+}
+
 /** One mesh as standalone geometry in a unit footprint with the sea surface at y = 0 (see AssetProvider.prop). */
 function fitProp(mesh: Mesh, sink: number): BufferGeometry {
   const src = mesh.geometry;
@@ -485,36 +521,7 @@ export class AssetProvider {
   /** Loads the rock pack (`rocks_pack.glb`). A failure leaves no rocks (the reefs and islands stay procedural). */
   async preloadRocks(): Promise<void> {
     try {
-      const gltf = await this.gltfOf('rocks_pack.glb');
-      gltf.scene.updateMatrixWorld(true);
-      const out: RockPiece[] = [];
-      gltf.scene.traverse((o) => {
-        const mesh = o as Mesh;
-        if (!mesh.isMesh) return;
-        const src = mesh.geometry;
-        const position = src.attributes['position'];
-        const color = src.attributes['color'];
-        if (!position || !color) return;
-        const geo = new BufferGeometry();
-        geo.setAttribute('position', new Float32BufferAttribute(floats(position, 3), 3));
-        geo.setAttribute('color', new Float32BufferAttribute(floats(color, 3), 3));
-        if (src.index) geo.setIndex(src.index.clone());
-        geo.applyMatrix4(mesh.matrixWorld);
-        // Corners in triangle order (the pack may come indexed).
-        const flat = geo.index ? geo.toNonIndexed() : geo;
-        flat.computeBoundingBox();
-        const b = flat.boundingBox!;
-        const name = mesh.name || (mesh.parent?.name ?? '').replace(/\.mesh$/, '');
-        out.push({
-          name,
-          pos: flat.attributes['position']!.array as Float32Array,
-          col: flat.attributes['color']!.array as Float32Array,
-          w: b.max.x - b.min.x,
-          h: b.max.y - b.min.y,
-          d: b.max.z - b.min.z,
-        });
-      });
-      this.rockPieces = out;
+      this.rockPieces = piecesOf(await this.gltfOf('rocks_pack.glb'));
     } catch (err) {
       console.warn('The rock pack failed to load, using the procedural rocks.', err);
     }
@@ -523,6 +530,25 @@ export class AssetProvider {
   /** The rocks of the rock pack (empty when it did not load). */
   rocks(): readonly RockPiece[] {
     return this.rockPieces;
+  }
+
+  private forestPieces: RockPiece[] = [];
+
+  /**
+   * Loads the cliff and tree pack (`forest_pack.glb`: cliff tiles named `cliffGrey_*`, trees `tree_*`). A failure leaves
+   * no pieces (the forest islands stay procedural).
+   */
+  async preloadForest(): Promise<void> {
+    try {
+      this.forestPieces = piecesOf(await this.gltfOf('forest_pack.glb'));
+    } catch (err) {
+      console.warn('The forest pack failed to load, using procedural islands.', err);
+    }
+  }
+
+  /** The cliff tiles and trees (empty when the pack did not load). */
+  forest(): readonly RockPiece[] {
+    return this.forestPieces;
   }
 
   /** Loads the static models (oil rig, islands). A failure leaves the prop missing (callers fall back). */

@@ -2,6 +2,7 @@ import {
   BufferGeometry,
   Color,
   DoubleSide,
+  LinearSRGBColorSpace,
   BufferAttribute,
   Float32BufferAttribute,
   Mesh,
@@ -34,6 +35,8 @@ const WALL = 0xe8d9b8;
 const ROOF = [0x9a4a32, 0xb05a3a] as const;
 const STONE = [0x8a7059, 0x9a8267] as const;
 const FORT_ROOF = 0x6b4a3a;
+/** The grass of the cliff pack (replaced when the pack is read: see `forestKit`). */
+const grassColors: number[] = [0x8fb53a, 0x7fa631, 0x9cc044];
 
 /** Where the beach slope starts and how wide it is (world units measured inward from the outline). */
 const SHORE_WIDTH = 1.5;
@@ -301,14 +304,20 @@ class Terrain {
   readonly seed: number;
   /** A rock island: bare rock, low hills, cliffs from the rock pack around the coast. */
   readonly cliff: boolean;
+  /**
+   * A forest island (0 = not one): a flat plateau this high, held up by cliff tiles around most of the coast and
+   * reached from the water by a sandy slope along the rest.
+   */
+  readonly forest: number;
   /** Distance from the center to the outline, sampled around the island. */
   private readonly edge = new Float32Array(ANGLES);
   readonly peaks: Peak[] = [];
   flat: { x: number; z: number; rho: number; h: number } | null = null;
   maxHeight = 0;
 
-  constructor(map: WorldMap, i: number, rng: Mulberry32, cliff = false) {
+  constructor(map: WorldMap, i: number, rng: Mulberry32, cliff = false, forest = 0) {
     this.cliff = cliff;
+    this.forest = forest;
     this.cx = map.islandX[i]!;
     this.cz = map.islandY[i]!;
     this.R = map.islandR[i]!;
@@ -340,7 +349,9 @@ class Terrain {
 
     // Hills: where the rocky peaks are. Ports and treasure islands are gentler, forts flat on top.
     const R = this.R;
-    const gentle = cliff
+    const gentle = forest > 0
+      ? 0.12
+      : cliff
       ? 0.5
       : this.type === 'treasure'
         ? 0.55
@@ -361,7 +372,7 @@ class Terrain {
         h,
       });
     }
-    if (this.type === 'fort' && !cliff) this.flat = { x: this.cx, z: this.cz, rho: R * 0.42, h: 1.5 };
+    if (this.type === 'fort' && !cliff) this.flat = { x: this.cx, z: this.cz, rho: R * 0.42, h: forest > 0 ? forest : 1.5 };
     // Highest point (for the rock and snow lines).
     for (let k = 0; k < 400; k++) {
       const a = rng.next() * Math.PI * 2;
@@ -390,9 +401,43 @@ class Terrain {
     return this.edgeAt(Math.atan2(dz, dx)) - Math.hypot(dx, dz);
   }
 
+  /**
+   * How much of a forest island's coast at angle `th` is cliff, 0 (a sandy slope) to 1 (a cliff wall): smooth noise
+   * around the island, so some stretches are wall and some are beach.
+   */
+  cliffAt(th: number): number {
+    const n = noise(Math.cos(th) * 1.5 + 7, Math.sin(th) * 1.5 + 7, this.seed + 21);
+    return smooth(0.3, 0.42, n);
+  }
+
+  /** The ground of a forest island: a beach where the coast is not cliff, a plateau held up by the tiles where it is. */
+  private forestHeight(x: number, z: number, s: number): number {
+  const H = this.forest;
+  const c = this.cliffAt(Math.atan2(z - this.cz, x - this.cx));
+  // The beach: out of the sea, over the sand, then a long gentle rise to the plateau.
+  const shore = SEA_FLOOR + (BEACH_TOP - SEA_FLOOR) * smooth(0, SHORE_WIDTH, s);
+  const beach = shore + (H - BEACH_TOP) * smooth(BEACH_END, 13, s);
+  // The cliff: the tiles stand on the outline and hold the plateau up; behind them the ground is a little lower than
+  // their tops (so the two never share a surface).
+  const wall = SEA_FLOOR + (H - 0.25 - SEA_FLOOR) * smooth(1, 3.4, s);
+  let y = beach + (wall - beach) * c;
+  // A gentle roll on the plateau.
+  y += 0.22 * (noise(x * 0.17, z * 0.17, this.seed + 3) - 0.5) * smooth(4, 7, s);
+  for (const p of this.peaks) {
+    const d = Math.hypot(x - p.x, z - p.z) / p.rho;
+    y += p.h * Math.exp(-d * d) * smooth(5, 9, s);
+  }
+  if (this.flat) {
+    const w = 1 - smooth(this.flat.rho * 0.7, this.flat.rho * 1.15, Math.hypot(x - this.flat.x, z - this.flat.z));
+    y += (this.flat.h - y) * w;
+  }
+  return y;
+  }
+
   height(x: number, z: number): number {
     const s = this.inland(x, z);
     if (s <= 0) return SEA_FLOOR;
+    if (this.forest > 0) return this.forestHeight(x, z, s);
     const shore = SEA_FLOOR + (BEACH_TOP - SEA_FLOOR) * smooth(0, SHORE_WIDTH, s);
     const plateau =
       0.3 * smooth(SHORE_WIDTH, 7, s) +
@@ -424,6 +469,14 @@ class Terrain {
 /** Tints a face by what it is: sand, grass, bare rock or snow. */
 function faceColor(t: Terrain, x: number, z: number, y: number, ny: number): number {
   const s = t.inland(x, z);
+  if (t.forest > 0) {
+    // Forest island: sand on the beach, grey rock on a steep face, the pack's grass elsewhere.
+    const c = t.cliffAt(Math.atan2(z - t.cz, x - t.cx));
+    const n = noise(x * 0.5, z * 0.5, t.seed + 11);
+    if (s < 7.5 * (1 - c) + 0.5 && y < t.forest * 0.7) return SAND[n < 0.5 ? 0 : 1]!;
+    if (ny < 0.72 || s < 2.4) return ROCK[n < 0.33 ? 0 : n < 0.66 ? 1 : 2]!;
+    return grassColors[n < 0.4 ? 0 : n < 0.75 ? 1 : 2]!;
+  }
   if (t.cliff) {
     // Rock island: a thin band of gravel at the water, bare rock everywhere else.
     const n = noise(x * 0.4, z * 0.4, t.seed + 5);
@@ -515,7 +568,7 @@ function addTerrain(soup: Soup, t: Terrain, rng: Mulberry32): void {
 }
 
 /** Trees, huts, a fort and boulders on top of the terrain. */
-function addProps(soup: Soup, t: Terrain, rng: Mulberry32): void {
+function addProps(soup: Soup, t: Terrain, rng: Mulberry32, forest: ForestKit | null = null): void {
   const R = t.R;
   const taken: { x: number; z: number; r: number }[] = [];
   const free = (x: number, z: number, r: number): boolean => {
@@ -545,7 +598,8 @@ function addProps(soup: Soup, t: Terrain, rng: Mulberry32): void {
     }
     return null;
   };
-  const rockLine = t.maxHeight * 0.5;
+  // (A forest island is a plateau: its whole top counts as low ground.)
+  const rockLine = forest ? 99 : t.maxHeight * 0.5;
 
   if (t.type === 'fort') {
     // Courtyard walls with four corner towers and a keep, on the flattened top.
@@ -593,9 +647,10 @@ function addProps(soup: Soup, t: Terrain, rng: Mulberry32): void {
     }
   }
 
-  // Trees on the grassy ground.
+  // Trees on the grassy ground: the pack's on a forest island.
+  if (forest) addForestTrees(soup, t, rng, forest, taken);
   const density = t.type === 'treasure' ? 0.02 : t.type === 'fort' ? 0.04 : 0.065;
-  const trees = Math.min(130, Math.round(R * R * density));
+  const trees = forest ? 0 : Math.min(130, Math.round(R * R * density));
   for (let n = 0, tries = 0; n < trees && tries < trees * 10; tries++) {
     const p = spot(BEACH_END + 1, 0.55, rockLine * 1.05);
     if (!p || !free(p.x, p.z, 1)) continue;
@@ -623,8 +678,8 @@ function addProps(soup: Soup, t: Terrain, rng: Mulberry32): void {
     const k = 0.45 + rng.next() * 0.8;
     blob(soup, rng, p.x, p.y + 0.15 * k, p.z, k * 1.1, k * 0.75, k, 0.25, ROCK);
   }
-  // Jagged rock spires on the heights, like the sea stacks in the references.
-  const spires = Math.round(R / 8);
+  // Jagged rock spires on the heights, like the sea stacks in the references (a forest island has a plateau instead).
+  const spires = forest ? 0 : Math.round(R / 8);
   for (let n = 0; n < spires; n++) {
     const p = spot(BEACH_END, 3, 99);
     if (!p || p.y < rockLine * 0.7) continue;
@@ -688,6 +743,127 @@ function rockKit(pieces: readonly RockPiece[]): RockKit | null {
 
 function pickOf<T>(list: readonly T[], rng: Mulberry32): T {
   return list[Math.floor(rng.next() * list.length) % list.length]!;
+}
+
+// ---------- forest islands: cliff tiles around a plateau of grass and trees
+
+/** The cliff tiles and trees of the forest pack. */
+interface ForestKit {
+  tiles: RockPiece[];
+  trees: RockPiece[];
+}
+
+/** How big a cliff tile is drawn (the pack's tiles are 20 wide and 15 tall: too big for a ship's sea). */
+const TILE_SCALE = 0.5;
+/** Height of a tile's top, and how far the foot is sunk below the sea level. */
+const TILE_TOP = 15.3;
+const TILE_SINK = 1.0;
+/** Height of a forest island's plateau (the tops of the tiles). */
+const FOREST_H = TILE_TOP * TILE_SCALE - TILE_SINK;
+/** Where a tile's front line is (tile units, along z): that line is put on the island's outline. */
+const TILE_FRONT = 2.5;
+/** Share of the islands that are the tropical model instead (it is not loaded while this is 0). */
+export const TROPICAL_SHARE = 0;
+
+function forestKit(pieces: readonly RockPiece[]): ForestKit | null {
+  const tiles = pieces.filter((p) => /^cliffGrey_Clifftile_Straight/.test(p.name));
+  const trees = pieces.filter((p) => p.name.startsWith('tree_'));
+  if (tiles.length === 0 || trees.length === 0) return null;
+  // The grass of the island's ground is the grass on top of the tiles: the commonest colors of their upward faces.
+  const count = new Map<number, number>();
+  const c = new Color();
+  for (const t of tiles) {
+    for (let o = 0; o < t.pos.length; o += 9) {
+      const ux = t.pos[o + 3]! - t.pos[o]!;
+      const uy = t.pos[o + 4]! - t.pos[o + 1]!;
+      const uz = t.pos[o + 5]! - t.pos[o + 2]!;
+      const vx = t.pos[o + 6]! - t.pos[o]!;
+      const vy = t.pos[o + 7]! - t.pos[o + 1]!;
+      const vz = t.pos[o + 8]! - t.pos[o + 2]!;
+      const nx = uy * vz - uz * vy;
+      const ny = uz * vx - ux * vz;
+      const nz = ux * vy - uy * vx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      if (Math.abs(ny) / len < 0.9 || t.pos[o + 1]! < TILE_TOP * 0.6) continue;
+      // (Only the greens: the tops of the rocky ledges are grey.)
+      const r = t.col[o]!;
+      const g = t.col[o + 1]!;
+      const b = t.col[o + 2]!;
+      if (g < r * 1.02 || g < b * 1.4) continue;
+      const hex = c.setRGB(r, g, b, LinearSRGBColorSpace).getHex();
+      count.set(hex, (count.get(hex) ?? 0) + 1);
+    }
+  }
+  const top = [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([hex]) => hex);
+  if (top.length > 0) {
+    for (let i = 0; i < grassColors.length; i++) grassColors[i] = top[i % top.length]!;
+  }
+  return { tiles, trees };
+}
+
+/**
+ * The cliff wall of a forest island: tiles stand along the coast where `Terrain.cliffAt` says cliff (a stretch of
+ * beach is left between the walls), their front on the outline, the tops level with the plateau behind them.
+ */
+function addForestCliffs(soup: Soup, t: Terrain, rng: Mulberry32, kit: ForestKit): void {
+  const width = 20 * TILE_SCALE;
+  let ang = rng.next() * Math.PI * 2;
+  const end = ang - Math.PI * 2;
+  // The walk goes clockwise (the angle decreases): a tile's x axis then runs along the coast.
+  while (ang > end + 0.02) {
+    const here = t.cliffAt(ang);
+    const arc = width / t.edgeAt(ang);
+    if (here < 0.5) {
+      ang -= arc * 0.25;
+      continue;
+    }
+    const mid = ang - arc / 2;
+    const piece = pickOf(kit.tiles, rng);
+    const edge = t.edgeAt(mid);
+    // Turned so its x axis is the clockwise tangent and its front (+z) points out to sea.
+    const yaw = Math.atan2(-Math.cos(mid), Math.sin(mid));
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    // Where the tile's origin goes so that the middle of its front line lies on the outline.
+    const fx = 10 * TILE_SCALE;
+    const fz = TILE_FRONT * TILE_SCALE;
+    const bx = t.cx + Math.cos(mid) * edge;
+    const bz = t.cz + Math.sin(mid) * edge;
+    const ox = bx - (fx * cos - fz * sin);
+    const oz = bz - (fx * sin + fz * cos);
+    // (A tile that is mirrored along its length looks different: every other one is.)
+    soup.rock(piece, ox, -TILE_SINK, oz, yaw, TILE_SCALE, TILE_SCALE, TILE_SCALE, 0.94 + rng.next() * 0.12);
+    ang -= arc * 0.78;
+  }
+}
+
+/** Trees of the pack on the plateau and the grassy slopes (not on the sand, not on the edge of a cliff). */
+function addForestTrees(soup: Soup, t: Terrain, rng: Mulberry32, kit: ForestKit, taken: { x: number; z: number; r: number }[]): void {
+  const count = Math.min(220, Math.round(t.R * t.R * 0.14));
+  for (let n = 0, tries = 0; n < count && tries < count * 12; tries++) {
+    const ang = rng.next() * Math.PI * 2;
+    const r = Math.sqrt(rng.next()) * t.edgeAt(ang) * 0.97;
+    const x = t.cx + Math.cos(ang) * r;
+    const z = t.cz + Math.sin(ang) * r;
+    const c = t.cliffAt(ang);
+    // Off the sand of a beach, and back from the lip of a cliff.
+    if (t.inland(x, z) < 8.5 * (1 - c) + 2.6 * c) continue;
+    const y = t.height(x, z);
+    const piece = pickOf(kit.trees, rng);
+    const k = Math.min(1.6, Math.max(0.6, (3.2 + rng.next() * 2.8) / piece.h));
+    const reach = (Math.max(piece.w, piece.d) / 2) * k * 0.75;
+    let free = true;
+    for (const o of taken) {
+      if (Math.hypot(x - o.x, z - o.z) < o.r + reach) {
+        free = false;
+        break;
+      }
+    }
+    if (!free) continue;
+    taken.push({ x, z, r: reach });
+    soup.rock(piece, x, y - 0.05, z, rng.next() * Math.PI * 2, k, k, k, 0.9 + rng.next() * 0.2);
+    n++;
+  }
 }
 
 /** Share of the islands that are rock islands (when the rock pack is there). */
@@ -932,8 +1108,14 @@ export class IslandView {
    * `models`: the island models to bend onto the outlines (islands are procedural without them). `rocks`: the rock pack
    * (the reefs and some islands are made of it; they are procedural without it).
    */
-  constructor(map: WorldMap, models: readonly IslandModel[] = [], rocks: readonly RockPiece[] = []) {
+  constructor(
+    map: WorldMap,
+    models: readonly IslandModel[] = [],
+    rocks: readonly RockPiece[] = [],
+    forestPieces: readonly RockPiece[] = [],
+  ) {
     const kit = rockKit(rocks);
+    const fkit = forestKit(forestPieces);
     const landMat = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
     this.shoreMat = new MeshBasicMaterial({
       vertexColors: true,
@@ -964,10 +1146,20 @@ export class IslandView {
       const col: number[] = [];
       const rng = new Mulberry32(0x15a4d + i * 7919 + map.seed * 31);
       const cliff = kit !== null && hash2(i, map.seed, 0xc11f) < CLIFF_SHARE;
-      const t = new Terrain(map, i, rng, cliff);
+      // The rest are forest islands (cliff tiles and trees), or tropical models, or plain procedural islands.
+      const forest = !cliff && fkit !== null && hash2(i, map.seed, 0xf0e5) >= TROPICAL_SHARE;
+      const t = new Terrain(map, i, rng, cliff, forest ? FOREST_H : 0);
       if (cliff && kit) {
         addTerrain(soup, t, rng);
         addCliffs(soup, t, rng, kit);
+        addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
+        add(soup, pos, col, true);
+        continue;
+      }
+      if (forest && fkit) {
+        addTerrain(soup, t, rng);
+        addForestCliffs(soup, t, rng, fkit);
+        addProps(soup, t, rng, fkit);
         addShore(pos, col, (th) => t.edgeAt(th), t.cx, t.cz, t.seed);
         add(soup, pos, col, true);
         continue;
