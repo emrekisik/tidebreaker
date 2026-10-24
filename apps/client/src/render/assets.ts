@@ -27,7 +27,6 @@ import {
   ShaderMaterial,
   RingGeometry,
   Quaternion,
-  Vector2,
   Vector3,
   Vector4,
 } from 'three';
@@ -36,8 +35,18 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COUNTRIES, FX, TEAM_A, TEAM_PIRATE, convergedAngle } from '@tidebreaker/shared';
-import type { Country } from '@tidebreaker/shared';
+import {
+  COUNTRIES,
+  DEFAULT_LIVERY,
+  FX,
+  LIVERY_SOFT,
+  LIVERY_ZONES,
+  TEAM_A,
+  TEAM_PIRATE,
+  convergedAngle,
+  liveryById,
+} from '@tidebreaker/shared';
+import type { Country, Livery } from '@tidebreaker/shared';
 import { MODEL_SPECS, PROP_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
@@ -73,11 +82,38 @@ export const DEFAULT_TEAM_BOOST = 4;
 export const DEFAULT_TEAM_GLOW = 0.2;
 
 /** Shared, live-editable team paint settings: materials read these uniforms every frame. */
+/** The uniforms of the livery zones of one team. */
+export interface ZoneUniforms {
+  a: { value: Vector4[] };
+  b: { value: Vector4[] };
+}
+
+/** Writes the zones of a livery into the uniforms (a zone that is not there gets strength 0). */
+function setZones(into: ZoneUniforms, livery: Livery): void {
+  const open = 9;
+  for (let i = 0; i < LIVERY_ZONES; i++) {
+    const z = livery.zones[i];
+    into.a.value[i]!.set(z?.u?.[0] ?? -open, z?.u?.[1] ?? open, z?.v?.[0] ?? -open, z?.v?.[1] ?? open);
+    into.b.value[i]!.set(z?.w?.[0] ?? -open, z?.w?.[1] ?? open, z?.soft ?? LIVERY_SOFT, z ? 1 : 0);
+  }
+}
+
+function newZones(livery: Livery): ZoneUniforms {
+  const zones: ZoneUniforms = {
+    a: { value: Array.from({ length: LIVERY_ZONES }, () => new Vector4()) },
+    b: { value: Array.from({ length: LIVERY_ZONES }, () => new Vector4()) },
+  };
+  setZones(zones, livery);
+  return zones;
+}
+
 export interface TeamStyle {
   tint: Record<Team, Color>;
-  /** Where the paint goes (see `FX.livery`): flank, bow, stern and soft edge; and the lowest and highest v of the flank stripe. */
-  livery: { value: Vector4 };
-  liveryBand: { value: Vector2 };
+  /**
+   * Where the paint goes on the ships of each team (a livery, see config/liveries.ts), one `Vector4` pair per zone:
+   * `a` = (u from, u to, v from, v to), `b` = (|w| from, |w| to, softness, strength).
+   */
+  zones: Record<Team, ZoneUniforms>;
   boost: { value: number };
   glow: { value: number };
 }
@@ -312,8 +348,8 @@ function teamMaterial(
     shader.uniforms['uTeam'] = { value: style.tint[team] };
     shader.uniforms['uBoost'] = style.boost;
     shader.uniforms['uGlow'] = style.glow;
-    shader.uniforms['uLivery'] = style.livery;
-    shader.uniforms['uLiveryBand'] = style.liveryBand;
+    shader.uniforms['uZoneA'] = style.zones[team].a;
+    shader.uniforms['uZoneB'] = style.zones[team].b;
     // Where each point lies in the ship (`bakeShipPlace`): the paint goes only on some parts of the hull.
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec3 aShip;\nvarying vec3 vShip;')
@@ -321,7 +357,7 @@ function teamMaterial(
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nuniform vec3 uTeam;\nuniform float uBoost;\nuniform float uGlow;\nuniform vec4 uLivery;\nuniform vec2 uLiveryBand;\nvarying vec3 vShip;',
+        `#define LIVERY_ZONES ${LIVERY_ZONES}\n#include <common>\nuniform vec3 uTeam;\nuniform float uBoost;\nuniform float uGlow;\nuniform vec4 uZoneA[LIVERY_ZONES];\nuniform vec4 uZoneB[LIVERY_ZONES];\nvarying vec3 vShip;`,
       )
       .replace(
         '#include <map_fragment>',
@@ -330,13 +366,18 @@ function teamMaterial(
         float tl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
         float ts = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
         float tm = smoothstep(0.17, 0.21, tl) * (1.0 - smoothstep(0.47, 0.51, tl)) * (1.0 - smoothstep(0.03, 0.08, ts));
-        // ...and only on a stripe along each flank and on the bow and stern caps (FX.livery).
-        float lf = smoothstep(uLivery.x, uLivery.x + uLivery.w, abs(vShip.z))
-          * smoothstep(uLiveryBand.x, uLiveryBand.x + uLivery.w, vShip.y)
-          * (1.0 - smoothstep(uLiveryBand.y, uLiveryBand.y + uLivery.w, vShip.y));
-        float lb = smoothstep(uLivery.y, uLivery.y + uLivery.w, vShip.x);
-        float ls = smoothstep(uLivery.z, uLivery.z + uLivery.w, -vShip.x);
-        tm *= max(lf, max(lb, ls));
+        // ...and only inside the zones of the livery (config/liveries.ts): boxes in (u, v, |w|) of the ship, soft at the edges.
+        float lv = 0.0;
+        for (int i = 0; i < LIVERY_ZONES; i++) {
+          vec4 za = uZoneA[i];
+          vec4 zb = uZoneB[i];
+          float s = max(zb.z, 0.001);
+          float c = smoothstep(za.x - s, za.x + s, vShip.x) * (1.0 - smoothstep(za.y - s, za.y + s, vShip.x));
+          c *= smoothstep(za.z - s, za.z + s, vShip.y) * (1.0 - smoothstep(za.w - s, za.w + s, vShip.y));
+          c *= smoothstep(zb.x - s, zb.x + s, abs(vShip.z)) * (1.0 - smoothstep(zb.y - s, zb.y + s, abs(vShip.z)));
+          lv = max(lv, c * zb.w);
+        }
+        tm *= lv;
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uTeam * uBoost, tm);`,
       )
       .replace(
@@ -348,10 +389,72 @@ function teamMaterial(
   return mat;
 }
 
+/** Linear light from an sRGB byte. */
+const linear = (byte: number): number => {
+  const c = byte / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+};
+
+/** True for a texel that takes the team paint: the shader's own rule (mid greys that are not saturated, in linear light). */
+function takesPaint(r: number, g: number, b: number): boolean {
+  const lr = linear(r);
+  const lg = linear(g);
+  const lb = linear(b);
+  const lum = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  const sat = Math.max(lr, lg, lb) - Math.min(lr, lg, lb);
+  return lum > 0.19 && lum < 0.49 && sat < 0.055;
+}
+
+/** The texels of a texture as bytes (null when the image cannot be read). */
+function readTexels(tex: Texture | null): { data: Uint8ClampedArray; w: number; h: number } | null {
+  const img = tex?.image as { width: number; height: number } | undefined;
+  if (!img || !img.width || typeof document === 'undefined') return null;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img as unknown as CanvasImageSource, 0, 0);
+    return { data: ctx.getImageData(0, 0, img.width, img.height).data, w: img.width, h: img.height };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The box (in ship space) around the parts of the ship that can take the team paint: the vertices whose texel passes
+ * `takesPaint`. A livery is written against this box, not against the whole hull, so a hovercraft (whose black skirt is
+ * much wider than its painted body) and a frigate take the same livery alike. `fallback` when nothing was found.
+ */
+function paintBox(meshes: readonly Mesh[], fallback: { min: Vector3; max: Vector3 }): { min: Vector3; max: Vector3 } {
+  const box = new Box3();
+  const v = new Vector3();
+  const texels = new Map<Texture, ReturnType<typeof readTexels>>();
+  for (const m of meshes) {
+    const map = (m.material as MeshStandardMaterial).map ?? null;
+    if (!map) continue;
+    if (!texels.has(map)) texels.set(map, readTexels(map));
+    const t = texels.get(map);
+    const uv = m.geometry.getAttribute('uv');
+    if (!t || !uv) continue;
+    const pos = m.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      const x = Math.min(t.w - 1, Math.max(0, Math.floor(uv.getX(i) * t.w)));
+      const y = Math.min(t.h - 1, Math.max(0, Math.floor(uv.getY(i) * t.h)));
+      const o = (y * t.w + x) * 4;
+      if (!takesPaint(t.data[o]!, t.data[o + 1]!, t.data[o + 2]!)) continue;
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(m.matrixWorld);
+      box.expandByPoint(v);
+    }
+  }
+  return box.isEmpty() ? fallback : { min: box.min, max: box.max };
+}
+
 /**
  * Gives the mesh's geometry the attribute `aShip` (once): the place of each vertex in the ship as (u, v, w) with u from the
- * stern (-1) to the bow (+1), v from the keel (0) to the top of the hull (1) and w from port (-1) to starboard (+1), measured
- * against the hull box `box` (ship space: bow on +x, the mesh's world matrix already includes the fit).
+ * stern (-1) to the bow (+1), v from the bottom (0) to the top (1) of `box` and w from port (-1) to starboard (+1), measured
+ * against `box` (ship space: bow on +x, the mesh's world matrix already includes the fit; see `paintBox`).
  */
 export function bakeShipPlace(mesh: Mesh, box: { min: Vector3; max: Vector3 }): void {
   const geo = mesh.geometry;
@@ -514,8 +617,11 @@ export class AssetProvider {
       b: new Color(DEFAULT_TEAM_TINT.b),
       pirate: new Color(DEFAULT_TEAM_TINT.pirate),
     },
-    livery: { value: new Vector4(FX.livery.flank, FX.livery.bow, FX.livery.stern, FX.livery.soft) },
-    liveryBand: { value: new Vector2(FX.livery.lo, FX.livery.hi) },
+    zones: {
+      a: newZones(liveryById(DEFAULT_LIVERY)),
+      b: newZones(liveryById(DEFAULT_LIVERY)),
+      pirate: newZones(liveryById('solid')),
+    },
     boost: { value: DEFAULT_TEAM_BOOST },
     glow: { value: DEFAULT_TEAM_GLOW },
   };
@@ -749,6 +855,11 @@ export class AssetProvider {
     this.style.glow.value = v;
   }
 
+  /** Team A or B wears the livery `id` (config/liveries.ts) from now on, on every ship at once. */
+  setLivery(team: 'a' | 'b', id: string): void {
+    setZones(this.style.zones[team], liveryById(id));
+  }
+
   setRingColor(team: Team, hex: number): void {
     this.glowMats[team].color.set(hex);
   }
@@ -837,9 +948,6 @@ export class AssetProvider {
     scene.traverse((o) => {
       if ((o as Mesh).isMesh) meshes.push(o as Mesh);
     });
-    // Where each vertex lies in the ship (it decides which parts take the team paint): written once per geometry.
-    const shipBox = hullBox();
-    for (const m of meshes) bakeShipPlace(m, shipBox);
     for (const m of meshes) {
       m.castShadow = true;
       m.receiveShadow = true;
@@ -894,6 +1002,13 @@ export class AssetProvider {
     // Weapons keep their own colors; only the hull gets the team tint.
     const weaponParts = new Set<Object3D>();
     for (const rig of turrets) rig.node.traverse((o) => weaponParts.add(o));
+    // Where each vertex lies in the ship decides which parts take the team paint (the livery): written once per geometry,
+    // against the box around the paintable parts, before the materials replace the model's own.
+    if (!spec.plain) {
+      const painted = meshes.filter((m) => !weaponParts.has(m));
+      const place = paintBox(painted, hullBox());
+      for (const m of painted) bakeShipPlace(m, place);
+    }
     const normals = meshes.map((m) => (weaponParts.has(m) ? loaded.neutral.normal : mats.normal));
     const flashes = meshes.map((m) => (weaponParts.has(m) ? loaded.neutral.flash : mats.flash));
     const model = new ShipModel(meshes, normals, flashes, turrets);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BoxGeometry, Mesh, Vector3 } from 'three';
-import { FX } from '@tidebreaker/shared';
+import { DEFAULT_LIVERY, LIVERIES, LIVERY_ZONES, liveryById } from '@tidebreaker/shared';
 import { bakeShipPlace } from './assets.ts';
 
 describe('team paint livery', () => {
@@ -40,11 +40,17 @@ describe('team paint livery', () => {
     expect(mesh.geometry.getAttribute('aShip')).toBe(first);
   });
 
-  it('keeps part of every ship unpainted by default (the flank stripe and the bow cap leave the rest)', () => {
-    const L = FX.livery;
-    expect(L.flank).toBeGreaterThan(0.5);
-    expect(L.flank).toBeLessThanOrEqual(1);
-    expect(L.hi - L.lo).toBeLessThan(0.7);
-    expect(L.bow).toBeGreaterThan(0.3);
+  it('has a few liveries, each with a few zones, and the default is one of them', () => {
+    expect(LIVERIES.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(LIVERIES.map((l) => l.id)).size).toBe(LIVERIES.length);
+    expect(LIVERIES.map((l) => l.id)).toContain(DEFAULT_LIVERY);
+    for (const l of LIVERIES) {
+      expect(l.zones.length, l.id).toBeGreaterThanOrEqual(1);
+      expect(l.zones.length, l.id).toBeLessThanOrEqual(LIVERY_ZONES);
+      for (const z of l.zones) {
+        for (const range of [z.u, z.v, z.w]) if (range) expect(range[0], l.id).toBeLessThan(range[1]);
+      }
+    }
+    expect(liveryById('nothing like it')).toBe(liveryById(DEFAULT_LIVERY));
   });
 });

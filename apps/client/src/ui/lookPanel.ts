@@ -1,3 +1,4 @@
+import { DEFAULT_LIVERY, LIVERIES } from '@tidebreaker/shared';
 import { setText, t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
 
@@ -8,6 +9,8 @@ export interface Look {
   boost: number;
   glow: number;
   outline: boolean;
+  /** The livery both teams wear (config/liveries.ts). */
+  livery: string;
 }
 
 export const DEFAULT_LOOK: Look = {
@@ -16,6 +19,7 @@ export const DEFAULT_LOOK: Look = {
   boost: 4,
   glow: 0.2,
   outline: false,
+  livery: DEFAULT_LIVERY,
 };
 
 const STORAGE_KEY = 'tidebreaker.look.v2';
@@ -49,6 +53,7 @@ export class LookPanel {
   private readonly apply: (look: Look) => void;
   private readonly readout: HTMLTextAreaElement;
   private readonly inputs = new Map<string, HTMLInputElement>();
+  private readonly liverySelect: HTMLSelectElement;
 
   constructor(container: HTMLElement, apply: (look: Look) => void) {
     this.apply = apply;
@@ -85,6 +90,21 @@ export class LookPanel {
     });
     this.inputs.set('outline', outline);
     body.appendChild(this.line('look.outline', outline));
+
+    // The livery: where the team colour goes on the ships (both teams).
+    this.liverySelect = document.createElement('select');
+    for (const l of LIVERIES) {
+      const o = document.createElement('option');
+      o.value = l.id;
+      o.textContent = l.name;
+      this.liverySelect.append(o);
+    }
+    this.liverySelect.value = this.look.livery;
+    this.liverySelect.addEventListener('change', () => {
+      this.look.livery = this.liverySelect.value;
+      this.changed();
+    });
+    body.appendChild(this.line('look.livery', this.liverySelect));
 
     const buttons = document.createElement('div');
     buttons.className = 'buttons';
@@ -150,6 +170,7 @@ export class LookPanel {
     this.inputs.get('boost')!.value = String(this.look.boost);
     this.inputs.get('glow')!.value = String(this.look.glow);
     this.inputs.get('outline')!.checked = this.look.outline;
+    this.liverySelect.value = this.look.livery;
     this.changed();
   }
 
@@ -162,6 +183,7 @@ export class LookPanel {
       `brightness: ${l.boost.toFixed(2)}`,
       `glow: ${l.glow.toFixed(2)}`,
       `outline: ${l.outline ? 'on' : 'off'}`,
+      `livery: ${l.livery}`,
     ].join('\n');
   }
 

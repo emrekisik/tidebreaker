@@ -599,6 +599,8 @@ new LookPanel(document.getElementById('look') as HTMLElement, (look) => {
   assets.setTeamBoost(look.boost);
   assets.setTeamGlow(look.glow);
   assets.setOutline(look.outline);
+  assets.setLivery('a', look.livery);
+  assets.setLivery('b', look.livery);
 });
 
 function startOffline(): void {
