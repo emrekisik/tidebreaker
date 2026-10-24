@@ -1714,14 +1714,13 @@ svg.ico,
   cursor: default;
 }
 
-/* ---- sound settings: mute, volume, style (on the menu and in a corner of the match) ---- */
+/* ---- sound settings: mute, volume, sea (on the menu) ---- */
 #menu-sound {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.ss-mute,
-.ss-style {
+.ss-mute {
   font: inherit;
   color: #cfdae6;
   cursor: pointer;
@@ -1741,14 +1740,6 @@ svg.ico,
 .ss-mute.off {
   color: #ff8a8a;
 }
-.ss-style {
-  padding: 3px 9px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.ss-style:hover,
 .ss-mute:hover {
   border-color: #6dff9a;
 }
@@ -2219,8 +2210,7 @@ body.in-menu #settings {
   font-size: 13px;
   color: #c9d6e1;
 }
-.st-switch,
-.st-seg button {
+.st-switch {
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -2232,17 +2222,10 @@ body.in-menu #settings {
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(165, 190, 210, 0.3);
 }
-.st-switch.on,
-.st-seg button.on {
+.st-switch.on {
   color: #0b1520;
   background: #cfdbe6;
   border-color: #cfdbe6;
-}
-.st-seg {
-  display: flex;
-}
-.st-seg button + button {
-  border-left: none;
 }
 .st-slider-box {
   display: flex;

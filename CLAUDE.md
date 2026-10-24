@@ -1,4 +1,4 @@
-# CLAUDE.md — Tidebreaker.io (working title)
+# CLAUDE.md — NavyClash.io (formerly Tidebreaker)
 
 Desktop-browser multiplayer **.io naval combat game** (browser first, not mobile first; no touch or mobile quality tiers): 3D low-poly ships, instant join (type a name, press Play), authoritative Node server, three.js client. Think "Starblast.io at sea".
 

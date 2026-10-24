@@ -1,12 +1,9 @@
-/** Which family of sounds the synthesizer makes: punchy and a little exaggerated, or closer to real. */
-export type Style = 'arcade' | 'real';
-
 export interface ToneOpts {
   /** Seconds after the start of the sound. */
   at?: number;
   /** Seconds to rise to full volume (default 3 ms). */
   attack?: number;
-  /** Share of this voice sent to the reverb (only in the real style). */
+  /** Share of this voice sent to the reverb. */
   wet?: number;
 }
 
@@ -28,10 +25,9 @@ export class Gen {
     readonly ac: AudioContext,
     /** Where the sound goes (its own volume and pan). */
     readonly out: AudioNode,
-    /** The reverb send, or null when the style has no reverb. */
+    /** The reverb send, or null when there is none. */
     readonly wetOut: AudioNode | null,
     readonly t0: number,
-    readonly style: Style,
     /** Random pitch factor of this play (also scales every tone). */
     readonly pitch: number,
     /** How big the thing is (explosions): 1 = normal. */
@@ -40,15 +36,6 @@ export class Gen {
     /** Random numbers in [0, 1) (for small differences between plays). */
     readonly rnd: () => number,
   ) {}
-
-  get arcade(): boolean {
-    return this.style === 'arcade';
-  }
-
-  /** `a` in the arcade style, `r` in the real one. */
-  pick<T>(a: T, r: T): T {
-    return this.arcade ? a : r;
-  }
 
   private envelope(start: number, attack: number, dur: number, vol: number, wet: number): GainNode {
     const g = this.ac.createGain();

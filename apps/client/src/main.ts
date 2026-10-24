@@ -37,6 +37,8 @@ import { CameraRig } from './frame/cameraRig.ts';
 import { Effects } from './frame/effects.ts';
 import { ProjectileView } from './frame/projectileView.ts';
 import { LocalGame } from './game/localGame.ts';
+import type { GameEvents } from './game/localGame.ts';
+import { MenuBattle } from './game/menuBattle.ts';
 import { OnlineGame } from './game/onlineGame.ts';
 import type { ConnectError, OnlineEvents } from './game/onlineGame.ts';
 import type { GameSession } from './game/session.ts';
@@ -544,6 +546,38 @@ const events: OnlineEvents = {
   },
 };
 
+/**
+ * The fight behind the start screen: the same flashes, sparks, splashes and explosions as a match, but no sound (nothing
+ * is clicked yet) and no numbers.
+ */
+const menuEvents: GameEvents = {
+  onShot(x, y, angle, weaponIdx, power = 0) {
+    effects.muzzle(x, y, angle, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+  },
+  onHit(x, y, _damage, shieldHit, killed, target, weaponIdx, _showNumber, power = 0) {
+    effects.impact(x, y, shieldHit, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+    if (killed) {
+      const c = target.combatant;
+      effects.explode(c.state.x, c.state.y, c.def.length, c.def.flying !== true);
+    }
+  },
+  onMiss(x, y, weaponIdx, power = 0) {
+    effects.splash(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+  },
+  onBlocked(x, y, weaponIdx, power = 0) {
+    effects.blocked(x, y, WEAPONS[WEAPON_IDS[weaponIdx]!].visual, power);
+  },
+  onIslandHit(x, y, impact) {
+    effects.shore(x, y, impact);
+  },
+  onCollision(x, y, impact, a, b, _damageA, _damageB, killedA, killedB) {
+    effects.collision(x, y, impact);
+    if (killedA) effects.explode(a.combatant.state.x, a.combatant.state.y, a.combatant.def.length);
+    if (killedB) effects.explode(b.combatant.state.x, b.combatant.state.y, b.combatant.def.length);
+  },
+};
+let menuBattle: MenuBattle | null = null;
+
 // ---- starting a session
 
 // Test panel: live colors for the ocean, team paint and rings, plus the hull outline switch.
@@ -613,6 +647,8 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
   setWorld(game.land);
   session = game;
   online = game;
+  menuBattle?.dispose();
+  menuBattle = null;
   pickerEl.classList.add('hidden');
   matchHud.show(true);
   progressHud.show(true);
@@ -626,11 +662,22 @@ if (offline) {
   document.body.classList.remove('in-menu');
 } else {
   // The start screen shows the sea of the default map behind it (a joining player gets the room's own map).
-  setWorld(generateMap(TRAINING.mapSeed));
+  const menuMap = generateMap(TRAINING.mapSeed);
+  setWorld(menuMap);
+  const now = performance.now() / 1000;
+  menuBattle = new MenuBattle(stage.scene, assets, menuEvents, menuMap, menuDriftX(now), menuDriftY(now));
   menu.show();
 }
 
 // ---- the frame loop
+
+/** The slow drift of the start screen's view over the map: the middle, the rigs, the rock channel. */
+function menuDriftX(timeSec: number): number {
+  return WORLD_CENTER + Math.cos(timeSec * 0.035) * 240;
+}
+function menuDriftY(timeSec: number): number {
+  return WORLD_CENTER - 70 + Math.sin(timeSec * 0.035 * 1.3) * 150;
+}
 
 let lastStorm = -1;
 let aim = 0;
@@ -760,19 +807,31 @@ function update(nowMs: number): void {
   if (wheel !== 0) rig.zoomBy(wheel);
 
   if (!session) {
-    // Menu screen: the open sea, a slowly turning view.
+    // Menu screen: the open sea with a fight on it, and a slowly drifting view that follows the fight.
     baseShop.show(false);
+    const driftX = menuDriftX(timeSec);
+    const driftY = menuDriftY(timeSec);
+    if (menuBattle) {
+      const steps = fixedStep.advance(frameMs);
+      for (let i = 0; i < steps; i++) menuBattle.step(driftX, driftY);
+      menuBattle.frame(fixedStep.alpha);
+      for (const e of menuBattle.entities) e.render(fixedStep.alpha, dtSec, stage.camera, timeSec);
+      projectileView.begin();
+      for (const layer of menuBattle.layers) projectileView.add(layer.set, STEP_SEC, layer.alpha);
+      projectileView.end();
+    }
     wakeMap.begin(rig.focusX, rig.focusZ, dtSec);
+    if (menuBattle) {
+      for (const e of menuBattle.entities) effects.ship(e, dtSec);
+      for (let l = 0; l < menuBattle.layers.length; l++) {
+        const layer = menuBattle.layers[l]!;
+        effects.trails(layer.set, dtSec, STEP_SEC * (1 - layer.alpha), l);
+      }
+    }
     effects.update(dtSec);
-    // A slow drift over the map: the middle, the rigs, the rock channel.
-    const drift = timeSec * 0.035;
-    rig.update(
-      stage.camera,
-      WORLD_CENTER + Math.cos(drift) * 240,
-      WORLD_CENTER - 70 + Math.sin(drift * 1.3) * 150,
-      dtSec,
-      3,
-    );
+    // (The fight sits a little left of the middle of the picture: the free space between the two panels.)
+    rig.update(stage.camera, menuBattle ? menuBattle.arenaX + 10 : driftX, menuBattle ? menuBattle.arenaY : driftY, dtSec, 3);
+    stage.camera.updateMatrixWorld();
     islands?.update(timeSec);
     stage.followSun(rig.focusX, rig.focusZ);
     wakeMap.render(stage.renderer);

@@ -110,39 +110,6 @@
     background-position: -90% 0;
   }
 }
-.mn-wave {
-  display: block;
-  width: 430px;
-  height: 18px;
-  margin: 8px 0 14px;
-  overflow: hidden;
-}
-.mn-wave path {
-  fill: none;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-}
-.mn-wave-a {
-  stroke: #6dd4ff;
-}
-.mn-wave-b {
-  stroke: rgba(109, 212, 255, 0.35);
-}
-#menu:not(.hidden) .mn-wave path {
-  animation: mn-wave 4s linear infinite;
-}
-#menu:not(.hidden) .mn-wave-b {
-  animation-duration: 6s;
-  animation-direction: reverse;
-}
-@keyframes mn-wave {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100px);
-  }
-}
 .mn-goal {
   margin: 0 0 22px;
   padding-left: 14px;
@@ -304,7 +271,6 @@
   padding: 16px 20px 18px;
   background: rgba(7, 22, 38, 0.76);
   border: 1px solid rgba(130, 180, 225, 0.2);
-  border-left: 3px solid #3aa8ff;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
 }
 #menu:not(.hidden) .mn-card {
@@ -333,8 +299,14 @@
   justify-content: space-between;
 }
 .mn-carrier {
-  width: 138px;
+  /* (The picture has a wide empty margin around the ship: the ship is about half of its width.) */
+  width: 214px;
   height: auto;
+  margin: -14px -50px;
+}
+/* The red carrier is the blue one turned round, so the bows face each other (`scale` leaves `transform` to the bobbing). */
+.mn-carrier.red {
+  scale: -1 1;
 }
 #menu:not(.hidden) .mn-carrier.blue {
   animation: mn-bob 4.6s ease-in-out infinite;
@@ -386,10 +358,11 @@
   border-bottom: 4px solid transparent;
 }
 .mn-step img {
-  width: 64px;
+  width: 76px;
   height: auto;
-  opacity: 0.55;
-  filter: grayscale(0.4);
+  margin: 0 -10px;
+  opacity: 0.62;
+  filter: saturate(0.7);
 }
 .mn-step b {
   font-size: 12px;
@@ -421,19 +394,20 @@
 @keyframes mn-rise {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.62;
     transform: none;
+    filter: saturate(0.7);
   }
   10%,
   24% {
     opacity: 1;
-    transform: translateY(-5px) scale(1.12);
-    filter: drop-shadow(0 0 7px rgba(111, 191, 255, 0.9));
+    transform: translateY(-4px) scale(1.14);
+    filter: saturate(1.1) brightness(1.12);
   }
   36% {
-    opacity: 0.55;
+    opacity: 0.62;
     transform: none;
-    filter: none;
+    filter: saturate(0.7);
   }
 }
 @keyframes mn-rise-b {

@@ -2,7 +2,7 @@ import { CONTINUOUS, audio } from '../audio/engine.ts';
 import type { SoundId } from '../audio/engine.ts';
 import { SOUNDS } from '../audio/recipes.ts';
 
-/** The sound test page (dev tool): every sound on a button, the style and volume, the ambience and the engine. */
+/** The sound test page (dev tool): every sound on a button, the volume, the ambience and the engine. */
 const bar = document.getElementById('bar') as HTMLElement;
 const list = document.getElementById('list') as HTMLElement;
 
@@ -15,13 +15,6 @@ function button(text: string, click: () => void): HTMLButtonElement {
   });
   return b;
 }
-
-const style = button('', () => audio.setStyle(audio.style === 'arcade' ? 'real' : 'arcade'));
-const refresh = (): void => {
-  style.textContent = `Style: ${audio.style === 'arcade' ? 'Arcade' : 'Realistic'} (click to switch)`;
-};
-audio.subscribe(refresh);
-refresh();
 
 const volume = document.createElement('input');
 volume.type = 'range';
@@ -53,7 +46,7 @@ const all = button('Play all, one after another', () => {
   ids.forEach((id, i) => setTimeout(() => audio.play(id, { own: true }), i * 1300));
 });
 
-bar.append(style, 'Volume', volume, amb, 'Engine (needs the ambience on)', speed, all);
+bar.append('Volume', volume, amb, 'Engine (needs the ambience on)', speed, all);
 
 const groups = new Map<string, HTMLElement>();
 for (const id of Object.keys(SOUNDS) as SoundId[]) {

@@ -54,8 +54,6 @@ export class SettingsPanel {
   private readonly mute = document.createElement('button');
   private readonly volume = document.createElement('input');
   private readonly volumeNum = document.createElement('span');
-  private readonly arcade = document.createElement('button');
-  private readonly real = document.createElement('button');
   private readonly sea = document.createElement('button');
   private readonly opacity = document.createElement('input');
   private readonly opacityNum = document.createElement('span');
@@ -162,15 +160,6 @@ export class SettingsPanel {
     const slider = document.createElement('div');
     slider.className = 'st-slider-box';
     slider.append(this.volume, this.volumeNum);
-    this.arcade.type = 'button';
-    this.real.type = 'button';
-    this.arcade.textContent = t('sound.style.arcade');
-    this.real.textContent = t('sound.style.real');
-    this.arcade.addEventListener('click', () => this.setStyle('arcade'));
-    this.real.addEventListener('click', () => this.setStyle('real'));
-    const seg = document.createElement('div');
-    seg.className = 'st-seg';
-    seg.append(this.real, this.arcade);
     this.sea.type = 'button';
     this.sea.className = 'st-switch';
     this.sea.addEventListener('click', () => {
@@ -180,7 +169,6 @@ export class SettingsPanel {
     sound.append(
       this.row(t('settings.sound'), this.mute),
       this.row(t('sound.volume'), slider),
-      this.row(t('sound.style'), seg),
       this.row(t('settings.ambient'), this.sea),
     );
 
@@ -257,20 +245,11 @@ export class SettingsPanel {
     this.pages.forEach((p, k) => p.classList.toggle('hidden', k !== i));
   }
 
-  private setStyle(style: 'arcade' | 'real'): void {
-    audio.unlock();
-    audio.setStyle(style);
-    // A sample, so the change can be heard at once.
-    audio.play('cannon', { own: true, gain: 0.8 });
-  }
-
   private refresh(): void {
     this.mute.textContent = t(audio.muted ? 'settings.off' : 'settings.on');
     this.mute.classList.toggle('on', !audio.muted);
     this.volume.value = String(Math.round(audio.volume * 100));
     this.volumeNum.textContent = `${Math.round(audio.volume * 100)}`;
-    this.real.classList.toggle('on', audio.style === 'real');
-    this.arcade.classList.toggle('on', audio.style === 'arcade');
     this.sea.textContent = t(audio.ambientOn ? 'settings.on' : 'settings.off');
     this.sea.classList.toggle('on', audio.ambientOn);
   }

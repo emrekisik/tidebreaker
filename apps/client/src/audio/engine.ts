@@ -1,9 +1,8 @@
 import { Gen } from './gen.ts';
-import type { Style } from './gen.ts';
 import { SOUNDS } from './recipes.ts';
 import type { Bus, SoundId } from './recipes.ts';
 
-export type { SoundId, Style };
+export type { SoundId };
 
 const STORAGE_KEY = 'tidebreaker.sound';
 /** Beyond this distance (world units) a sound is not heard at all. */
@@ -35,7 +34,6 @@ export interface PlayOpts {
 interface Settings {
   volume: number;
   muted: boolean;
-  style: Style;
   /** The sea and the engine (the sounds that run all the time). */
   ambient: boolean;
 }
@@ -68,7 +66,7 @@ class AudioEngine {
   private voices = 0;
   private listenerX = 0;
   private listenerY = 0;
-  private settings: Settings = { volume: 0.7, muted: false, style: 'real', ambient: true };
+  private settings: Settings = { volume: 0.7, muted: false, ambient: true };
   private readonly listeners: (() => void)[] = [];
   private ambient: { stop: () => void } | null = null;
   private engineHum: { set: (speed: number, on: boolean) => void; stop: () => void } | null = null;
@@ -83,7 +81,6 @@ class AudioEngine {
         this.settings = {
           volume: typeof s.volume === 'number' ? Math.max(0, Math.min(1, s.volume)) : 0.7,
           muted: s.muted === true,
-          style: s.style === 'arcade' ? 'arcade' : 'real',
           ambient: s.ambient !== false,
         };
       }
@@ -98,9 +95,6 @@ class AudioEngine {
   get muted(): boolean {
     return this.settings.muted;
   }
-  get style(): Style {
-    return this.settings.style;
-  }
   get ambientOn(): boolean {
     return this.settings.ambient;
   }
@@ -111,10 +105,6 @@ class AudioEngine {
   }
   setMuted(m: boolean): void {
     this.settings.muted = m;
-    this.apply();
-  }
-  setStyle(s: Style): void {
-    this.settings.style = s;
     this.apply();
   }
   setAmbient(on: boolean): void {
@@ -197,7 +187,7 @@ class AudioEngine {
     return buf;
   }
 
-  /** A room-like tail made of decaying noise; sounds in the real style send some of themselves to it. */
+  /** A room-like tail made of decaying noise; the sounds send some of themselves to it. */
   private makeReverb(ac: AudioContext, to: AudioNode): GainNode {
     const len = Math.floor(ac.sampleRate * 1.5);
     const buf = ac.createBuffer(2, len, ac.sampleRate);
@@ -294,9 +284,8 @@ class AudioEngine {
       src.start(t0);
       dur = src.buffer.duration / src.playbackRate.value;
     } else {
-      const wet = this.settings.style === 'real' ? this.reverb : null;
       const pitch = (opts.pitch ?? 1) * (0.94 + Math.random() * 0.12);
-      const g = new Gen(ac, out, wet, t0, this.settings.style, pitch, opts.size ?? 1, this.noise, Math.random);
+      const g = new Gen(ac, out, this.reverb, t0, pitch, opts.size ?? 1, this.noise, Math.random);
       dur = def.run(g);
     }
     this.playing.set(id, running + 1);
