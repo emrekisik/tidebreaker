@@ -3,7 +3,7 @@ import type { ScoreEntry } from '@tidebreaker/shared';
 import { onLanguageChange, t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
-import { teamClass, teamName } from './teams.ts';
+import { onTeamCountries, teamClass, teamCountry, teamName } from './teams.ts';
 
 /** Two-column scoreboard (blue, red): hold Tab, or it stays up between rounds. */
 export class Scoreboard {
@@ -17,6 +17,7 @@ export class Scoreboard {
     private readonly ranks: RankBook,
   ) {
     onLanguageChange(() => this.render());
+    onTeamCountries(() => this.render());
   }
 
   /** The server's latest scores. */
@@ -81,10 +82,12 @@ export class Scoreboard {
     const el = document.createElement('span');
     el.className = 'sb-name';
     const ship = SHIP_IDS[r.shipId] ?? SHIP_IDS[0]!;
-    const icon = document.createElement('span');
+    const icon = document.createElement('img');
     icon.className = 'sb-ship';
+    icon.alt = `T${r.tier + 1}`;
     icon.title = `T${r.tier + 1}`;
-    icon.style.setProperty('--ship', `url(${import.meta.env.BASE_URL}icons/ships/side/white/${ship}.png)`);
+    // The ship seen from above in the paint of its team's country.
+    icon.src = `${import.meta.env.BASE_URL}icons/ships/side/${teamCountry(r.team).id}/${ship}.png`;
     const rank = this.ranks.of(r.id);
     // The name is its own element, so only it is shortened (and only when the row really is too narrow).
     const text = document.createElement('span');

@@ -10,7 +10,9 @@ import rigIcon from './icons/rig.svg?raw';
  */
 
 const icon = (svg: string): string => svg.replace(/ width="\d+" height="\d+"/, '');
-const side = (team: 'blue' | 'red', ship: string): string => `${import.meta.env.BASE_URL}icons/ships/side/${team}/${ship}.png`;
+/** A ship seen from above in the paint of the first country (Thalor, "blue") or the second (Karzan, "red"): the tour has its own two teams. */
+const side = (team: 'blue' | 'red', ship: string): string =>
+  `${import.meta.env.BASE_URL}icons/ships/side/${team === 'blue' ? 'thalor' : 'karzan'}/${ship}.png`;
 const img = (cls: string, src: string): string => `<img class="a ${cls}" alt="" src="${src}" />`;
 
 /** Scene 1: the goal. Allied ships shell the enemy carrier until it goes up. */

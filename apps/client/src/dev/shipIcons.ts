@@ -21,13 +21,10 @@ import { MODEL_SPECS } from '../render/modelSpecs.ts';
 
 /**
  * Dev tool (open /ship-icons.html while `tools/assets/icon-saver.mjs` runs; see `pnpm icons`):
- * renders every ship model from straight above, bow pointing up, on a transparent background, and
+ * renders every ship model from straight above, bow pointing right, on a transparent background, and
  * sends the PNGs to the saver, which writes them to `apps/client/public/icons/ships/`.
- *   up/<color>/<id>.png    128x128, bow pointing up
- *   side/<color>/<id>.png  128x64, bow pointing right (fits a row of text)
- * where color is blue or red (the model in that team's paint; the pirate ship is the same in both)
- * or white (a flat silhouette, to tint with CSS `mask-image` or in an editor).
- * (blue and red here are the first two countries, Thalor and Karzan; the how-to-play tour uses these pictures.)
+ *   side/<country>/<id>.png  128x64, the ship in the paint of that country (fits a row of text: the scoreboard, the tour)
+ *   side/white/<id>.png      the same as a flat white silhouette (the radar tints it)
  * Open it with `?only=card` to draw just the cards: card/<id>_<country>.png, 288x192 (the carriers 360x144), the ship in
  * the paint of each of the five countries, seen from an angle (a perspective camera like the game's, lit like the game,
  * with a soft shadow on a transparent background). The game picks the card of the country its team plays as.
@@ -110,13 +107,14 @@ if (new URLSearchParams(location.search).get('only') === 'card') {
     }
   }
 } else {
-  assets.setTeamCountry('a', COUNTRIES[0]!);
-  assets.setTeamCountry('b', COUNTRIES[1]!);
-  for (const icon of icons) {
-    for (const orient of ['up', 'side'] as const) {
-      await renderIcon(icon, orient);
+  for (const country of COUNTRIES) {
+    assets.setTeamCountry('a', country);
+    for (const icon of icons) {
+      if (!icon.plain) await renderIcon(icon, country.id, 'a', false);
     }
   }
+  assets.setTeamCountry('a', COUNTRIES[0]!);
+  for (const icon of icons) await renderIcon(icon, 'white', icon.plain ? 'pirate' : 'a', true);
 }
 say('done');
 (window as unknown as { iconsDone: boolean }).iconsDone = true;
@@ -199,48 +197,28 @@ async function renderCard(icon: Icon, team: Team, width: number, height: number,
   sunLight.dispose();
 }
 
-async function renderIcon(icon: Icon, orient: 'up' | 'side'): Promise<void> {
-  // The bow is +x in the game. Looking straight down, "up" = +x puts it at the top of the
-  // screen; "up" = -z puts it on the right.
+/** One ship from straight above, bow to the right, in `folder` (a country, or `white` for a flat silhouette). */
+async function renderIcon(icon: Icon, folder: string, team: Team, flat: boolean): Promise<void> {
   const half = (icon.length * 0.5) / FILL;
-  const side = orient === 'side';
-  renderer.setSize(SIZE, side ? SIZE / 2 : SIZE);
-  const camera = new OrthographicCamera(
-    -half,
-    half,
-    side ? half / 2 : half,
-    side ? -half / 2 : -half,
-    0.1,
-    500,
-  );
-  camera.up.set(side ? 0 : 1, 0, side ? -1 : 0);
+  renderer.setSize(SIZE, SIZE / 2);
+  const camera = new OrthographicCamera(-half, half, half / 2, -half / 2, 0.1, 500);
+  // (Looking straight down with the screen's up toward -z puts the bow, +x, on the right.)
+  camera.up.set(0, 0, -1);
   camera.position.set(0, 100, 0);
   camera.lookAt(0, 0, 0);
 
-  const variants: [string, Team][] = icon.plain
-    ? [
-        ['blue', 'pirate'],
-        ['red', 'pirate'],
-      ]
-    : [
-        ['blue', 'a'],
-        ['red', 'b'],
-      ];
   const root = new Group();
   scene.add(root);
-  for (const [folder, team] of [...variants, ['white', 'a'] as [string, Team]]) {
-    root.clear();
-    const model = assets.createShip(icon.modelKey, team, false);
-    root.add(model.root);
-    if (folder === 'white') {
-      model.root.traverse((o) => {
-        if ((o as Mesh).isMesh) (o as Mesh).material = white;
-      });
-    }
-    renderer.render(scene, camera);
-    const path = `${orient}/${folder}/${icon.id}.png`;
-    await save(path);
-    say(path);
+  const model = assets.createShip(icon.modelKey, team, false);
+  root.add(model.root);
+  if (flat) {
+    model.root.traverse((o) => {
+      if ((o as Mesh).isMesh) (o as Mesh).material = white;
+    });
   }
+  renderer.render(scene, camera);
+  const path = `side/${folder}/${icon.id}.png`;
+  await save(path);
+  say(path);
   scene.remove(root);
 }
