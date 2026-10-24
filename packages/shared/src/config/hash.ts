@@ -5,7 +5,7 @@ import { DRONE, DRONE_TYPES } from './drones.ts';
 import { EMOTE, EMOTE_IDS } from './emotes.ts';
 import { ECONOMY } from './economy.ts';
 import { CARRIER, MATCH } from './match.ts';
-import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS, PIRATE_TYPES } from './pirates.ts';
+import { PIRATE, PIRATE_COVES, PIRATE_GARRISONS, PIRATE_LANE_GARRISON, PIRATE_TYPES } from './pirates.ts';
 import { RIG } from './rigs.ts';
 import { PROTOCOL_VERSION, SNAPSHOT_EVERY, TICK_RATE } from './net.ts';
 import { SHIPS, SHIP_MOVEMENT } from './ships.ts';
@@ -44,6 +44,7 @@ export function configHash(): number {
     PIRATE,
     PIRATE_COVES,
     PIRATE_GARRISONS,
+    PIRATE_LANE_GARRISON,
     PIRATE_TYPES,
     DRONE,
     DRONE_TYPES,

@@ -5,6 +5,7 @@ import {
   MATCH,
   MAP,
   Mulberry32,
+  TEAM_PIRATE,
   PICKUP_CAPACITY,
   WORLD_CENTER,
   WORLD_SIZE,
@@ -163,7 +164,7 @@ export class Pickups {
       const spot = this.goldSpots[i - GOLD_START]!;
       this.x[i] = spot.x;
       this.y[i] = spot.y;
-      if (this.spotIsFree(spot.x, spot.y, false, ships)) {
+      if (this.spotIsFree(spot.x, spot.y, false, ships, true)) {
         this.value[i] = P.gold.cash;
         this.active[i] = 1;
         this.gen[i] = this.gen[i]! + 1;
@@ -228,13 +229,20 @@ export class Pickups {
     return false;
   }
 
-  private spotIsFree(x: number, y: number, starter: boolean, ships: readonly Combatant[]): boolean {
+  /** `ignorePirates`: the sentries of the rock channel sail among the gold all the time, so they do not hold it back. */
+  private spotIsFree(
+    x: number,
+    y: number,
+    starter: boolean,
+    ships: readonly Combatant[],
+    ignorePirates = false,
+  ): boolean {
     if (x < EDGE || y < EDGE || x > WORLD_SIZE - EDGE || y > WORLD_SIZE - EDGE) return false;
     if (circleVsWorld(this.land, x, y, CLEARANCE, this.hit)) return false;
     const minD2 = P.minSpawnDistance * P.minSpawnDistance;
     for (let j = 0; j < ships.length; j++) {
       const s = ships[j]!;
-      if (!s.state.alive) continue;
+      if (!s.state.alive || (ignorePirates && s.team === TEAM_PIRATE)) continue;
       const dx = s.state.x - x;
       const dy = s.state.y - y;
       if (s.def.vMax === 0) {

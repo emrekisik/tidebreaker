@@ -14,6 +14,10 @@ import {
   PIRATE_COUNT,
   PIRATE_COVES,
   PIRATE_GARRISONS,
+  PIRATE_LANE_GARRISON,
+  PIRATE_SENTRY,
+  CHANNEL,
+  channelPointInto,
   PIRATE_TYPES,
   PROTOCOL_VERSION,
   RIG,
@@ -1442,6 +1446,8 @@ describe('pirates', () => {
     }
     throw new Error('no such pirate');
   };
+  /** The pirates that live at the coves (the channel sentries come after them). */
+  const SEA_PIRATES = PIRATE_COUNT - PIRATE_LANE_GARRISON.length;
   /** The first pirate of this type. */
   const firstOf = (room: Room, typeIdx: number): number => {
     for (let p = 0; p < PIRATE_COUNT; p++) if (room.world.pirates.type[p] === typeIdx) return p;
@@ -1467,13 +1473,79 @@ describe('pirates', () => {
     await join('A');
     await tick(TICK_RATE * 30);
     const out = new Float32Array(3);
-    for (let p = 0; p < PIRATE_COUNT; p++) {
+    for (let p = 0; p < SEA_PIRATES; p++) {
       const st = room.world.slots[slotOf(room, p)]!.state;
       const cove = coveOf(p);
       expect(st.alive).toBe(true);
       expect(Math.hypot(st.x - cove.x, st.y - cove.y)).toBeLessThan(PIRATE.patrolRadius + 25);
       expect(circleVsWorld(room.world.land, st.x, st.y, 1, out)).toBe(false);
     }
+  });
+
+  it('keep three sentries in the rock channel: they sail the lane back and forth and stay between the walls', async () => {
+    const { room, join, tick } = setup();
+    await join('A');
+    const w = room.world;
+    const west = CHANNEL.x - CHANNEL.length / 2;
+    const pt = new Float32Array(3);
+    const sentries: number[] = [];
+    for (let p = 0; p < PIRATE_COUNT; p++) if (w.pirates.type[p] === PIRATE_SENTRY) sentries.push(p);
+    expect(sentries).toHaveLength(PIRATE_LANE_GARRISON.length);
+    const minU = sentries.map(() => 9);
+    const maxU = sentries.map(() => -9);
+    const out = new Float32Array(3);
+    for (let i = 0; i < TICK_RATE * 90; i++) {
+      await tick(1);
+      sentries.forEach((p, k) => {
+        const st = w.slots[slotOf(room, p)]!.state;
+        expect(st.alive).toBe(true);
+        const u = (st.x - west) / CHANNEL.length;
+        minU[k] = Math.min(minU[k]!, u);
+        maxU[k] = Math.max(maxU[k]!, u);
+        channelPointInto(Math.max(0, Math.min(1, u)), pt);
+        // Between the mouths, inside the walls: never in the rocks, and never off the lane's line.
+        if (u > 0.02 && u < 0.98) {
+          expect(Math.abs(st.y - pt[1]!)).toBeLessThan(CHANNEL.gap / 2);
+          expect(circleVsWorld(w.land, st.x, st.y, 1, out)).toBe(false);
+        }
+      });
+    }
+    // Each one covers a good stretch of the lane (they patrol, they do not sit still).
+    sentries.forEach((_, k) => expect(maxU[k]! - minU[k]!).toBeGreaterThan(0.5));
+  });
+
+  it('sentries fight a player who sails into the lane, but cannot see one behind the walls', async () => {
+    const { room, join, tick } = setup({ anyClass: true });
+    const a = await join('A', 'heavy_frigate');
+    await tick(2);
+    const slot = a.heard.joined[0]!.entityId - 1;
+    const w = room.world;
+    const me = w.slots[slot]!;
+    const hold = (): void => {
+      me.state.hull = me.def.hull;
+      me.state.shield = me.def.shield;
+      w.protectLeft[slot] = 0;
+    };
+    // Just north of the north wall, right above the middle of the lane: walls between the player and every sentry.
+    const mid = channelSpots(1)[0]!;
+    let hurt = 0;
+    for (let i = 0; i < TICK_RATE * 25; i++) {
+      place(room, a, mid.x, mid.y - CHANNEL.gap / 2 - 2 * CHANNEL.rock.max - 6, 0);
+      hold();
+      await tick(1);
+      hurt += me.def.hull + me.def.shield - (me.state.hull + me.state.shield);
+    }
+    expect(hurt).toBe(0);
+    // Inside the lane at the west end the sentries see the player and hurt them.
+    let seen = 0;
+    for (let i = 0; i < TICK_RATE * 40 && seen === 0; i++) {
+      place(room, a, CHANNEL.x - CHANNEL.length / 2 + 25, mid.y + 6, 0);
+      me.state.hull = me.def.hull;
+      me.state.shield = me.def.shield;
+      await tick(1);
+      seen += me.def.hull + me.def.shield - (me.state.hull + me.state.shield) > 0 ? 1 : 0;
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 
   it('attack a player who comes near their cove, and keep out of land while chasing', async () => {

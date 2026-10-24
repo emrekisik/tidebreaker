@@ -14,15 +14,24 @@ export interface ChannelRock {
   r: number;
 }
 
-/** The lane's middle line at fraction `u` (0 = west end, 1 = east end): position and unit direction. */
-function lane(u: number): { x: number; y: number; tx: number; ty: number } {
+/** The lane's middle line at fraction `u` (0 = west end, 1 = east end): writes x, y and the unit direction (tx, ty) to `out[0..4)`. */
+function laneInto(u: number, out: Float64Array): void {
   const C = CHANNEL;
-  const x = C.x - C.length / 2 + C.length * u;
-  const y = C.y - C.bow * Math.sin(Math.PI * u);
+  out[0] = C.x - C.length / 2 + C.length * u;
+  out[1] = C.y - C.bow * Math.sin(Math.PI * u);
   // Slope of the arch.
-  const dy = -C.bow * Math.PI * Math.cos(Math.PI * u) / C.length;
+  const dy = (-C.bow * Math.PI * Math.cos(Math.PI * u)) / C.length;
   const len = Math.hypot(1, dy);
-  return { x, y, tx: 1 / len, ty: dy / len };
+  out[2] = 1 / len;
+  out[3] = dy / len;
+}
+
+const scratch = new Float64Array(4);
+
+/** The lane's middle line at fraction `u` as an object (for setup code; the per-tick code uses `channelPointInto`). */
+function lane(u: number): { x: number; y: number; tx: number; ty: number } {
+  laneInto(u, scratch);
+  return { x: scratch[0]!, y: scratch[1]!, tx: scratch[2]!, ty: scratch[3]! };
 }
 
 let cachedRocks: readonly ChannelRock[] | null = null;
@@ -49,6 +58,18 @@ export function channelRocks(): readonly ChannelRock[] {
   }
   cachedRocks = rocks;
   return rocks;
+}
+
+/**
+ * A point on the lane's middle line at fraction `u` (0 = west end, 1 = east end; a little beyond either end is the
+ * open water outside): writes `out[0] = x`, `out[1] = y` and `out[2]` = the direction (radians) the lane runs there.
+ * Allocation-free, for the pirates' AI.
+ */
+export function channelPointInto(u: number, out: Float32Array): void {
+  laneInto(u, scratch);
+  out[0] = scratch[0]!;
+  out[1] = scratch[1]!;
+  out[2] = Math.atan2(scratch[3]!, scratch[2]!);
 }
 
 /** `count` points along the middle of the lane, evenly spread (where the gold floats). */
@@ -79,6 +100,10 @@ export function channelDistance(x: number, y: number): number {
     cachedMiddle = pts;
   }
   let best = Infinity;
-  for (const p of cachedMiddle) best = Math.min(best, Math.hypot(x - p.x, y - p.y));
+  for (let i = 0; i < cachedMiddle.length; i++) {
+    const p = cachedMiddle[i]!;
+    const d = Math.hypot(x - p.x, y - p.y);
+    if (d < best) best = d;
+  }
   return best;
 }

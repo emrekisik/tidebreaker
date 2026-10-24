@@ -1,4 +1,5 @@
 import {
+  CHANNEL,
   DEG2RAD,
   MATCH,
   Mulberry32,
@@ -6,12 +7,14 @@ import {
   PIRATE_COUNT,
   PIRATE_COVES,
   PIRATE_GARRISONS,
+  PIRATE_LANE_GARRISON,
   PIRATE_TYPES,
   STEP_SEC,
   TAU,
   TEAM_PIRATE,
   WEAPONS,
   angleDiff,
+  channelPointInto,
   clamp,
   resetShipState,
   segmentVsWorld,
@@ -30,6 +33,12 @@ const PI = Math.PI;
 /** Rudder per radian of heading error, and the error above which a ship slows down to turn. */
 const STEER_GAIN = 2.2;
 const SHARP_TURN = 1.3;
+/** The pseudo cove of the channel sentries: they live in the lane of the rock channel, not at a cove. */
+const LANE = PIRATE_COVES.length;
+/** A sentry sails this far (a share of the lane's length) past each mouth before it turns back. */
+const LANE_OVERSHOOT = 0.14;
+/** A sentry more than this far to the side of the lane's line is off the lane (it has been chasing: it sails back to a mouth). */
+const OFF_LANE = 12;
 /** A pirate waiting at its cove picks a new spot to sail to this often (seconds). */
 const WANDER_MIN_SEC = 6;
 const WANDER_RANGE_SEC = 6;
@@ -64,6 +73,11 @@ export class Pirates {
   private readonly cruise = new Float32Array(PIRATE_COUNT);
   /** Seconds until a sunk pirate returns (0 = afloat). */
   private readonly returnLeft = new Float32Array(PIRATE_COUNT);
+  /** Channel sentries: where along the lane (0..1) each one starts, and which way it sails now (1 = east, -1 = west). */
+  private readonly station = new Float32Array(PIRATE_COUNT);
+  private readonly laneDir = new Int8Array(PIRATE_COUNT);
+  /** Scratch for `channelPointInto`: x, y, heading. */
+  private readonly pt = new Float32Array(3);
   /** Per type: farthest distance it opens fire at, preferred fighting distance, shot speed. */
   private readonly fireRange = new Float32Array(PIRATE_TYPES.length);
   private readonly fightDist = new Float32Array(PIRATE_TYPES.length);
@@ -83,6 +97,13 @@ export class Pirates {
         this.cove[p] = c;
         p++;
       }
+    }
+    for (let k = 0; k < PIRATE_LANE_GARRISON.length; k++) {
+      this.type[p] = PIRATE_LANE_GARRISON[k]!;
+      this.cove[p] = LANE;
+      this.station[p] = (k + 1) / (PIRATE_LANE_GARRISON.length + 1);
+      this.laneDir[p] = k % 2 === 0 ? 1 : -1;
+      p++;
     }
     for (let t = 0; t < PIRATE_TYPES.length; t++) {
       const def = PIRATE_TYPES[t]!;
@@ -129,13 +150,19 @@ export class Pirates {
     const w = this.w;
     const slot = this.slotOf(p);
     const t = PIRATE_TYPES[this.type[p]!]!;
-    const cove = PIRATE_COVES[this.cove[p]!]!;
     const c = w.slots[slot]!;
-    const a = this.rng.next() * TAU;
-    const r = PIRATE.coveRadius * (0.15 + this.rng.next() * 0.5);
     c.def = t.def;
     c.team = TEAM_PIRATE;
-    resetShipState(c.state, t.def, cove.x + Math.cos(a) * r, cove.y + Math.sin(a) * r, a + PI);
+    if (this.cove[p] === LANE) {
+      // A sentry starts at its station in the lane, bow along the lane in the direction it patrols.
+      channelPointInto(this.station[p]!, this.pt);
+      resetShipState(c.state, t.def, this.pt[0]!, this.pt[1]!, this.pt[2]! + (this.laneDir[p]! < 0 ? PI : 0));
+    } else {
+      const cove = PIRATE_COVES[this.cove[p]!]!;
+      const a = this.rng.next() * TAU;
+      const r = PIRATE.coveRadius * (0.15 + this.rng.next() * 0.5);
+      resetShipState(c.state, t.def, cove.x + Math.cos(a) * r, cove.y + Math.sin(a) * r, a + PI);
+    }
     w.used[slot] = 1;
     w.shipIdx[slot] = this.type[p]!;
     w.spawnGen[slot] = w.spawnGen[slot]! + 1;
@@ -176,8 +203,35 @@ export class Pirates {
     const w = this.w;
     const t = PIRATE_TYPES[this.type[p]!]!;
     const s = c.state;
-    const cove = PIRATE_COVES[this.cove[p]!]!;
-    const homeD = Math.hypot(s.x - cove.x, s.y - cove.y);
+    const lane = this.cove[p] === LANE;
+    // Home: the cove, or for a channel sentry the middle of the lane.
+    let homeX: number;
+    let homeY: number;
+    if (lane) {
+      channelPointInto(0.5, this.pt);
+      homeX = this.pt[0]!;
+      homeY = this.pt[1]!;
+    } else {
+      const cove = PIRATE_COVES[this.cove[p]!]!;
+      homeX = cove.x;
+      homeY = cove.y;
+    }
+    const patrolR = lane ? PIRATE.laneRadius : PIRATE.patrolRadius;
+    const leash = lane ? PIRATE.laneLeash : PIRATE.leash;
+    const homeD = Math.hypot(s.x - homeX, s.y - homeY);
+    // A sentry: how far along the lane it is (as a share of its length; a little past the mouths counts) and
+    // whether it is off the lane's line (it went after a target and must find its way back to a mouth).
+    let laneU = 0;
+    let offLane = false;
+    if (lane) {
+      laneU = clamp(
+        (s.x - (CHANNEL.x - CHANNEL.length / 2)) / CHANNEL.length,
+        -LANE_OVERSHOOT,
+        1 + LANE_OVERSHOOT,
+      );
+      channelPointInto(laneU, this.pt);
+      offLane = Math.abs(s.y - this.pt[1]!) > OFF_LANE;
+    }
     let st: number = this.state[p]!;
 
     // Weak ships run for home when badly hurt and come back out when healed.
@@ -188,16 +242,18 @@ export class Pirates {
     }
     if (st === FLEE || st === RETURN) {
       this.target[p] = -1;
-      if (st === RETURN && homeD < PIRATE.patrolRadius * 0.8) st = PATROL;
+      if (st === RETURN && (lane ? !offLane : homeD < patrolR * 0.8)) st = PATROL;
     } else {
       this.chooseTarget(p, t.detectRadius, s.x, s.y);
-      if (homeD > PIRATE.leash) {
+      if (homeD > leash) {
         this.target[p] = -1;
         st = RETURN;
       } else if (this.target[p]! >= 0) {
         st = ENGAGE;
+      } else if (lane) {
+        st = offLane ? RETURN : PATROL;
       } else {
-        st = homeD > PIRATE.patrolRadius * 1.2 ? RETURN : PATROL;
+        st = homeD > patrolR * 1.2 ? RETURN : PATROL;
       }
     }
     this.state[p] = st;
@@ -213,7 +269,11 @@ export class Pirates {
       const bearing = Math.atan2(dy, dx);
       const desired = this.fightDist[this.type[p]!]!;
       const dir = this.orbit[p]!;
-      if (d > desired * 1.2) {
+      if (t.style === 'bow') {
+        // Face the target and fire forward: close in, then hold at the fighting distance.
+        want = bearing;
+        cruise = d > desired * 1.15 ? 1 : d < desired * 0.7 ? 0.1 : 0.4;
+      } else if (d > desired * 1.2) {
         want = bearing;
         cruise = 1;
       } else if (d < desired * 0.6) {
@@ -224,6 +284,22 @@ export class Pirates {
         cruise = 0.7;
       }
       this.lineClear[p] = segmentVsWorld(w.land, s.x, s.y, ts.x, ts.y) < 0 ? 1 : 0;
+    } else if (st === PATROL && lane) {
+      // Follow the lane toward the end the sentry is heading for (steering for a point a little ahead keeps it in the
+      // middle); past the mouth it turns round in the open water and comes back.
+      let dir = this.laneDir[p]!;
+      if (dir > 0 && laneU >= 1 + LANE_OVERSHOOT - 0.03) dir = -1;
+      else if (dir < 0 && laneU <= -LANE_OVERSHOOT + 0.03) dir = 1;
+      this.laneDir[p] = dir;
+      const ahead = clamp(
+        laneU + (dir * PIRATE.laneLookAhead) / CHANNEL.length,
+        -LANE_OVERSHOOT,
+        1 + LANE_OVERSHOOT,
+      );
+      channelPointInto(ahead, this.pt);
+      want = Math.atan2(this.pt[1]! - s.y, this.pt[0]! - s.x);
+      cruise = 0.6;
+      this.lineClear[p] = 0;
     } else if (st === PATROL) {
       this.wanderLeft[p] = this.wanderLeft[p]! - THINK_SEC;
       if (
@@ -232,15 +308,21 @@ export class Pirates {
       ) {
         const a = this.rng.next() * TAU;
         const r = PIRATE.patrolRadius * Math.sqrt(this.rng.next());
-        this.wanderX[p] = cove.x + Math.cos(a) * r;
-        this.wanderY[p] = cove.y + Math.sin(a) * r;
+        this.wanderX[p] = homeX + Math.cos(a) * r;
+        this.wanderY[p] = homeY + Math.sin(a) * r;
         this.wanderLeft[p] = WANDER_MIN_SEC + this.rng.next() * WANDER_RANGE_SEC;
       }
       want = Math.atan2(this.wanderY[p]! - s.y, this.wanderX[p]! - s.x);
       cruise = 0.55;
       this.lineClear[p] = 0;
     } else {
-      want = Math.atan2(cove.y - s.y, cove.x - s.x);
+      if (lane) {
+        // Back to the nearer mouth of the lane (a straight line to its middle would run into the walls).
+        channelPointInto(s.x < CHANNEL.x ? -LANE_OVERSHOOT : 1 + LANE_OVERSHOOT, this.pt);
+        want = Math.atan2(this.pt[1]! - s.y, this.pt[0]! - s.x);
+      } else {
+        want = Math.atan2(homeY - s.y, homeX - s.x);
+      }
       cruise = st === FLEE ? 1 : 0.85;
       this.lineClear[p] = 0;
     }
@@ -254,7 +336,9 @@ export class Pirates {
       }
     }
 
-    this.want[p] = this.openHeading(s.x, s.y, want, c.def.vMax, this.orbit[p]!);
+    // (Following the lane needs no whiskers: they would only see its walls.)
+    this.want[p] =
+      lane && st === PATROL ? want : this.openHeading(s.x, s.y, want, c.def.vMax, this.orbit[p]!);
     this.cruise[p] = cruise;
   }
 
@@ -288,7 +372,7 @@ export class Pirates {
     this.target[p] = cur;
   }
 
-  /** A player ship the pirates may attack: afloat, not protected, in range, away from the carriers. */
+  /** A player ship the pirates may attack: afloat, not protected, in range, in the open (no land between), away from the carriers. */
   private valid(slot: number, x: number, y: number, range: number): boolean {
     const w = this.w;
     if (w.used[slot] === 0 || w.ghostLeft[slot]! > 0 || w.protectLeft[slot]! > 0) return false;
@@ -299,7 +383,8 @@ export class Pirates {
       const base = MATCH.carriers[k]!;
       if (Math.hypot(ts.x - base.x, ts.y - base.y) < PIRATE.carrierAvoid) return false;
     }
-    return true;
+    // A ship behind land (a rock wall) cannot be shot at or sailed to in a straight line: it is no target.
+    return segmentVsWorld(w.land, x, y, ts.x, ts.y) < 0;
   }
 
   /** The wanted heading, or the nearest one to it with open water ahead (whisker test). */
