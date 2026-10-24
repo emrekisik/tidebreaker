@@ -13,9 +13,13 @@
   --line: rgba(130, 180, 225, 0.16);
   --text: #f1f6fb;
   --dim: #8fa9c2;
-  --blue: #4aa3ff;
-  --blue-hi: #a9d6ff;
-  --red: #e5475b;
+  /* The two teams' colours. The page sets them from the countries of the match (ui/teams.ts); these are the first two. */
+  --team-a: #3f98ff;
+  --team-a-hi: #a9d6ff;
+  --team-a-rgb: 63, 152, 255;
+  --team-b: #ff4a5c;
+  --team-b-hi: #ffb0b8;
+  --team-b-rgb: 255, 74, 92;
   --hull: #2cf27a;
   --shield: #15fffb;
   --cash: #37ff5c;
@@ -297,13 +301,13 @@ svg.ico,
   width: 460px;
   height: 37px;
   padding: 0 12px;
-  border-left: 3px solid var(--blue);
-  border-right: 3px solid var(--red);
+  border-left: 3px solid var(--team-a);
+  border-right: 3px solid var(--team-b);
   background: var(--panel-dark);
   border-top: 0;
   border-bottom: 0;
 }
-/* The carriers are rendered from their 3D models, bows toward each other (the red one is the blue one turned round). */
+/* The carriers are rendered from their 3D models, bows toward each other (team B's is team A's turned round). */
 .m-ship {
   width: 104px;
   height: 42px;
@@ -311,7 +315,7 @@ svg.ico,
   object-fit: contain;
   flex: none;
 }
-.m-ship.red {
+.m-ship.team-b {
   transform: scaleX(-1);
 }
 .m-bars {
@@ -331,10 +335,10 @@ svg.ico,
   height: 100%;
   width: 100%;
 }
-.m-bars.blue .fill {
+.m-bars.team-a .fill {
   right: 0;
 }
-.m-bars.red .fill {
+.m-bars.team-b .fill {
   left: 0;
 }
 .m-bar.hull .fill {
@@ -374,11 +378,11 @@ svg.ico,
   font-weight: 700;
   color: #fff;
   clip-path: var(--hex-up);
-  /* The outline shows who is winning: blue clockwise from the top, red the other way. */
+  /* The outline shows who is winning: team A clockwise from the top, team B the other way. */
   background: conic-gradient(
-    var(--blue) 0 calc(var(--b) * 1%),
+    var(--team-a) 0 calc(var(--b) * 1%),
     #56677a calc(var(--b) * 1%) calc(100% - var(--r) * 1%),
-    var(--red) calc(100% - var(--r) * 1%) 100%
+    var(--team-b) calc(100% - var(--r) * 1%) 100%
   );
 }
 .rig-hex::before {
@@ -393,26 +397,26 @@ svg.ico,
   position: relative;
   z-index: 1;
 }
-.rig.blue .rig-hex {
-  background: var(--blue-hi);
+.rig.team-a .rig-hex {
+  background: var(--team-a-hi);
 }
-.rig.blue .rig-hex::before {
-  background: #2f86e8;
+.rig.team-a .rig-hex::before {
+  background: color-mix(in srgb, var(--team-a) 82%, black);
 }
-.rig.red .rig-hex {
-  background: #ff8c9a;
+.rig.team-b .rig-hex {
+  background: var(--team-b-hi);
 }
-.rig.red .rig-hex::before {
-  background: var(--red);
+.rig.team-b .rig-hex::before {
+  background: color-mix(in srgb, var(--team-b) 82%, black);
 }
 .rig {
   filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.45));
 }
-.rig.blue {
-  filter: drop-shadow(0 0 8px rgba(74, 163, 255, 0.95));
+.rig.team-a {
+  filter: drop-shadow(0 0 8px rgba(var(--team-a-rgb), 0.95));
 }
-.rig.red {
-  filter: drop-shadow(0 0 7px rgba(229, 71, 91, 0.85));
+.rig.team-b {
+  filter: drop-shadow(0 0 7px rgba(var(--team-b-rgb), 0.85));
 }
 
 /* ---- bottom centre: class upgrade offer ---- */
@@ -753,14 +757,14 @@ svg.ico,
 .feed-row.fading {
   opacity: 0;
 }
-.feed-blue {
-  color: #8cc8ff;
+.feed-team-a {
+  color: var(--team-a-hi);
 }
-.feed-red {
-  color: #ff97a2;
+.feed-team-b {
+  color: var(--team-b-hi);
 }
 .feed-pirate {
-  color: #ffc778;
+  color: #c9c3b4;
 }
 .feed-icon {
   display: inline-block;
@@ -872,7 +876,7 @@ svg.ico,
   width: 150px;
   height: auto;
 }
-.bn-versus img.red {
+.bn-versus img.team-b {
   transform: scaleX(-1);
 }
 .bn-versus b {
@@ -988,12 +992,12 @@ svg.ico,
   border-bottom: 1px solid var(--line);
   margin-bottom: 4px;
 }
-.sb-col.blue .sb-head .sb-name {
-  color: var(--blue);
+.sb-col.team-a .sb-head .sb-name {
+  color: var(--team-a);
   font-size: 16px;
 }
-.sb-col.red .sb-head .sb-name {
-  color: var(--red);
+.sb-col.team-b .sb-head .sb-name {
+  color: var(--team-b);
   font-size: 16px;
 }
 .sb-name {
@@ -1013,9 +1017,15 @@ svg.ico,
   flex: none;
   width: 38px;
   height: 20px;
-  object-fit: contain;
   vertical-align: middle;
   margin-right: 7px;
+  /* A flat silhouette of the ship (the white picture used as a stencil) in its team's colour. */
+  background: var(--team-a-hi);
+  -webkit-mask: var(--ship) center / contain no-repeat;
+  mask: var(--ship) center / contain no-repeat;
+}
+.sb-col.team-b .sb-ship {
+  background: var(--team-b-hi);
 }
 .sb-num {
   flex: none;
@@ -1411,14 +1421,14 @@ svg.ico,
     0 1px 3px rgba(0, 0, 0, 0.95),
     0 0 8px rgba(0, 0, 0, 0.7);
 }
-.wreck-mark.blue .wm-name {
-  color: #8fd0ff;
+.wreck-mark.team-a .wm-name {
+  color: var(--team-a-hi);
 }
-.wreck-mark.red .wm-name {
-  color: #ff8fa6;
+.wreck-mark.team-b .wm-name {
+  color: var(--team-b-hi);
 }
 .wreck-mark.pirate .wm-name {
-  color: #ffd84d;
+  color: #d9d4c4;
 }
 @keyframes wreck-fade {
   0% {
@@ -1585,13 +1595,13 @@ svg.ico,
   border-right: 3px solid transparent;
   transition: opacity 0.6s;
 }
-.ann-row.blue {
-  color: #cfe9ff;
-  border-color: #4fe3ff;
+.ann-row.team-a {
+  color: var(--team-a-hi);
+  border-color: var(--team-a);
 }
-.ann-row.red {
-  color: #ffd3da;
-  border-color: #ff5fa8;
+.ann-row.team-b {
+  color: var(--team-b-hi);
+  border-color: var(--team-b);
 }
 .ann-row.fading {
   opacity: 0;
@@ -1725,8 +1735,8 @@ svg.ico,
   font: inherit;
   color: #cfdae6;
   cursor: pointer;
-  background: rgba(10, 26, 42, calc(0.8 * var(--hud-alpha, 1)));
-  border: 1px solid var(--line);
+  background: rgba(11, 21, 31, calc(0.8 * var(--hud-alpha, 1)));
+  border: 1px solid rgba(165, 190, 210, 0.3);
 }
 .ss-mute {
   width: 28px;
@@ -1739,23 +1749,23 @@ svg.ico,
   height: 100%;
 }
 .ss-mute.off {
-  color: #ff8a8a;
+  color: #e08a8a;
 }
 .ss-mute:hover {
-  border-color: #6dff9a;
+  border-color: rgba(220, 232, 242, 0.75);
 }
 .ss-volume {
   width: 84px;
-  accent-color: #6dff9a;
+  accent-color: #cfdbe6;
 }
 .ss-sea {
   width: 28px;
   height: 26px;
   padding: 3px;
-  color: #8fd0ff;
+  color: #aab9c6;
   cursor: pointer;
-  background: rgba(10, 26, 42, calc(0.8 * var(--hud-alpha, 1)));
-  border: 1px solid var(--line);
+  background: rgba(11, 21, 31, calc(0.8 * var(--hud-alpha, 1)));
+  border: 1px solid rgba(165, 190, 210, 0.3);
 }
 .ss-sea svg {
   display: block;
@@ -1767,7 +1777,7 @@ svg.ico,
   opacity: 0.7;
 }
 .ss-sea:hover {
-  border-color: #6dff9a;
+  border-color: rgba(220, 232, 242, 0.75);
 }
 
 /* ---- ranks: the insignia beside a name (ui/rankBadge.ts) ---- */
@@ -1843,14 +1853,14 @@ svg.ico,
     0 0 6px rgba(0, 10, 24, 0.7);
   will-change: transform;
 }
-.nplate.blue {
-  --ink: #bfe3ff;
+.nplate.team-a {
+  --ink: var(--team-a-hi);
 }
-.nplate.red {
-  --ink: #ffc2cf;
+.nplate.team-b {
+  --ink: var(--team-b-hi);
 }
 .nplate.pirate {
-  --ink: #ffe08a;
+  --ink: #d9d4c4;
 }
 .nplate.own {
   --ink: #ffffff;
@@ -2065,11 +2075,11 @@ svg.ico,
   width: 100%;
   height: 100%;
 }
-.ann-row.blue .ann-ico {
-  color: #4fe3ff;
+.ann-row.team-a .ann-ico {
+  color: var(--team-a);
 }
-.ann-row.red .ann-ico {
-  color: #ff5fa8;
+.ann-row.team-b .ann-ico {
+  color: var(--team-b);
 }
 .ann-row.lost .ann-ico svg {
   opacity: 0.55;

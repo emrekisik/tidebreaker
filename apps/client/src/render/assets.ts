@@ -34,26 +34,33 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { FX, convergedAngle } from '@tidebreaker/shared';
+import { COUNTRIES, FX, TEAM_A, TEAM_PIRATE, convergedAngle } from '@tidebreaker/shared';
+import type { Country } from '@tidebreaker/shared';
 import { MODEL_SPECS, PROP_SPECS } from './modelSpecs.ts';
 import type { ModelSpec } from './modelSpecs.ts';
 
-export type Team = 'blue' | 'red' | 'pirate';
+/** The two team slots (A and B: their colour is that of the country the room gave them) and the pirates. */
+export type Team = 'a' | 'b' | 'pirate';
+
+/** The asset team of a team slot (`TEAM_A`, `TEAM_B`) or the pirates. */
+export function teamKey(team: number): Team {
+  return team === TEAM_A ? 'a' : team === TEAM_PIRATE ? 'pirate' : 'b';
+}
 
 /**
  * Team colors. They are applied only to the model's mid-grey "hull paint" texels: white lines,
  * concrete/light greys, dark details (guns, vents) and the blue windows keep their own colors.
  */
-/** Default team paint colors (the Appearance panel can change them at runtime). */
+/** Default team paint colors: the first two countries (`setTeamCountry` changes them when a match gives the teams others). */
 export const DEFAULT_TEAM_TINT: Record<Team, number> = {
-  blue: 0x72a9e4,
-  red: 0xff6b78,
+  a: COUNTRIES[0]!.paint,
+  b: COUNTRIES[1]!.paint,
   pirate: 0x74604f,
 };
 /** Glow ring and accent color of each team (sRGB). */
 export const DEFAULT_TEAM_RING: Record<Team, number> = {
-  blue: 0x23b4ff,
-  red: 0xff2a45,
+  a: COUNTRIES[0]!.ring,
+  b: COUNTRIES[1]!.ring,
   pirate: 0xffa83a,
 };
 /** Outline thickness around the hull, in world units. */
@@ -71,8 +78,8 @@ export interface TeamStyle {
 }
 
 const PALETTES: Record<Team, { hull: number; deck: number; trim: number; gun: number }> = {
-  blue: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
-  red: { hull: 0xb5412f, deck: 0xe8d9c8, trim: 0x3a2a24, gun: 0x2b2b2b },
+  a: { hull: 0x2f6fb5, deck: 0xe8edf2, trim: 0xf2c14e, gun: 0x394150 },
+  b: { hull: 0xb5412f, deck: 0xe8d9c8, trim: 0x3a2a24, gun: 0x2b2b2b },
   pirate: { hull: 0x3a3f46, deck: 0x8a7a63, trim: 0xffa83a, gun: 0x1e2226 },
 };
 
@@ -149,6 +156,8 @@ export class ShipModel {
   /** Hull footprint after normalization (world units). */
   hullLength = 0;
   hullWidth = 0;
+  /** Height of the highest point of the ship above the water (the X-ray silhouette is drawn at this height). */
+  hullTop = 0;
   private flashing = false;
   private hologram = false;
   private readonly tmp = new Quaternion();
@@ -451,15 +460,15 @@ export class AssetProvider {
   /** Glowing team ring on the water under each ship. */
   private readonly glowRingGeo = new RingGeometry(0.93, 1, 56).rotateX(-Math.PI / 2);
   private readonly glowMats: Record<Team, MeshBasicMaterial> = {
-    blue: this.makeGlow(DEFAULT_TEAM_RING.blue),
-    red: this.makeGlow(DEFAULT_TEAM_RING.red),
+    a: this.makeGlow(DEFAULT_TEAM_RING.a),
+    b: this.makeGlow(DEFAULT_TEAM_RING.b),
     pirate: this.makeGlow(DEFAULT_TEAM_RING.pirate),
   };
   /** Live team paint settings (see TeamStyle). */
   readonly style: TeamStyle = {
     tint: {
-      blue: new Color(DEFAULT_TEAM_TINT.blue),
-      red: new Color(DEFAULT_TEAM_TINT.red),
+      a: new Color(DEFAULT_TEAM_TINT.a),
+      b: new Color(DEFAULT_TEAM_TINT.b),
       pirate: new Color(DEFAULT_TEAM_TINT.pirate),
     },
     boost: { value: DEFAULT_TEAM_BOOST },
@@ -602,13 +611,13 @@ export class AssetProvider {
 
   private makeMaterials(map: Texture | null): Record<Team, TeamMaterials> {
     return {
-      blue: {
-        normal: teamMaterial(map, 'blue', false, this.style),
-        flash: teamMaterial(map, 'blue', true, this.style),
+      a: {
+        normal: teamMaterial(map, 'a', false, this.style),
+        flash: teamMaterial(map, 'a', true, this.style),
       },
-      red: {
-        normal: teamMaterial(map, 'red', false, this.style),
-        flash: teamMaterial(map, 'red', true, this.style),
+      b: {
+        normal: teamMaterial(map, 'b', false, this.style),
+        flash: teamMaterial(map, 'b', true, this.style),
       },
       pirate: {
         normal: teamMaterial(map, 'pirate', false, this.style),
@@ -697,6 +706,15 @@ export class AssetProvider {
 
   setRingColor(team: Team, hex: number): void {
     this.glowMats[team].color.set(hex);
+  }
+
+  /**
+   * Team A or B becomes `country`: its paint and ring colour change for every ship, mine and drone at once (the
+   * materials read the colours every frame).
+   */
+  setTeamCountry(team: 'a' | 'b', country: Country): void {
+    this.setTeamColor(team, country.paint);
+    this.setRingColor(team, country.ring);
   }
 
   /** Shows or hides the hull outline on every ship, present and future. */
@@ -834,6 +852,7 @@ export class AssetProvider {
     model.hullLength = box.max.x - box.min.x;
     model.hullWidth = box.max.z - box.min.z;
     model.root.add(fit);
+    model.hullTop = new Box3().setFromObject(fit).max.y;
     if (ring) this.addTeamRing(model, spec.length, team);
     return model;
   }
@@ -871,6 +890,9 @@ export class AssetProvider {
       ],
     );
     model.root.add(hull, turret);
+    model.hullLength = 5.5;
+    model.hullWidth = 1.9;
+    model.hullTop = 2;
     if (ring) this.addTeamRing(model, 5, team);
     return model;
   }

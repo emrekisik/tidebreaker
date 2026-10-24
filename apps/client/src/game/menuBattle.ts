@@ -9,8 +9,8 @@ import {
   SHIPS,
   STEP_SEC,
   TAU,
-  TEAM_BLUE,
-  TEAM_RED,
+  TEAM_A,
+  TEAM_B,
   applyWorldBounds,
   circleVsWorld,
   clamp,
@@ -110,12 +110,12 @@ export class MenuBattle implements HitSink, CollisionSink, IslandSink {
     this.openSeaNear(startX, startY);
     this.arenaX = this.goalX;
     this.arenaY = this.goalY;
-    for (const team of [TEAM_BLUE, TEAM_RED]) {
+    for (const team of [TEAM_A, TEAM_B]) {
       for (let k = 0; k < per; k++) {
         const i = this.entities.length;
         const def = SHIPS[MENU_BATTLE.fleet[k] as ShipId];
         const combatant = createCombatant(i + FIRST_ID, def, team);
-        const model = assets.createShip(def.modelKey, team === TEAM_BLUE ? 'blue' : 'red');
+        const model = assets.createShip(def.modelKey, team === TEAM_A ? 'a' : 'b');
         // (No health bars: the start screen stays clean.)
         const entity = new ShipEntity(combatant, model, null);
         scene.add(model.root);
@@ -163,7 +163,7 @@ export class MenuBattle implements HitSink, CollisionSink, IslandSink {
     const c = e.combatant;
     const per = MENU_BATTLE.fleet.length;
     // The two teams face each other across the middle; the line turns slowly so the fight is never in the same place.
-    const side = 0.6 + this.ticks * 0.0004 + (c.team === TEAM_BLUE ? 0 : Math.PI);
+    const side = 0.6 + this.ticks * 0.0004 + (c.team === TEAM_A ? 0 : Math.PI);
     const nx = Math.cos(side);
     const ny = Math.sin(side);
     const lateral = (this.slot[i]! - (per - 1) / 2) * 15;

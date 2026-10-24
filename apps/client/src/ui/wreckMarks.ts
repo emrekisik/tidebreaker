@@ -15,7 +15,7 @@ export class WreckMarks {
   private readonly marks: { el: HTMLElement; x: number; y: number; untilMs: number }[] = [];
   private readonly out = new Float32Array(2);
 
-  /** A ship of `team` ('blue', 'red' or 'pirate') named `name` went down at (x, y). */
+  /** A ship of `team` (a CSS class: 'team-a', 'team-b' or 'pirate') named `name` went down at (x, y). */
   add(x: number, y: number, name: string, team: string, nowMs: number, rank: number | null = null): void {
     const el = document.createElement('div');
     el.className = `wreck-mark ${team}`;

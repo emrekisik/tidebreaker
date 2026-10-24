@@ -250,20 +250,20 @@
           <div class="mn-card mn-mission">
             <div class="mn-card-title" data-i18n="menu.mission"></div>
             <div class="mn-duel">
-              <img class="mn-carrier blue" alt="" src="/icons/ships/card/aircraft_carrier_blue.png" />
+              <img class="mn-carrier team-a" data-carrier="a" alt="" src="/icons/ships/card/aircraft_carrier_thalor.png" />
               <div class="mn-vs">VS</div>
-              <img class="mn-carrier red" alt="" src="/icons/ships/card/aircraft_carrier_red.png" />
+              <img class="mn-carrier team-b" data-carrier="b" alt="" src="/icons/ships/card/aircraft_carrier_karzan.png" />
             </div>
             <div class="mn-card-text" data-i18n="menu.missionText"></div>
           </div>
           <div class="mn-card mn-ladder">
             <div class="mn-card-title" data-i18n="menu.ladder"></div>
             <div class="mn-steps">
-              <div class="mn-step"><img alt="" src="/icons/ships/card/coast_guard_boat.png" /><b>T1</b></div>
-              <div class="mn-step"><img alt="" src="/icons/ships/card/gunboat.png" /><b>T2</b></div>
-              <div class="mn-step"><img alt="" src="/icons/ships/card/corvette.png" /><b>T3</b></div>
-              <div class="mn-step"><img alt="" src="/icons/ships/card/frigate.png" /><b>T4</b></div>
-              <div class="mn-step"><img alt="" src="/icons/ships/card/cruiser.png" /><b>T5</b></div>
+              <div class="mn-step"><img data-card="coast_guard_boat" alt="" src="/icons/ships/card/coast_guard_boat_thalor.png" /><b>T1</b></div>
+              <div class="mn-step"><img data-card="gunboat" alt="" src="/icons/ships/card/gunboat_thalor.png" /><b>T2</b></div>
+              <div class="mn-step"><img data-card="corvette" alt="" src="/icons/ships/card/corvette_thalor.png" /><b>T3</b></div>
+              <div class="mn-step"><img data-card="frigate" alt="" src="/icons/ships/card/frigate_thalor.png" /><b>T4</b></div>
+              <div class="mn-step"><img data-card="cruiser" alt="" src="/icons/ships/card/cruiser_thalor.png" /><b>T5</b></div>
             </div>
             <div class="mn-card-text" data-i18n="menu.ladderText"></div>
           </div>
@@ -279,17 +279,17 @@
     </div>
     <div id="tour" class="overlay hidden"></div>
     <div id="match" class="overlay hidden">
-      <img class="m-ship blue" alt="" src="/icons/ships/card/aircraft_carrier_blue.png" />
-      <div class="m-bars blue">
-        <div class="m-bar hull"><div id="m-blue-hull" class="fill"></div></div>
-        <div class="m-bar shield"><div id="m-blue-shield" class="fill"></div></div>
+      <img class="m-ship team-a" data-carrier="a" alt="" src="/icons/ships/card/aircraft_carrier_thalor.png" />
+      <div class="m-bars team-a">
+        <div class="m-bar hull"><div id="m-a-hull" class="fill"></div></div>
+        <div class="m-bar shield"><div id="m-a-shield" class="fill"></div></div>
       </div>
       <div id="m-kills">0 : 0</div>
-      <div class="m-bars red">
-        <div class="m-bar hull"><div id="m-red-hull" class="fill"></div></div>
-        <div class="m-bar shield"><div id="m-red-shield" class="fill"></div></div>
+      <div class="m-bars team-b">
+        <div class="m-bar hull"><div id="m-b-hull" class="fill"></div></div>
+        <div class="m-bar shield"><div id="m-b-shield" class="fill"></div></div>
       </div>
-      <img class="m-ship red" alt="" src="/icons/ships/card/aircraft_carrier_red.png" />
+      <img class="m-ship team-b" data-carrier="b" alt="" src="/icons/ships/card/aircraft_carrier_karzan.png" />
     </div>
     <div id="rigs" class="overlay hidden"></div>
     <div id="progress" class="overlay hidden">
@@ -307,9 +307,9 @@
         <div id="banner-title"></div>
         <div id="banner-sub"></div>
         <div class="bn-versus">
-          <img class="blue" alt="" src="/icons/ships/card/aircraft_carrier_blue.png" />
+          <img class="team-a" data-carrier="a" alt="" src="/icons/ships/card/aircraft_carrier_thalor.png" />
           <b id="banner-score">0 : 0</b>
-          <img class="red" alt="" src="/icons/ships/card/aircraft_carrier_red.png" />
+          <img class="team-b" data-carrier="b" alt="" src="/icons/ships/card/aircraft_carrier_karzan.png" />
         </div>
         <div class="bn-count">
           <span id="banner-count-label"></span>

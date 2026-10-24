@@ -1,16 +1,14 @@
 import type { ShipDef } from './ships.ts';
 import { WORLD_CENTER, WORLD_SIZE } from './world.ts';
 
-/** Teams of the match (GAME_DESIGN.md §4.5). */
-export const TEAM_BLUE = 0;
-export const TEAM_RED = 1;
-export const TEAM_COUNT = 2;
 /**
- * Teams have generic names instead of "Blue" and "Red" (the colours stay): the room picks two different ones at random
- * for every round and tells the clients their numbers in the MATCH message; the names are `team.name.<n>` in the
- * client's language files, n below this count.
+ * The two teams of the match (GAME_DESIGN.md §4.5): slot A and slot B. Which colour and name a team wears is not fixed:
+ * the room picks two countries for every round (`pickCountries`, config/countries.ts) and tells the clients in the
+ * MATCH message.
  */
-export const TEAM_NAME_COUNT = 24;
+export const TEAM_A = 0;
+export const TEAM_B = 1;
+export const TEAM_COUNT = 2;
 
 /**
  * The team base: an aircraft carrier anchored near the world edge. It cannot move (vMax 0) and
@@ -60,8 +58,8 @@ export const MATCH = {
   perTeam: 12,
   /** Where the carriers are anchored; `heading` is where the bow points. */
   carriers: [
-    { team: TEAM_BLUE, x: 130, y: WORLD_CENTER, heading: 0 },
-    { team: TEAM_RED, x: WORLD_SIZE - 130, y: WORLD_CENTER, heading: Math.PI },
+    { team: TEAM_A, x: 130, y: WORLD_CENTER, heading: 0 },
+    { team: TEAM_B, x: WORLD_SIZE - 130, y: WORLD_CENTER, heading: Math.PI },
   ],
   /** Seconds before a sunk player returns at their carrier. */
   respawnSec: 5,

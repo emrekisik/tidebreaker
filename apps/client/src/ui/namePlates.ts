@@ -2,7 +2,8 @@ import { RANKS } from '@tidebreaker/shared';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
 
-export type PlateTeam = 'blue' | 'red' | 'pirate';
+/** Which team a ship is on (`teamKey`): a plate takes the colour of the team's country. */
+export type PlateTeam = 'a' | 'b' | 'pirate';
 
 interface Plate {
   el: HTMLElement;
@@ -29,7 +30,7 @@ export class NamePlates {
   add(id: number, name: string, team: PlateTeam, rank: number, own = false): void {
     this.remove(id);
     const el = document.createElement('div');
-    el.className = `nplate ${team}${own ? ' own' : ''}`;
+    el.className = `nplate ${team === 'pirate' ? team : `team-${team}`}${own ? ' own' : ''}`;
     el.style.display = 'none';
     const badge = document.createElement('span');
     badge.className = 'np-rank';

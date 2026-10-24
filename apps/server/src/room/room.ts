@@ -18,10 +18,11 @@ import {
   STAT_COUNT,
   STEP_MS,
   SnapshotBuilder,
-  TEAM_BLUE,
+  TEAM_A,
   TICK_RATE,
   Writer,
   beginScores,
+  pickCountries,
   configHash,
   decodeClient,
   dqAngle16,
@@ -29,7 +30,6 @@ import {
   encodeJoined,
   encodeKill,
   encodeMatch,
-  TEAM_NAME_COUNT,
   encodePong,
   encodeReject,
   encodeRigs,
@@ -177,9 +177,9 @@ export class Room {
   /** Fraction of the tick budget spent on the last ticks (exponential moving average). */
   tickBusyEma = 0;
   private ticksSinceMatch = 0;
-  /** The names (numbers, see `TEAM_NAME_COUNT`) of the blue and red team in this round, and the round they were drawn for. */
-  private teamNames: [number, number] = [0, 1];
-  private namedRound = -1;
+  /** The countries (see `COUNTRIES`) of team A and B in this round, and the round they were drawn for. */
+  private teamCountries: [number, number] = [0, 1];
+  private drawnRound = -1;
   private lastScoresTick = -TICK_RATE;
   /** Last oil rig state sent: gauge byte and owner for each rig. */
   private readonly lastRigs = new Int16Array(RIG.count * 2).fill(-999);
@@ -434,15 +434,15 @@ export class Room {
     else for (const c of this.clients) if (c.stage === Stage.Playing) this.send(c, bytes);
   }
 
-  /** Every new round the two teams get two different names at random (cosmetic: nothing in the simulation depends on it). */
-  private drawTeamNames(): void {
+  /**
+   * Every new round the two teams become two countries, picked at random among the pairs whose colours cannot be mistaken
+   * for each other (cosmetic: nothing in the simulation depends on it).
+   */
+  private drawCountries(): void {
     const w = this.world;
-    if (w.round === this.namedRound) return;
-    this.namedRound = w.round;
-    const a = Math.floor(Math.random() * TEAM_NAME_COUNT);
-    let b = Math.floor(Math.random() * (TEAM_NAME_COUNT - 1));
-    if (b >= a) b++;
-    this.teamNames = [a, b];
+    if (w.round === this.drawnRound) return;
+    this.drawnRound = w.round;
+    this.teamCountries = pickCountries(Math.random);
   }
 
   private broadcastMatch(): void {
@@ -450,7 +450,7 @@ export class Room {
     w.matchChanged = false;
     this.ticksSinceMatch = 0;
     this.small.reset();
-    this.drawTeamNames();
+    this.drawCountries();
     encodeMatch(
       this.small,
       w.matchState,
@@ -458,8 +458,8 @@ export class Room {
       Math.max(0, Math.min(255, Math.ceil(w.restartLeft))),
       w.teamKills[0]!,
       w.teamKills[1]!,
-      this.teamNames[0],
-      this.teamNames[1],
+      this.teamCountries[0],
+      this.teamCountries[1],
     );
     const bytes = this.small.toBytes();
     for (const c of this.clients) if (c.stage >= Stage.Welcomed) this.send(c, bytes);
@@ -763,7 +763,7 @@ export class Room {
     }
     const name = sanitizeName(c.msg.name);
     if (name === null) return this.reject(c, REJECT_REASON.BAD_NAME, false);
-    const team = w.playersOnTeam(TEAM_BLUE) <= w.playersOnTeam(1) ? TEAM_BLUE : 1;
+    const team = w.playersOnTeam(TEAM_A) <= w.playersOnTeam(1) ? TEAM_A : 1;
     if (w.playersOnTeam(team) >= MATCH.perTeam || !this.accepting()) {
       return this.reject(c, REJECT_REASON.ROOM_FULL, true);
     }

@@ -192,6 +192,14 @@ export const FX = {
   pickupContact: { shadow: 0.45, foam: 0.26, radius: 0.95 },
 
   /**
+   * The ship's silhouette seen through whatever hides it (an island, a cliff, a rig...): a flat shape of the hull in the
+   * team's colour, `fill` opaque, with fine diagonal hatching (`hatch` more opaque, one stripe every `hatchPx` pixels)
+   * and a thin outline `rimPx` pixels wide (`rim` opaque, mixed `rimLight` of the way toward white). The shape lies over
+   * the picture of the ship at `align` (0..1) of its height: its waterline would look too low, its top too high.
+   */
+  xray: { fill: 0.4, hatch: 0.12, hatchPx: 7, rim: 0.95, rimPx: 1.7, rimLight: 0.3, align: 0.3 },
+
+  /**
    * Scene lighting: one warm sun (direction points from the sea toward the sun) casting real
    * shadows, plus a sky/sea hemisphere light so the shaded sides are bluish instead of black.
    * The shadow map follows the camera: it covers `rangePerHeight` x the camera height around the

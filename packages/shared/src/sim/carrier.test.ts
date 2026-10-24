@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARRIER, MATCH, TEAM_BLUE, TEAM_RED } from '../config/match.ts';
+import { CARRIER, MATCH, TEAM_A, TEAM_B } from '../config/match.ts';
 import { SHIPS } from '../config/ships.ts';
 import { WEAPONS, weaponIndex } from '../config/weapons.ts';
 import { configHash } from '../config/hash.ts';
@@ -13,7 +13,7 @@ const gun = WEAPONS.carrier_gun;
 const small = SHIPS.coast_guard_boat;
 const rng = { next: () => 0.5 }; // no spread
 
-function carrier(team = TEAM_BLUE): Combatant {
+function carrier(team = TEAM_A): Combatant {
   const b = MATCH.carriers[team]!;
   return { id: 1, def: CARRIER, state: createShipState(CARRIER, b.x, b.y, b.heading), team };
 }
@@ -47,9 +47,9 @@ function sinkOf(): { shots: Shot[]; sink: { spawn: (...a: number[]) => void } } 
 describe('carrier turrets', () => {
   it('shoot the nearest enemy in range and ignore teammates', () => {
     const c = carrier();
-    const mate = boat(2, TEAM_BLUE, c.state.x + 20, c.state.y + 30);
-    const enemyFar = boat(3, TEAM_RED, c.state.x + 40, c.state.y + 10);
-    const enemyNear = boat(4, TEAM_RED, c.state.x + 15, c.state.y + 25);
+    const mate = boat(2, TEAM_A, c.state.x + 20, c.state.y + 30);
+    const enemyFar = boat(3, TEAM_B, c.state.x + 40, c.state.y + 10);
+    const enemyNear = boat(4, TEAM_B, c.state.x + 15, c.state.y + 25);
     const out = new Float32Array(1);
     expect(pickCarrierTarget(c, 0, [mate, enemyFar, enemyNear], out)).toBe(2);
     expect(pickCarrierTarget(c, 0, [mate], out)).toBe(-1);
@@ -58,15 +58,15 @@ describe('carrier turrets', () => {
   it('do not shoot beyond their range', () => {
     const c = carrier();
     const out = new Float32Array(1);
-    const far = boat(2, TEAM_RED, c.state.x + gun.range + 40, c.state.y);
+    const far = boat(2, TEAM_B, c.state.x + gun.range + 40, c.state.y);
     expect(pickCarrierTarget(c, 0, [far], out)).toBe(-1);
   });
 
   it('lead a moving target', () => {
     const c = carrier();
     // Enemy straight ahead crossing sideways at 10 u/s: the shot must aim ahead of it.
-    const mover = boat(2, TEAM_RED, c.state.x + 40, c.state.y, Math.PI / 2, 10);
-    const still = boat(3, TEAM_RED, c.state.x + 40, c.state.y);
+    const mover = boat(2, TEAM_B, c.state.x + 40, c.state.y, Math.PI / 2, 10);
+    const still = boat(3, TEAM_B, c.state.x + 40, c.state.y);
     const out = new Float32Array(1);
     pickCarrierTarget(c, 0, [mover], out);
     const ledAngle = out[0]!;
@@ -89,7 +89,7 @@ describe('carrier turrets', () => {
 
   it('fire at their own pace and tag the shot with the carrier as owner', () => {
     const c = carrier();
-    const enemy = boat(2, TEAM_RED, c.state.x + 30, c.state.y + 20);
+    const enemy = boat(2, TEAM_B, c.state.x + 30, c.state.y + 20);
     const { shots, sink } = sinkOf();
     for (let i = 0; i < 20; i++) updateCarrier(c, [enemy], 0.05, rng, sink);
     // 1 second: a machine gun (0.25 s reload) and a rocket launcher (1.5 s reload).
@@ -104,7 +104,7 @@ describe('carrier turrets', () => {
   it('hit harder and fire faster with the gun upgrade', () => {
     const run = (damageMul: number, reloadMul: number): { n: number; damage: number } => {
       const c = carrier();
-      const enemy = boat(2, TEAM_RED, c.state.x + 30, c.state.y + 20);
+      const enemy = boat(2, TEAM_B, c.state.x + 30, c.state.y + 20);
       const dmg: number[] = [];
       const sink = { spawn: (...a: number[]) => void dmg.push(a[6]!) };
       for (let i = 0; i < 100; i++) updateCarrier(c, [enemy], 0.05, rng, sink, damageMul, reloadMul);
@@ -120,10 +120,10 @@ describe('carrier turrets', () => {
     const c = carrier();
     const { shots, sink } = sinkOf();
     for (let i = 0; i < 20; i++)
-      updateCarrier(c, [boat(2, TEAM_BLUE, c.state.x + 20, c.state.y)], 0.05, rng, sink);
+      updateCarrier(c, [boat(2, TEAM_A, c.state.x + 20, c.state.y)], 0.05, rng, sink);
     expect(shots).toHaveLength(0);
     c.state.alive = false;
-    const enemy = boat(3, TEAM_RED, c.state.x + 30, c.state.y + 20);
+    const enemy = boat(3, TEAM_B, c.state.x + 30, c.state.y + 20);
     for (let i = 0; i < 20; i++) updateCarrier(c, [enemy], 0.05, rng, sink);
     expect(shots).toHaveLength(0);
   });
@@ -135,7 +135,7 @@ describe('carrier collisions', () => {
   it('never moves, and the ship that rams it takes the damage', () => {
     const c = carrier();
     const x0 = c.state.x;
-    const ram = boat(2, TEAM_RED, c.state.x + 40, c.state.y, Math.PI, 12);
+    const ram = boat(2, TEAM_B, c.state.x + 40, c.state.y, Math.PI, 12);
     // Drive into the carrier for a while.
     for (let i = 0; i < 40; i++) {
       ram.state.x += Math.cos(ram.state.heading) * ram.state.speed * 0.05;
@@ -148,8 +148,8 @@ describe('carrier collisions', () => {
   });
 
   it('teammates bump without damage', () => {
-    const a = boat(1, TEAM_BLUE, 100, 100, 0, 10);
-    const b = boat(2, TEAM_BLUE, 100.5, 100, Math.PI, 10);
+    const a = boat(1, TEAM_A, 100, 100, 0, 10);
+    const b = boat(2, TEAM_A, 100.5, 100, Math.PI, 10);
     resolveCollisions([a, b], quiet);
     expect(a.state.hull).toBe(small.hull);
     expect(b.state.hull).toBe(small.hull);

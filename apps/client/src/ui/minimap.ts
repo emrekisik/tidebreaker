@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { CHANNEL, RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
+import { CHANNEL, RIG, RIGS, RIG_NO_OWNER, TEAM_A, TEAM_B, TEAM_PIRATE, WORLD_SIZE } from '@tidebreaker/shared';
+import { onTeamCountries, teamCss, teamRgb } from './teams.ts';
 import type { Combatant, RigState, WorldMap } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 
@@ -11,12 +12,8 @@ export const RADAR_RANGE = 280;
 /** Grid line spacing (world units). */
 const GRID = 100;
 
-/** Radar colors: ships are crosses, pirates yellow skulls, carriers painted solid blue or red. */
-const BLUE = '#4fe3ff';
-const RED = '#ff5fa8';
-const SKULL = '#ffd84d';
-const CARRIER_BLUE = '#3f95ff';
-const CARRIER_RED = '#ff4560';
+/** Radar colors: ships are crosses and carriers solid icons in their team's colour, pirates bone-white skulls. */
+const SKULL = '#e6e0cf';
 
 /** What the minimap needs to know about a ship. */
 export interface MapShip {
@@ -64,10 +61,12 @@ export class Minimap {
     container.appendChild(radar);
     this.ctx = this.canvas.getContext('2d')!;
     const img = new Image();
-    img.onload = (): void => {
-      this.carrierIcons[0] = paint(img, CARRIER_BLUE);
-      this.carrierIcons[1] = paint(img, CARRIER_RED);
-    };
+    // (The carriers' icons are painted again when the teams become other countries.)
+    img.onload = (): void =>
+      onTeamCountries(() => {
+        this.carrierIcons[0] = paint(img, teamCss(TEAM_A));
+        this.carrierIcons[1] = paint(img, teamCss(TEAM_B));
+      });
     img.src = `${import.meta.env.BASE_URL}icons/ships/side/white/aircraft_carrier.png`;
     this.resize();
   }
@@ -213,9 +212,7 @@ export class Minimap {
       g.fillStyle =
         owner === RIG_NO_OWNER
           ? 'rgba(255,255,255,0.1)'
-          : owner === TEAM_BLUE
-            ? 'rgba(79,227,255,0.3)'
-            : 'rgba(255,95,168,0.3)';
+          : `rgba(${teamRgb(owner)},0.3)`;
       g.beginPath();
       g.arc(x, y, rr, 0, Math.PI * 2);
       g.fill();
@@ -223,7 +220,7 @@ export class Minimap {
       g.strokeStyle = 'rgba(255,255,255,0.4)';
       g.stroke();
       if (st && Math.abs(st.meter) > 0.005) {
-        g.strokeStyle = st.meter > 0 ? BLUE : RED;
+        g.strokeStyle = teamCss(st.meter > 0 ? TEAM_A : TEAM_B);
         g.beginPath();
         g.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + Math.abs(st.meter) * Math.PI * 2);
         g.stroke();
@@ -236,7 +233,7 @@ export class Minimap {
       g.arc(x, y, 6.2 * u, 0, Math.PI * 2);
       g.fill();
       g.stroke();
-      g.fillStyle = owner === RIG_NO_OWNER ? '#fff' : owner === TEAM_BLUE ? BLUE : RED;
+      g.fillStyle = owner === RIG_NO_OWNER ? '#fff' : teamCss(owner);
       g.font = `700 ${Math.round(8.4 * u)}px 'Oxanium', system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
@@ -261,7 +258,7 @@ export class Minimap {
         skull(g, x, y, 5 * u);
         continue;
       }
-      g.strokeStyle = o.team === TEAM_BLUE ? BLUE : RED;
+      g.strokeStyle = teamCss(o.team);
       g.lineWidth = 2 * u;
       g.beginPath();
       g.moveTo(x - arm, y - arm);
@@ -304,7 +301,7 @@ export class Minimap {
     px: number,
     u: number,
   ): void {
-    const icon = this.carrierIcons[o.team === TEAM_BLUE ? 0 : 1];
+    const icon = this.carrierIcons[o.team === TEAM_A ? 0 : 1];
     if (!icon) return;
     const inside = x > edge && y > edge && x < px - edge && y < px - edge;
     let ix = x;

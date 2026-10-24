@@ -26,10 +26,10 @@ export interface Heard {
     state: number;
     winner: number;
     restartSec: number;
-    killsBlue: number;
-    killsRed: number;
-    nameBlue: number;
-    nameRed: number;
+    killsA: number;
+    killsB: number;
+    countryA: number;
+    countryB: number;
   }[];
   youDied: { killerId: number; killerName: string; respawnSec: number }[];
   kills: {
@@ -114,8 +114,8 @@ export class TestClient {
     const handler: ServerHandler = {
       welcome: (m) => h.welcome.push({ ...m }),
       joined: (entityId, team, shipId) => h.joined.push({ entityId, team, shipId }),
-      match: (state, winner, restartSec, killsBlue, killsRed, nameBlue, nameRed) =>
-        h.match.push({ state, winner, restartSec, killsBlue, killsRed, nameBlue, nameRed }),
+      match: (state, winner, restartSec, killsA, killsB, countryA, countryB) =>
+        h.match.push({ state, winner, restartSec, killsA, killsB, countryA, countryB }),
       youDied: (killerId, killerName, respawnSec) =>
         h.youDied.push({ killerId, killerName, respawnSec }),
       kill: (killerId, victimId, killerTeam, victimTeam, weapon, killerName, victimName) =>

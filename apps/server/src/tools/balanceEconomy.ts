@@ -2,8 +2,8 @@ import {
   ECONOMY,
   KIND,
   STAT_COUNT,
-  TEAM_BLUE,
-  TEAM_RED,
+  TEAM_A,
+  TEAM_B,
   angleDiff,
   segmentVsWorld,
   statCap,
@@ -23,7 +23,7 @@ export function simulateEconomy(players: number, minutes: number): void {
   const world = new World(1337);
   const slots: number[] = [];
   for (let i = 0; i < players; i++)
-    slots.push(world.addPlayer(i % 2 === 0 ? TEAM_BLUE : TEAM_RED, 0));
+    slots.push(world.addPlayer(i % 2 === 0 ? TEAM_A : TEAM_B, 0));
   const reached = slots.map(() => [0, 0, 0, 0, 0].map(() => -1));
   const ticks = Math.floor(minutes * 60 * 20);
   const next = slots.map(() => 0);

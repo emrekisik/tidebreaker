@@ -29,10 +29,11 @@ import {
   STAT,
   STAT_COUNT,
   STEP_SEC,
-  TEAM_BLUE,
+  TEAM_A,
   TEAM_PIRATE,
-  TEAM_NAME_COUNT,
-  TEAM_RED,
+  COUNTRY_COUNT,
+  COUNTRY_PAIRS,
+  TEAM_B,
   TICK_RATE,
   ECONOMY,
   ISLAND_COLLISION,
@@ -175,9 +176,9 @@ describe('handshake', () => {
     const a = await join('A');
     const b = await join('B');
     const c = await join('C');
-    expect(a.heard.joined[0]!.team).toBe(TEAM_BLUE);
-    expect(b.heard.joined[0]!.team).toBe(TEAM_RED);
-    expect(c.heard.joined[0]!.team).toBe(TEAM_BLUE);
+    expect(a.heard.joined[0]!.team).toBe(TEAM_A);
+    expect(b.heard.joined[0]!.team).toBe(TEAM_B);
+    expect(c.heard.joined[0]!.team).toBe(TEAM_A);
   });
 
   it('answers PING with PONG', async () => {
@@ -386,10 +387,10 @@ describe('match flow', () => {
       await tick(1);
     }
     expect(room.world.matchState).toBe(MATCH_STATE.ENDED);
-    expect(room.world.winner).toBe(TEAM_BLUE);
+    expect(room.world.winner).toBe(TEAM_A);
     const ended = red.heard.match.filter((m) => m.state === MATCH_STATE.ENDED);
     expect(ended.length).toBeGreaterThan(0);
-    expect(ended[0]!.winner).toBe(TEAM_BLUE);
+    expect(ended[0]!.winner).toBe(TEAM_A);
 
     // Intermission, then everything is back.
     const joinedBefore = red.heard.joined.length;
@@ -401,27 +402,29 @@ describe('match flow', () => {
     expect(red.heard.match[red.heard.match.length - 1]!.state).toBe(MATCH_STATE.PLAYING);
   });
 
-  it('gives the two teams two different generic names, drawn again for every round', async () => {
+  it('makes the two teams two countries that may meet, drawn again for every round', async () => {
     const { room, join, tick } = setup();
     const a = await join('A');
     await tick(2);
+    const allowed = (m: { countryA: number; countryB: number }): boolean =>
+      COUNTRY_PAIRS.some(([x, y]) => (x === m.countryA && y === m.countryB) || (x === m.countryB && y === m.countryA));
     const first = a.heard.match[a.heard.match.length - 1]!;
-    expect(first.nameBlue).toBeGreaterThanOrEqual(0);
-    expect(first.nameBlue).toBeLessThan(TEAM_NAME_COUNT);
-    expect(first.nameRed).toBeLessThan(TEAM_NAME_COUNT);
-    expect(first.nameBlue).not.toBe(first.nameRed);
-    // The names stay the same all through a round...
+    expect(first.countryA).toBeGreaterThanOrEqual(0);
+    expect(first.countryA).toBeLessThan(COUNTRY_COUNT);
+    expect(first.countryB).toBeLessThan(COUNTRY_COUNT);
+    expect(allowed(first)).toBe(true);
+    // The countries stay the same all through a round...
     await tick(TICK_RATE * 3);
     const later = a.heard.match[a.heard.match.length - 1]!;
-    expect([later.nameBlue, later.nameRed]).toEqual([first.nameBlue, first.nameRed]);
+    expect([later.countryA, later.countryB]).toEqual([first.countryA, first.countryB]);
     // ...and a new round (the world starting one) draws a new pair.
     let changed = false;
     for (let i = 0; i < 40 && !changed; i++) {
       room.world.startRound();
       await tick(2);
       const m = a.heard.match[a.heard.match.length - 1]!;
-      expect(m.nameBlue).not.toBe(m.nameRed);
-      changed = m.nameBlue !== first.nameBlue || m.nameRed !== first.nameRed;
+      expect(allowed(m)).toBe(true);
+      changed = m.countryA !== first.countryA || m.countryB !== first.countryB;
     }
     expect(changed).toBe(true);
   });
@@ -596,8 +599,8 @@ describe('kill feed and scoreboard', () => {
       expect(c.heard.kills[0]).toMatchObject({
         killerId: aId,
         victimId: bId,
-        killerTeam: TEAM_BLUE,
-        victimTeam: TEAM_RED,
+        killerTeam: TEAM_A,
+        victimTeam: TEAM_B,
         killerName: 'Shooter',
         victimName: 'Target',
       });
@@ -606,7 +609,7 @@ describe('kill feed and scoreboard', () => {
     await tick(TICK_RATE + 2);
     const rows = a.heard.scores[a.heard.scores.length - 1]!;
     expect(rows.find((r) => r.id === aId)).toMatchObject({ kills: 1, deaths: 0, name: 'Shooter' });
-    expect(rows.find((r) => r.id === bId)).toMatchObject({ kills: 0, deaths: 1, team: TEAM_RED });
+    expect(rows.find((r) => r.id === bId)).toMatchObject({ kills: 0, deaths: 1, team: TEAM_B });
     expect(a.heard.bad).toBe(0);
   });
 
@@ -1377,7 +1380,7 @@ describe('oil rigs', () => {
       await tick(1);
     }
     expect(w.rigMeter[1]).toBe(1);
-    expect(w.rigOwner[1]).toBe(TEAM_BLUE);
+    expect(w.rigOwner[1]).toBe(TEAM_A);
     // Taking it scored for the player standing there, and only for them.
     expect(w.score[blueSlot]).toBe(RIG.captureScore);
     expect(w.score[blue2Slot]).toBe(0);
@@ -1394,7 +1397,7 @@ describe('oil rigs', () => {
     // Everybody hears the gauge.
     const last = blue2.heard.rigs[blue2.heard.rigs.length - 1]!;
     expect(last).toHaveLength(RIG.count);
-    expect(last[1]).toEqual({ meter: 1, owner: TEAM_BLUE });
+    expect(last[1]).toEqual({ meter: 1, owner: TEAM_A });
   });
 
   it('equal power is a standoff; more power wins, and the owner keeps it until the gauge is neutral', async () => {
@@ -1416,7 +1419,7 @@ describe('oil rigs', () => {
       place(room, red, 300, 300, 0);
       await tick(1);
     }
-    expect(w.rigOwner[1]).toBe(TEAM_BLUE);
+    expect(w.rigOwner[1]).toBe(TEAM_A);
     // Red turns up with a stronger ship: the gauge goes back, the rig is lost at neutral, and with
     // enough time it turns red.
     const redSlot = red.heard.joined[0]!.entityId - 1;
@@ -1429,7 +1432,7 @@ describe('oil rigs', () => {
       if (lostAt < 0 && w.rigOwner[1] === RIG_NO_OWNER) lostAt = i;
     }
     expect(lostAt).toBeGreaterThan(0);
-    expect(w.rigOwner[1]).toBe(TEAM_RED);
+    expect(w.rigOwner[1]).toBe(TEAM_B);
     expect(w.rigMeter[1]).toBe(-1);
   });
 
@@ -1825,7 +1828,7 @@ describe('drones', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     expect(w.nearOwnCarrier(slot)).toBe(true);
     // Too poor.
@@ -1840,7 +1843,7 @@ describe('drones', () => {
     expect(w.drones.countOf[slot]).toBe(1);
     expect(w.cash[slot]).toBe(DRONE_TYPES[1]!.price + 5);
     expect(a.heard.stats[a.heard.stats.length - 1]!.drones).toBe(1);
-    expect(b.heard.enters.some((e) => e.kind === KIND.DRONE && e.team === TEAM_BLUE)).toBe(true);
+    expect(b.heard.enters.some((e) => e.kind === KIND.DRONE && e.team === TEAM_A)).toBe(true);
     // A second, then no more.
     buy(a, 1);
     await tick(2);
@@ -1863,7 +1866,7 @@ describe('drones', () => {
     expect(w.nearOwnCarrier(slot)).toBe(false);
     buy(a, 0);
     await tick(2);
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     buy(a, 7);
     await tick(2);
@@ -1879,7 +1882,7 @@ describe('drones', () => {
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
     const enemy = b.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 0);
@@ -1909,7 +1912,7 @@ describe('drones', () => {
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
     const hunter = b.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 0);
@@ -1944,7 +1947,7 @@ describe('drones', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 1); // the combat drone
@@ -1974,7 +1977,7 @@ describe('drones', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 0);
@@ -1990,7 +1993,7 @@ describe('drones', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 0);
@@ -2013,7 +2016,7 @@ describe('drones', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 500;
     buy(a, 0);
@@ -2043,7 +2046,7 @@ describe('base shop', () => {
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
     const carrier = w.slots[0]!;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 1000;
     // Undamaged: nothing to mend, no money taken.
@@ -2072,13 +2075,13 @@ describe('base shop', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 100000;
     buyBase(a, BASE_ITEM.GUNS);
     await tick(2);
-    expect(w.baseGuns[TEAM_BLUE]).toBe(1);
-    expect(w.baseGuns[TEAM_RED]).toBe(0);
+    expect(w.baseGuns[TEAM_A]).toBe(1);
+    expect(w.baseGuns[TEAM_B]).toBe(0);
     expect(w.cash[slot]).toBe(100000 - gunsCost(0));
     expect(a.heard.stats[a.heard.stats.length - 1]!.baseGuns).toBe(1);
     expect(c.heard.stats[c.heard.stats.length - 1]!.baseGuns).toBe(1);
@@ -2089,10 +2092,10 @@ describe('base shop', () => {
       buyBase(a, BASE_ITEM.GUNS);
       await tick(1);
     }
-    expect(w.baseGuns[TEAM_BLUE]).toBe(BASE.guns.maxLevel);
+    expect(w.baseGuns[TEAM_A]).toBe(BASE.guns.maxLevel);
     // A new round starts the level over.
     w.startRound();
-    expect(w.baseGuns[TEAM_BLUE]).toBe(0);
+    expect(w.baseGuns[TEAM_A]).toBe(0);
   });
 });
 
@@ -2124,7 +2127,7 @@ describe('guided missiles', () => {
     void red;
     await tick(2);
     const w = room.world;
-    const spot = byCarrier(TEAM_BLUE);
+    const spot = byCarrier(TEAM_A);
     for (const c of [t1, t2]) {
       place(room, c, spot.x, spot.y, 0);
       w.cash[slotOf(c)] = 5000;
@@ -2142,7 +2145,7 @@ describe('guided missiles', () => {
     await tick(2);
     expect(w.missiles[slotOf(t3)]).toBe(0);
     // At its carrier it buys one, and a second, and no third.
-    const red0 = byCarrier(TEAM_RED);
+    const red0 = byCarrier(TEAM_B);
     place(room, t3, red0.x, red0.y, 0);
     for (let i = 0; i < MISSILE.maxStock + 1; i++) buyBase(t3, BASE_ITEM.MISSILE);
     await tick(2);
@@ -2280,20 +2283,20 @@ describe('guided missiles can be shot down', () => {
     place(room, a, 300, 300, 0);
     place(room, b, 900, 900, 0);
     const set = w.projectiles;
-    const missile = set.spawn(1000, 1000, 0, 0.1, 100, 0.45, 80, aId, weaponIndex('missile'), TEAM_BLUE);
+    const missile = set.spawn(1000, 1000, 0, 0.1, 100, 0.45, 80, aId, weaponIndex('missile'), TEAM_A);
     set.hp[missile] = MISSILE.hp;
     // A shot of the missile's own team flies through.
-    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, aId, weaponIndex('cannon_t3'), TEAM_BLUE);
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, aId, weaponIndex('cannon_t3'), TEAM_A);
     await tick(2);
     expect(set.hp[missile]).toBe(MISSILE.hp);
     // An enemy shot is stopped by it and takes its damage off.
-    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_B);
     await tick(2);
     expect(set.hp[missile]).toBeCloseTo(MISSILE.hp - 20, 3);
     expect(a.heard.ends.some((e) => e.reason === END_REASON.INTERCEPT)).toBe(true);
     // Another one destroys it.
     const cash = w.cash[bId - 1]!;
-    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    set.spawn(1004, 1000, Math.PI, 40, 50, 0.3, 20, bId, weaponIndex('cannon_t3'), TEAM_B);
     await tick(2);
     expect(set.active[missile]).toBe(0);
     // The one who shot it down is paid.
@@ -2310,7 +2313,7 @@ describe('announcements', () => {
     await tick(2);
     const w = room.world;
     const slot = a.heard.joined[0]!.entityId - 1;
-    const spot = { x: MATCH.carriers[TEAM_BLUE]!.x, y: MATCH.carriers[TEAM_BLUE]!.y + 40 };
+    const spot = { x: MATCH.carriers[TEAM_A]!.x, y: MATCH.carriers[TEAM_A]!.y + 40 };
     place(room, a, spot.x, spot.y, 0);
     w.cash[slot] = 5000;
     w.slots[0]!.state.hull = w.slots[0]!.def.hull * 0.5;
@@ -2325,7 +2328,7 @@ describe('announcements', () => {
     const got = b.heard.announces;
     const repair = got.find((n) => n.kind === ANNOUNCE.CARRIER_REPAIRED)!;
     expect(repair.actor).toBe(slot + 1);
-    expect(repair.team).toBe(TEAM_BLUE);
+    expect(repair.team).toBe(TEAM_A);
     expect(repair.arg).toBeGreaterThan(50);
     const guns = got.find((n) => n.kind === ANNOUNCE.GUNS_UPGRADED)!;
     expect(guns.arg).toBe(1);
@@ -2333,11 +2336,11 @@ describe('announcements', () => {
     // A rig taken, then lost again.
     w.rigMeter[0] = 1;
     await tick(2);
-    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_BLUE)).toBe(true);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_A)).toBe(true);
     w.rigMeter[0] = -1;
     await tick(2);
-    expect(got.some((n) => n.kind === ANNOUNCE.RIG_LOST && n.arg === 0 && n.team === TEAM_BLUE)).toBe(true);
-    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_RED)).toBe(true);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_LOST && n.arg === 0 && n.team === TEAM_A)).toBe(true);
+    expect(got.some((n) => n.kind === ANNOUNCE.RIG_CAPTURED && n.arg === 0 && n.team === TEAM_B)).toBe(true);
   });
 });
 
@@ -2428,7 +2431,7 @@ describe('splash weapons', () => {
     const hullD = rim.state.hull + rim.state.shield;
     // A rocket of the cruiser's team flies at the target.
     const W = WEAPONS.cruiser_rocket;
-    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_BLUE);
+    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_A);
     await tick(15);
     const took = (slot: { state: { hull: number; shield: number } }): number => slot.state.hull + slot.state.shield;
     expect(hullB - took(near)).toBeGreaterThan(W.damage - 1); // the full hit (and no more)
@@ -2455,7 +2458,7 @@ describe('splash weapons', () => {
     const bD = before(d);
     const bC = before(c);
     const W = WEAPONS.cruiser_rocket;
-    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_BLUE);
+    w.projectiles.spawn(400, 960, Math.PI / 2, 60, 150, W.radius, W.damage, aId, weaponIndex('cruiser_rocket'), TEAM_A);
     await tick(15);
     const lost = bD - (w.slots[slotOf(d)]!.state.hull + w.slots[slotOf(d)]!.state.shield);
     expect(lost).toBeGreaterThan(W.damage * W.splash.damageFactor * W.splash.edgeFactor - 1);
@@ -2485,7 +2488,7 @@ describe('sea mines', () => {
     const big = await join('Big', 'corvette'); // blue
     await tick(2);
     const w = room.world;
-    const spot = { x: MATCH.carriers[TEAM_BLUE]!.x, y: MATCH.carriers[TEAM_BLUE]!.y + 40 };
+    const spot = { x: MATCH.carriers[TEAM_A]!.x, y: MATCH.carriers[TEAM_A]!.y + 40 };
     place(room, small, spot.x, spot.y, 0);
     place(room, big, spot.x + 5, spot.y, 0);
     w.cash[slotOf(small)] = 5000;
@@ -2523,14 +2526,14 @@ describe('sea mines', () => {
     lay(a);
     await tick(2);
     expect(w.mines.countOfOwner(slot)).toBe(1);
-    expect(mineBlocked(RIGS[0]!.x, RIGS[0]!.y, TEAM_BLUE)).not.toBe(0);
-    const enemy = MATCH.carriers[TEAM_RED]!;
-    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_BLUE)).not.toBe(0);
-    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_RED)).toBe(0);
+    expect(mineBlocked(RIGS[0]!.x, RIGS[0]!.y, TEAM_A)).not.toBe(0);
+    const enemy = MATCH.carriers[TEAM_B]!;
+    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_A)).not.toBe(0);
+    expect(mineBlocked(enemy.x, enemy.y + 30, TEAM_B)).toBe(0);
     // The enemy is told about the mine (a snapshot entry of kind MINE), with its team.
     await tick(3);
     const seen = b.heard.enters.find((e) => e.kind === KIND.MINE);
-    expect(seen?.team).toBe(TEAM_BLUE);
+    expect(seen?.team).toBe(TEAM_A);
     // At the player's own limit the oldest mine makes way for the new one.
     w.mineStock[slot] = 10;
     for (let i = 0; i < MINE.perPlayer + 1; i++) {
@@ -2586,10 +2589,10 @@ describe('sea mines', () => {
     await tick(2);
     const set = w.projectiles;
     const bId = b.heard.joined[0]!.entityId;
-    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_B);
     await tick(10);
     expect(w.mines.countOfOwner(slot)).toBe(1); // 10 of its 15 hit points gone
-    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_RED);
+    set.spawn(300, 712, -Math.PI / 2, 40, 50, 0.3, 10, bId, weaponIndex('cannon_t3'), TEAM_B);
     await tick(10);
     expect(w.mines.countOfOwner(slot)).toBe(0);
   });
@@ -2612,7 +2615,7 @@ describe('sea mines', () => {
     expect(w.mines.countOfOwner(slot)).toBe(1);
     // A new round clears them.
     w.startRound();
-    expect(w.mines.countOfTeam(TEAM_BLUE)).toBe(0);
+    expect(w.mines.countOfTeam(TEAM_A)).toBe(0);
   });
 });
 

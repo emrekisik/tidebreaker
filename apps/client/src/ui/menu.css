@@ -1,6 +1,8 @@
 /*
- * The start screen and the how-to-play tour. Flat panels with cut corners, a big logo, the sea of the game behind it
- * (a slow camera drifts over the map). Sizes are for a 1600 x 900 window and scale with --ui-scale like the HUD.
+ * The start screen and the how-to-play tour, in the language of the HUD: flat dark steel plates with a hairline edge and
+ * a thin top rule, small capital labels, one muted amber, a light steel button. No gradients, no glow, no shine. The sea
+ * of the game is behind it (a slow camera follows a sea battle). Sizes are for a 1600 x 900 window and scale with
+ * --ui-scale like the HUD.
  */
 
 /* ---------- start screen ---------- */
@@ -49,7 +51,7 @@
   color: rgba(255, 255, 255, 0.55);
 }
 .mn-brand span {
-  color: #6dd4ff;
+  color: #8db6dc;
   letter-spacing: 0.1em;
 }
 .mn-top-right {
@@ -76,53 +78,45 @@
   gap: 18px;
 }
 
-/* the logo */
+/* the logo: flat, upright, two tones of steel */
 .mn-logo {
   margin: 0;
-  font-size: 96px;
+  font-size: 92px;
   line-height: 0.95;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   white-space: nowrap;
-  transform: skewX(-7deg);
-  transform-origin: left bottom;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
 }
 .mn-logo-a {
-  color: #fff;
+  color: #eef3f8;
 }
 .mn-logo-b {
-  background: linear-gradient(100deg, #3aa8ff 0%, #8ff0ff 30%, #ffffff 48%, #8ff0ff 66%, #3aa8ff 100%);
-  background-size: 250% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #8db6dc;
 }
-#menu:not(.hidden) .mn-logo-b {
-  animation: mn-shine 5s linear infinite;
-}
-@keyframes mn-shine {
-  from {
-    background-position: 160% 0;
-  }
-  to {
-    background-position: -90% 0;
-  }
-}
-.mn-goal:dir(rtl) {
-  padding-left: 0;
-  padding-right: 14px;
-  border-left: 0;
-  border-right: 3px solid #ffe14d;
+/* a hairline under the logo, like the edge of a plate */
+.mn-logo::after {
+  content: '';
+  display: block;
+  width: 100%;
+  margin: 14px 0 12px;
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
+  border-bottom: 1px solid rgba(165, 190, 210, 0.22);
+  height: 3px;
 }
 .mn-goal {
   margin: 0 0 22px;
-  padding-left: 14px;
-  border-left: 3px solid #ffe14d;
-  font-size: 21px;
+  padding-left: 12px;
+  border-left: 2px solid #d9b25f;
+  font-size: 19px;
   font-weight: 600;
-  color: #d6eaf8;
+  color: #dfe8ef;
+}
+.mn-goal:dir(rtl) {
+  padding-left: 0;
+  padding-right: 12px;
+  border-left: 0;
+  border-right: 2px solid #d9b25f;
 }
 
 /* the form */
@@ -135,11 +129,11 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #8fb4d2;
+  color: #8aa0b4;
 }
 .mn-field.gone {
   display: none;
@@ -147,99 +141,62 @@
 #menu-card input,
 #menu-card select {
   font: inherit;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: none;
   padding: 10px 14px;
-  color: #fff;
-  background: rgba(4, 16, 28, 0.82);
-  border: 1px solid rgba(130, 180, 225, 0.28);
-  border-left: 4px solid #3aa8ff;
+  color: #eef3f8;
+  background: rgba(11, 21, 31, 0.82);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
   outline: none;
-  transition:
-    border-color 0.2s,
-    background 0.2s;
+  transition: border-color 0.15s;
 }
 #menu-card input:focus,
 #menu-card select:focus {
-  border-color: #ffe14d;
-  background: rgba(8, 26, 44, 0.9);
+  border-color: rgba(220, 232, 242, 0.8);
 }
 #menu-play {
-  position: relative;
-  overflow: hidden;
   margin-top: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  height: 66px;
+  gap: 14px;
+  height: 58px;
   font: inherit;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: #fff;
+  color: #0d141a;
   cursor: pointer;
-  border: none;
-  background: linear-gradient(95deg, #1768d6 0%, #2e9bff 55%, #3fd0ff 100%);
-  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
-  transition:
-    filter 0.15s,
-    transform 0.15s;
-}
-#menu-play::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -40%;
-  width: 28%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
-  transform: skewX(-20deg);
-}
-#menu:not(.hidden) #menu-play::after {
-  animation: mn-sheen 3.4s ease-in-out infinite;
-}
-@keyframes mn-sheen {
-  0%,
-  55% {
-    left: -40%;
-  }
-  100% {
-    left: 130%;
-  }
+  background: #d5dfe8;
+  border: 1px solid #d5dfe8;
+  transition: background 0.15s;
 }
 .mn-play-ico {
   width: 0;
   height: 0;
-  border-left: 16px solid #fff;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  transition: transform 0.15s;
+  border-left: 13px solid #0d141a;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
 }
 #menu-play:hover:not(:disabled) {
-  filter: brightness(1.18);
-  transform: translateY(-1px);
-}
-#menu-play:hover:not(:disabled) .mn-play-ico {
-  transform: translateX(5px);
-}
-#menu-play:active:not(:disabled) {
-  transform: translateY(1px);
+  background: #fff;
+  border-color: #fff;
 }
 #menu-play:disabled {
-  filter: grayscale(0.6) brightness(0.75);
+  opacity: 0.5;
   cursor: default;
 }
 #menu-note {
   min-height: 20px;
   font-size: 14px;
-  color: #9fd0ff;
+  color: #aab9c6;
 }
 #menu-note.error {
-  color: #ff8f8f;
+  color: #e08a8a;
 }
 .mn-links {
   display: flex;
@@ -248,36 +205,35 @@
 }
 #menu-howto {
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 9px 18px;
-  color: #ffe14d;
+  padding: 8px 16px;
+  color: #dce6ee;
   cursor: pointer;
-  background: rgba(255, 225, 77, 0.08);
-  border: 1px solid rgba(255, 225, 77, 0.55);
-  transition: background 0.15s;
+  background: rgba(165, 190, 210, 0.1);
+  border: 1px solid rgba(165, 190, 210, 0.4);
 }
 #menu-howto:hover {
-  background: rgba(255, 225, 77, 0.2);
+  background: rgba(165, 190, 210, 0.22);
 }
 #menu-offline {
-  font-size: 14px;
-  color: #8fc4f0;
+  font-size: 13px;
+  color: #8aa0b4;
   text-decoration: none;
-  border-bottom: 1px dashed rgba(143, 196, 240, 0.5);
+  border-bottom: 1px solid rgba(138, 160, 180, 0.45);
 }
 #menu-offline:hover {
-  color: #fff;
+  color: #eef3f8;
 }
 
-/* the cards on the right */
+/* the cards on the right: plates like the HUD's */
 .mn-card {
-  padding: 16px 20px 18px;
-  background: rgba(7, 22, 38, 0.76);
-  border: 1px solid rgba(130, 180, 225, 0.2);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
+  padding: 14px 18px 16px;
+  background: rgba(11, 21, 31, 0.8);
+  border: 1px solid rgba(165, 190, 210, 0.26);
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
 }
 #menu:not(.hidden) .mn-card {
   animation: mn-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -286,18 +242,18 @@
   animation-delay: 0.15s;
 }
 .mn-card-title {
-  margin-bottom: 12px;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.22em;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #8fb4d2;
+  color: #8aa0b4;
 }
 .mn-card-text {
-  margin-top: 12px;
-  font-size: 14px;
+  margin-top: 10px;
+  font-size: 13.5px;
   line-height: 1.4;
-  color: #b9d0e4;
+  color: #b7c6d3;
 }
 .mn-duel {
   display: flex;
@@ -310,36 +266,15 @@
   height: auto;
   margin: -14px -50px;
 }
-/* The red carrier is the blue one turned round, so the bows face each other (`scale` leaves `transform` to the bobbing). */
-.mn-carrier.red {
+/* Team B's carrier is team A's turned round, so the bows face each other. */
+.mn-carrier.team-b {
   scale: -1 1;
 }
-#menu:not(.hidden) .mn-carrier.blue {
-  animation: mn-bob 4.6s ease-in-out infinite;
-}
-#menu:not(.hidden) .mn-carrier.red {
-  animation: mn-bob 4.6s ease-in-out -2.3s infinite;
-}
-@keyframes mn-bob {
-  50% {
-    transform: translateY(-4px) rotate(0.6deg);
-  }
-}
 .mn-vs {
-  font-size: 26px;
-  font-weight: 800;
-  font-style: italic;
-  letter-spacing: 0.06em;
-  color: #ffe14d;
-}
-#menu:not(.hidden) .mn-vs {
-  animation: mn-pulse 1.6s ease-in-out infinite;
-}
-@keyframes mn-pulse {
-  50% {
-    transform: scale(1.18);
-    opacity: 0.8;
-  }
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #dfe8ef;
 }
 .mn-steps {
   display: flex;
@@ -359,22 +294,22 @@
   position: absolute;
   left: -4px;
   top: 14px;
-  border-left: 5px solid rgba(143, 180, 210, 0.55);
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
+  border-left: 4px solid rgba(138, 160, 180, 0.6);
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
 }
 .mn-step img {
   width: 76px;
   height: auto;
   margin: 0 -10px;
-  opacity: 0.62;
-  filter: saturate(0.7);
+  opacity: 0.6;
 }
 .mn-step b {
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  color: #8fb4d2;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #8aa0b4;
 }
+/* The ships light up one after the other, from the smallest to the biggest. */
 #menu:not(.hidden) .mn-step img {
   animation: mn-rise 6s ease-in-out infinite;
 }
@@ -400,26 +335,20 @@
 @keyframes mn-rise {
   0%,
   100% {
-    opacity: 0.62;
-    transform: none;
-    filter: saturate(0.7);
+    opacity: 0.6;
   }
   10%,
   24% {
     opacity: 1;
-    transform: translateY(-4px) scale(1.14);
-    filter: saturate(1.1) brightness(1.12);
   }
   36% {
-    opacity: 0.62;
-    transform: none;
-    filter: saturate(0.7);
+    opacity: 0.6;
   }
 }
 @keyframes mn-rise-b {
   10%,
   24% {
-    color: #fff;
+    color: #eef3f8;
   }
 }
 @keyframes mn-in {
@@ -475,9 +404,9 @@
   font-size: 13px;
   font-weight: 800;
   text-align: center;
-  color: #e6f1fa;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #dfe8ef;
+  background: rgba(165, 190, 210, 0.1);
+  border: 1px solid rgba(165, 190, 210, 0.35);
   border-bottom-width: 3px;
 }
 .mn-key kbd.wide {
@@ -488,10 +417,9 @@
   font-size: 13px;
   font-style: normal;
   letter-spacing: 0.04em;
-  color: #9fb4c8;
+  color: #8aa0b4;
 }
 
-/* language buttons */
 /* the language button and its list */
 #menu-lang {
   position: relative;
@@ -507,13 +435,13 @@
   letter-spacing: 0.06em;
   color: #cfdae6;
   cursor: pointer;
-  background: rgba(10, 26, 42, 0.8);
-  border: 1px solid var(--line);
+  background: rgba(11, 21, 31, 0.8);
+  border: 1px solid rgba(165, 190, 210, 0.3);
 }
 .lp-button:hover,
 .lp-button[aria-expanded='true'] {
   color: #fff;
-  border-color: #6dd4ff;
+  border-color: rgba(220, 232, 242, 0.75);
 }
 .lp-globe {
   display: block;
@@ -542,14 +470,15 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
-  background: rgba(7, 22, 38, 0.95);
-  border: 1px solid rgba(130, 180, 225, 0.3);
+  background: rgba(11, 21, 31, 0.96);
+  border: 1px solid rgba(165, 190, 210, 0.3);
+  border-top: 2px solid rgba(165, 190, 210, 0.5);
 }
 .lp-list li {
   padding: 7px 10px;
   font-size: 13px;
   font-weight: 700;
-  color: #b9d0e4;
+  color: #b7c6d3;
   cursor: pointer;
   border-left: 2px solid transparent;
 }
@@ -557,11 +486,11 @@
 .lp-list li:focus-visible {
   outline: none;
   color: #fff;
-  background: rgba(109, 212, 255, 0.12);
+  background: rgba(165, 190, 210, 0.14);
 }
 .lp-list li.on {
   color: #fff;
-  border-left-color: #6dd4ff;
+  border-left-color: #d9b25f;
 }
 body.in-menu #look {
   display: none;

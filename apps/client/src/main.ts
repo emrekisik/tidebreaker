@@ -15,9 +15,9 @@ import {
   SHIPS,
   STEP_MS,
   STEP_SEC,
-  TEAM_BLUE,
+  TEAM_A,
   TEAM_PIRATE,
-  TEAM_RED,
+  TEAM_B,
   TRAINING,
   WEAPONS,
   WEAPON_IDS,
@@ -27,6 +27,7 @@ import {
   hullDistance,
   lockRange,
   mapHash,
+  pickCountries,
 } from '@tidebreaker/shared';
 import type { Combatant, ShipId, WorldMap } from '@tidebreaker/shared';
 import { Vector3 } from 'three';
@@ -42,6 +43,7 @@ import { MenuBattle } from './game/menuBattle.ts';
 import { OnlineGame } from './game/onlineGame.ts';
 import type { ConnectError, OnlineEvents } from './game/onlineGame.ts';
 import type { GameSession } from './game/session.ts';
+import type { ShipEntity } from './frame/entity.ts';
 import '@fontsource/oxanium/latin-500.css';
 import '@fontsource/oxanium/latin-700.css';
 import '@fontsource/oxanium/latin-ext-500.css';
@@ -59,6 +61,7 @@ import { ISLAND_FOOTPRINTS } from './render/islandFootprints.ts';
 import { createParticleKit } from './render/particleKit.ts';
 import { VISUAL_ORDER, createProjectileMeshes } from './render/projectileMesh.ts';
 import { Stage } from './render/stage.ts';
+import { XRay } from './render/xray.ts';
 import { WakeMap } from './render/wakeMap.ts';
 import { Water } from './render/water.ts';
 import { DamageNumbers } from './ui/damageNumbers.ts';
@@ -89,7 +92,7 @@ import { preloadRankIcons } from './ui/rankBadge.ts';
 import { RankBook } from './ui/rankBook.ts';
 import { RankUp } from './ui/rankUp.ts';
 import { NetStatus } from './ui/netStatus.ts';
-import { setTeamNames } from './ui/teamNames.ts';
+import { onTeamCountries, setTeamCountries, teamClass, teamCountry } from './ui/teams.ts';
 import { SettingsPanel } from './ui/settingsPanel.ts';
 import { ShipAlert } from './ui/shipAlert.ts';
 import { Tour } from './ui/tour.ts';
@@ -120,6 +123,9 @@ const stage = new Stage(canvas);
 const water = new Water();
 const wakeMap = new WakeMap();
 stage.scene.add(water.mesh);
+// The ships seen through what hides them (an island, a cliff, a rig...), in their team's colour.
+const xray = new XRay();
+stage.scene.add(xray.mesh);
 
 const projectileMeshes = createProjectileMeshes(MAX_PROJECTILES);
 stage.scene.add(...projectileMeshes);
@@ -167,7 +173,7 @@ const pickups = new PickupView(makePickupMeshes(stage.scene, assets));
 // Floating things darken the water where they touch it and leave a faint lace of foam.
 pickups.contact = (x, z, r) => wakeMap.capsule(x, z, x + 0.02, z, r, 0, 0, 0, 0, FX.pickupContact.shadow, FX.pickupContact.foam);
 // The sea mines: one mesh per team, floating like everything else (and leaving a little foam).
-const mines = new MineView([assets.createMineMesh('blue', MINE_CAPACITY), assets.createMineMesh('red', MINE_CAPACITY)]);
+const mines = new MineView([assets.createMineMesh('a', MINE_CAPACITY), assets.createMineMesh('b', MINE_CAPACITY)]);
 for (const mesh of mines.meshList) stage.scene.add(mesh);
 mines.contact = pickups.contact;
 /** Where the shop button hovers above the carrier's deck (world units). */
@@ -283,7 +289,7 @@ function setAutoFire(on: boolean, say: boolean): void {
   if (say) shipAlert.show(t(on ? 'autofire.on' : 'autofire.off'), performance.now(), 'info');
 }
 ranks.onPromoted = (rank) => {
-  announcer.rankUp(rank, online?.myTeam ?? TEAM_BLUE);
+  announcer.rankUp(rank, online?.myTeam ?? TEAM_A);
   rankUp.show(rank, performance.now());
   // The same burst of light as a new class, around the own ship.
   const me = session?.player;
@@ -477,8 +483,8 @@ const events: OnlineEvents = {
   onSunk(entity, x, y, name, id) {
     if (name) {
       const team = entity.combatant.team;
-      const ranked = team === TEAM_BLUE || team === TEAM_RED;
-      wreckMarks.add(x, y, name, teamNameOf(team), performance.now(), ranked ? ranks.of(id) : null);
+      const ranked = team === TEAM_A || team === TEAM_B;
+      wreckMarks.add(x, y, name, teamClass(team), performance.now(), ranked ? ranks.of(id) : null);
     }
     effects.explode(x, y, entity.combatant.def.length, entity.combatant.def.flying !== true);
     sfx.sunk(x, y, entity.combatant.def.length, entity.combatant.def.flying === true);
@@ -489,9 +495,9 @@ const events: OnlineEvents = {
     rig.shake(0.9);
     sfx.died();
   },
-  onMatch(state, winner, restartSec, _killsBlue, _killsRed, nameBlue, nameRed) {
-    setTeamNames(nameBlue, nameRed);
-    matchHud.setMatch(state, winner, restartSec, online?.myTeam ?? TEAM_BLUE);
+  onMatch(state, winner, restartSec, _killsA, _killsB, countryA, countryB) {
+    setTeamCountries(countryA, countryB);
+    matchHud.setMatch(state, winner, restartSec, online?.myTeam ?? TEAM_A);
     if (state === MATCH_STATE.ENDED && !matchEnded) sfx.matchEnded(winner === online?.myTeam);
     matchEnded = state === MATCH_STATE.ENDED;
     scoreboard.pin(state === MATCH_STATE.ENDED);
@@ -579,14 +585,17 @@ let menuBattle: MenuBattle | null = null;
 
 // ---- starting a session
 
-// Test panel: live colors for the ocean, team paint and rings, plus the hull outline switch.
+// The ships, rings and mines wear the colours of the countries the two teams play as (a new match may change them).
+onTeamCountries(() => {
+  assets.setTeamCountry('a', teamCountry(TEAM_A));
+  assets.setTeamCountry('b', teamCountry(TEAM_B));
+  xray.setTeamColors(teamCountry(TEAM_A).ui, teamCountry(TEAM_B).ui);
+});
+
+// Test panel: live colors for the ocean and the team paint brightness and glow, plus the hull outline switch.
 new LookPanel(document.getElementById('look') as HTMLElement, (look) => {
   water.setColors(look.oceanDeep, look.oceanShallow);
   (stage.scene.background as Color).set(look.oceanDeep);
-  assets.setTeamColor('blue', look.blue);
-  assets.setTeamColor('red', look.red);
-  assets.setRingColor('blue', look.ringBlue);
-  assets.setRingColor('red', look.ringRed);
   assets.setTeamBoost(look.boost);
   assets.setTeamGlow(look.glow);
   assets.setOutline(look.outline);
@@ -646,6 +655,7 @@ async function startOnline(name: string, shipIdx: number): Promise<void> {
   setWorld(game.land);
   session = game;
   online = game;
+  progressHud.setTeam(game.myTeam);
   menuBattle?.dispose();
   menuBattle = null;
   pickerEl.classList.add('hidden');
@@ -661,6 +671,9 @@ if (offline) {
   document.body.classList.remove('in-menu');
 } else {
   // The start screen shows the sea of the default map behind it (a joining player gets the room's own map).
+  // The two fleets of the start screen are two countries drawn at random (a different pair on every visit).
+  const [startA, startB] = pickCountries(Math.random);
+  setTeamCountries(startA, startB);
   const menuMap = generateMap(TRAINING.mapSeed);
   setWorld(menuMap);
   const now = performance.now() / 1000;
@@ -674,6 +687,20 @@ if (offline) {
 function menuDriftX(timeSec: number): number {
   return WORLD_CENTER + Math.cos(timeSec * 0.035) * 240;
 }
+/** The silhouettes of the ships that are hidden by something, drawn with the camera of this frame (see render/xray.ts). */
+function drawXRay(entities: readonly ShipEntity[]): void {
+  const cam = stage.camera.position;
+  xray.begin(cam.x, cam.y, cam.z);
+  for (let i = 0; i < entities.length; i++) {
+    const e = entities[i]!;
+    const c = e.combatant;
+    if (!c.state.alive || c.def.flying) continue;
+    const m = e.model;
+    xray.add(e.pose.x, e.pose.y, e.pose.heading, m.hullLength, m.hullWidth, m.hullTop, c.team === TEAM_A ? 0 : c.team === TEAM_PIRATE ? 2 : 1);
+  }
+  xray.end();
+}
+
 function menuDriftY(timeSec: number): number {
   return WORLD_CENTER - 70 + Math.sin(timeSec * 0.035 * 1.3) * 150;
 }
@@ -782,7 +809,6 @@ function pressLayMine(): void {
   if (blocked === MINE_BLOCK.CARRIER) return warn(t('mine.blockedCarrier'));
   online.net.layMine();
 }
-const teamNameOf = (team: number): string => (team === 0 ? 'blue' : team === 1 ? 'red' : 'pirate');
 const carriers: (Combatant | undefined)[] = [undefined, undefined];
 
 function update(nowMs: number): void {
@@ -831,6 +857,7 @@ function update(nowMs: number): void {
     // (The fight sits a little left of the middle of the picture: the free space between the two panels.)
     rig.update(stage.camera, menuBattle ? menuBattle.arenaX + 10 : driftX, menuBattle ? menuBattle.arenaY : driftY, dtSec, 3);
     stage.camera.updateMatrixWorld();
+    if (menuBattle) drawXRay(menuBattle.entities);
     islands?.update(timeSec);
     stage.followSun(rig.focusX, rig.focusZ);
     wakeMap.render(stage.renderer);
@@ -875,6 +902,7 @@ function update(nowMs: number): void {
   rig.update(stage.camera, p.x, p.y, dtSec, game.player.combatant.def.tier);
   // (The reticles, bubbles and the wheel are projected with this frame's camera.)
   stage.camera.updateMatrixWorld();
+  drawXRay(game.entities);
   stage.followSun(rig.focusX, rig.focusZ);
   // (The pickups stamp where they touch the water into the foam map, so they come before it is drawn.)
   pickups.update(timeSec, rig.focusX, rig.focusZ);

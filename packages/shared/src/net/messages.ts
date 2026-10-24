@@ -330,19 +330,19 @@ export function encodeMatch(
   state: number,
   winner: number,
   restartSec: number,
-  killsBlue: number,
-  killsRed: number,
-  nameBlue: number,
-  nameRed: number,
+  killsA: number,
+  killsB: number,
+  countryA: number,
+  countryB: number,
 ): void {
   w.u8(S2C.MATCH);
   w.u8(state);
   w.u8(winner);
   w.u8(restartSec);
-  w.u16(killsBlue);
-  w.u16(killsRed);
-  w.u8(nameBlue);
-  w.u8(nameRed);
+  w.u16(killsA);
+  w.u16(killsB);
+  w.u8(countryA);
+  w.u8(countryB);
 }
 
 export function encodeYouDied(
@@ -829,10 +829,10 @@ export interface ServerHandler {
     state: number,
     winner: number,
     restartSec: number,
-    killsBlue: number,
-    killsRed: number,
-    nameBlue: number,
-    nameRed: number,
+    killsA: number,
+    killsB: number,
+    countryA: number,
+    countryB: number,
   ): void;
   youDied(killerId: number, killerName: string, respawnSec: number): void;
   kill(

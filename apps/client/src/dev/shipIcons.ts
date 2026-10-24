@@ -14,7 +14,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { CARRIER, FX, PIRATE_TYPES, SHIPS } from '@tidebreaker/shared';
+import { CARRIER, COUNTRIES, FX, PIRATE_TYPES, SHIPS } from '@tidebreaker/shared';
 import { AssetProvider } from '../render/assets.ts';
 import type { Team } from '../render/assets.ts';
 import { MODEL_SPECS } from '../render/modelSpecs.ts';
@@ -27,8 +27,10 @@ import { MODEL_SPECS } from '../render/modelSpecs.ts';
  *   side/<color>/<id>.png  128x64, bow pointing right (fits a row of text)
  * where color is blue or red (the model in that team's paint; the pirate ship is the same in both)
  * or white (a flat silhouette, to tint with CSS `mask-image` or in an editor).
- * Open it with `?only=card` to draw just the class cards: card/<id>.png, 288x192, the ship in blue paint seen from an
- * angle (a perspective camera like the game's, lit like the game, with a soft shadow on a transparent background).
+ * (blue and red here are the first two countries, Thalor and Karzan; the how-to-play tour uses these pictures.)
+ * Open it with `?only=card` to draw just the cards: card/<id>_<country>.png, 288x192 (the carriers 360x144), the ship in
+ * the paint of each of the five countries, seen from an angle (a perspective camera like the game's, lit like the game,
+ * with a soft shadow on a transparent background). The game picks the card of the country its team plays as.
  */
 
 const CARD_W = 288;
@@ -98,17 +100,18 @@ async function save(path: string): Promise<void> {
 }
 
 if (new URLSearchParams(location.search).get('only') === 'card') {
-  for (const icon of icons) {
-    if (icon.id === 'pirate_ship') continue;
-    if (icon.id === CARRIER.id) {
-      // The carriers of the match bar: wide pictures, one for each team (the red one is shown turned round).
-      await renderCard(icon, 'blue', 360, 144, `${icon.id}_blue`);
-      await renderCard(icon, 'red', 360, 144, `${icon.id}_red`);
-    } else {
-      await renderCard(icon, 'blue', CARD_W, CARD_H, icon.id);
+  for (const country of COUNTRIES) {
+    assets.setTeamCountry('a', country);
+    for (const icon of icons) {
+      if (icon.id === 'pirate_ship') continue;
+      // (The carriers of the match bar are wide pictures; the second team's is shown turned round.)
+      if (icon.id === CARRIER.id) await renderCard(icon, 'a', 360, 144, `${icon.id}_${country.id}`);
+      else await renderCard(icon, 'a', CARD_W, CARD_H, `${icon.id}_${country.id}`);
     }
   }
 } else {
+  assets.setTeamCountry('a', COUNTRIES[0]!);
+  assets.setTeamCountry('b', COUNTRIES[1]!);
   for (const icon of icons) {
     for (const orient of ['up', 'side'] as const) {
       await renderIcon(icon, orient);
@@ -220,12 +223,12 @@ async function renderIcon(icon: Icon, orient: 'up' | 'side'): Promise<void> {
         ['red', 'pirate'],
       ]
     : [
-        ['blue', 'blue'],
-        ['red', 'red'],
+        ['blue', 'a'],
+        ['red', 'b'],
       ];
   const root = new Group();
   scene.add(root);
-  for (const [folder, team] of [...variants, ['white', 'blue'] as [string, Team]]) {
+  for (const [folder, team] of [...variants, ['white', 'a'] as [string, Team]]) {
     root.clear();
     const model = assets.createShip(icon.modelKey, team, false);
     root.add(model.root);

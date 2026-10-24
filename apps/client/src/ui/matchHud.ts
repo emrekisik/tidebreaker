@@ -1,7 +1,7 @@
 import { MATCH, MATCH_STATE } from '@tidebreaker/shared';
 import type { Combatant } from '@tidebreaker/shared';
 import { onLanguageChange, t } from '../i18n/index.ts';
-import { teamName } from './teamNames.ts';
+import { teamName } from './teams.ts';
 
 const el = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
 
@@ -15,10 +15,10 @@ type BannerKind = '' | 'win' | 'lose' | 'death' | 'lost';
 export class MatchHud {
   private readonly root = el('match');
   private readonly bar = {
-    blueHull: el('m-blue-hull'),
-    blueShield: el('m-blue-shield'),
-    redHull: el('m-red-hull'),
-    redShield: el('m-red-shield'),
+    hullA: el('m-a-hull'),
+    shieldA: el('m-a-shield'),
+    hullB: el('m-b-hull'),
+    shieldB: el('m-b-shield'),
   };
   private readonly kills = el('m-kills');
   private readonly banner = el('banner');
@@ -56,12 +56,12 @@ export class MatchHud {
   }
 
   /** The carriers' current state (undefined until they have been seen). */
-  update(carriers: readonly (Combatant | undefined)[], killsBlue: number, killsRed: number): void {
-    const blue = carriers[0];
-    const red = carriers[1];
-    if (blue) this.fill(this.bar.blueHull, this.bar.blueShield, blue);
-    if (red) this.fill(this.bar.redHull, this.bar.redShield, red);
-    const k = `${killsBlue} : ${killsRed}`;
+  update(carriers: readonly (Combatant | undefined)[], killsA: number, killsB: number): void {
+    const a = carriers[0];
+    const b = carriers[1];
+    if (a) this.fill(this.bar.hullA, this.bar.shieldA, a);
+    if (b) this.fill(this.bar.hullB, this.bar.shieldB, b);
+    const k = `${killsA} : ${killsB}`;
     if (k !== this.lastKills) {
       this.kills.textContent = k;
       this.score.textContent = k;

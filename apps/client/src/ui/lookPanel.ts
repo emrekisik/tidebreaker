@@ -5,10 +5,6 @@ import type { MessageKey } from '../i18n/index.ts';
 export interface Look {
   oceanDeep: number;
   oceanShallow: number;
-  blue: number;
-  red: number;
-  ringBlue: number;
-  ringRed: number;
   boost: number;
   glow: number;
   outline: boolean;
@@ -17,10 +13,6 @@ export interface Look {
 export const DEFAULT_LOOK: Look = {
   oceanDeep: 0x1e566f,
   oceanShallow: 0x347392,
-  blue: 0x72a9e4,
-  red: 0xff6b78,
-  ringBlue: 0x23b4ff,
-  ringRed: 0xff2a45,
   boost: 4,
   glow: 0.2,
   outline: false,
@@ -40,19 +32,15 @@ function load(): Look {
   return { ...DEFAULT_LOOK };
 }
 
-type ColorKey = 'oceanDeep' | 'oceanShallow' | 'blue' | 'red' | 'ringBlue' | 'ringRed';
+type ColorKey = 'oceanDeep' | 'oceanShallow';
 
 const COLOR_ROWS: ReadonlyArray<{ key: ColorKey; label: MessageKey }> = [
   { key: 'oceanDeep', label: 'look.oceanDeep' },
   { key: 'oceanShallow', label: 'look.oceanShallow' },
-  { key: 'blue', label: 'look.blue' },
-  { key: 'red', label: 'look.red' },
-  { key: 'ringBlue', label: 'look.ringBlue' },
-  { key: 'ringRed', label: 'look.ringRed' },
 ];
 
 /**
- * Test panel with color pickers (ocean, team paint, rings), brightness/glow sliders and an outline
+ * Test panel with color pickers (the ocean), team paint brightness/glow sliders and an outline
  * switch. Values are applied live, remembered in this browser, and printed as hex codes so they
  * can be copied into the config.
  */
@@ -171,10 +159,6 @@ export class LookPanel {
     return [
       `oceanDeep: ${hex(l.oceanDeep)}`,
       `oceanShallow: ${hex(l.oceanShallow)}`,
-      `blueTeam: ${hex(l.blue)}`,
-      `redTeam: ${hex(l.red)}`,
-      `blueRing: ${hex(l.ringBlue)}`,
-      `redRing: ${hex(l.ringRed)}`,
       `brightness: ${l.boost.toFixed(2)}`,
       `glow: ${l.glow.toFixed(2)}`,
       `outline: ${l.outline ? 'on' : 'off'}`,

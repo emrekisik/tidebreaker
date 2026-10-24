@@ -1,4 +1,5 @@
-import { KILL_CAUSE, TEAM_BLUE, TEAM_PIRATE, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
+import { KILL_CAUSE, WEAPONS, WEAPON_IDS } from '@tidebreaker/shared';
+import { teamClass } from './teams.ts';
 import barrelIcon from './icons/barrel.svg?raw';
 import killIcon from './icons/kill.svg?raw';
 import mineIcon from './icons/mine.svg?raw';
@@ -66,10 +67,7 @@ export class KillFeed {
   }
 
   private name(text: string, team: number, rank: number | null): HTMLElement {
-    const el = this.text(
-      text,
-      team === TEAM_BLUE ? 'feed-blue' : team === TEAM_PIRATE ? 'feed-pirate' : 'feed-red',
-    );
+    const el = this.text(text, `feed-${teamClass(team)}`);
     if (rank !== null) el.prepend(rankBadge(rank, RankBook.title(rank)));
     return el;
   }

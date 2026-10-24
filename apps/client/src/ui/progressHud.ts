@@ -1,8 +1,9 @@
-import { ECONOMY, STAT, STAT_COUNT, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
+import { ECONOMY, STAT, STAT_COUNT, TEAM_A, TIER_OPTIONS, statCap, statCost, tierCost } from '@tidebreaker/shared';
 import type { StatsMsg } from '@tidebreaker/shared';
 import { onLanguageChange, setText, t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
+import { onTeamCountries, teamCountry } from './teams.ts';
 import type { MessageKey } from '../i18n/index.ts';
 import agilityIcon from './icons/agility.svg?raw';
 import ammunitionIcon from './icons/ammunition.svg?raw';
@@ -78,6 +79,8 @@ export class ProgressHud {
   private offered = false;
   private last: StatsMsg | null = null;
   private rank = 0;
+  /** The player's team: its country's colour paints the ships on the cards. */
+  private team = TEAM_A;
 
   constructor(
     private readonly onUpgrade: (stat: number) => void,
@@ -143,11 +146,21 @@ export class ProgressHud {
     arrowRight.innerHTML = ARROW_UP;
     this.tierBtn.append(arrowLeft, el('span', 'ti-text'), arrowRight);
     // A new language: the texts built from the last message are made again (the cards of the next class included).
-    onLanguageChange(() => {
-      this.cardFor = '';
-      if (this.last) this.update(this.last);
-      this.setRank(this.rank);
-    });
+    onLanguageChange(() => this.rebuild());
+    // ...and when the team becomes another country (the cards of the next class are painted in its colour).
+    onTeamCountries(() => this.rebuild());
+  }
+
+  /** Which team the player is on (it paints the ship cards). */
+  setTeam(team: number): void {
+    this.team = team;
+    this.rebuild();
+  }
+
+  private rebuild(): void {
+    this.cardFor = '';
+    if (this.last) this.update(this.last);
+    this.setRank(this.rank);
   }
 
   show(on: boolean): void {
@@ -170,7 +183,7 @@ export class ProgressHud {
       const card = el('div', 'up-card panel');
       const img = document.createElement('img');
       img.alt = '';
-      img.src = `${import.meta.env.BASE_URL}icons/ships/card/${shipId}.png`;
+      img.src = `${import.meta.env.BASE_URL}icons/ships/card/${shipId}_${teamCountry(this.team).id}.png`;
       const pic = el('div', 'uc-img');
       pic.append(img);
       const name = el('div', 'uc-name');

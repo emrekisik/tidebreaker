@@ -1,11 +1,11 @@
-import { ANNOUNCE, TEAM_BLUE } from '@tidebreaker/shared';
+import { ANNOUNCE } from '@tidebreaker/shared';
 import { t } from '../i18n/index.ts';
 import damageIcon from './icons/damage.svg?raw';
 import repairIcon from './icons/repair.svg?raw';
 import rigIcon from './icons/rig.svg?raw';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
-import { teamName } from './teamNames.ts';
+import { teamClass, teamName } from './teams.ts';
 
 const MAX_ROWS = 4;
 const LIFETIME_MS = 6500;
@@ -20,7 +20,7 @@ export class Announcer {
   /** The player's own rank went up. */
   rankUp(rank: number, team: number): void {
     const row = document.createElement('div');
-    row.className = `ann-row ann-rank panel ${team === TEAM_BLUE ? 'blue' : 'red'}`;
+    row.className = `ann-row ann-rank panel ${teamClass(team)}`;
     row.append(rankBadge(rank, RankBook.title(rank)), document.createTextNode(` ${t('announce.rankUp').replace('{name}', RankBook.title(rank))}`));
     this.root.append(row);
     while (this.root.childElementCount > MAX_ROWS) this.root.firstElementChild?.remove();
@@ -55,7 +55,7 @@ export class Announcer {
       .replace('{pct}', String(arg))
       .replace('{level}', String(arg));
     const row = document.createElement('div');
-    row.className = `ann-row panel ${team === TEAM_BLUE ? 'blue' : 'red'}`;
+    row.className = `ann-row panel ${teamClass(team)}`;
     const rig = kind === ANNOUNCE.RIG_CAPTURED || kind === ANNOUNCE.RIG_LOST;
     if (rig) row.classList.add(kind === ANNOUNCE.RIG_LOST ? 'lost' : 'won');
     const ico = document.createElement('span');

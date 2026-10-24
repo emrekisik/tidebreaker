@@ -1,4 +1,4 @@
-import { RIG, RIG_NO_OWNER, TEAM_BLUE } from '@tidebreaker/shared';
+import { RIG, RIG_NO_OWNER, TEAM_A } from '@tidebreaker/shared';
 import type { RigState } from '@tidebreaker/shared';
 import { onLanguageChange, t } from '../i18n/index.ts';
 
@@ -45,8 +45,8 @@ export class RigHud {
       const box = this.boxes[i]!;
       box.style.setProperty('--b', String(Math.max(0, r.meter) * 100));
       box.style.setProperty('--r', String(Math.max(0, -r.meter) * 100));
-      box.classList.toggle('blue', r.owner === TEAM_BLUE);
-      box.classList.toggle('red', r.owner !== RIG_NO_OWNER && r.owner !== TEAM_BLUE);
+      box.classList.toggle('team-a', r.owner === TEAM_A);
+      box.classList.toggle('team-b', r.owner !== RIG_NO_OWNER && r.owner !== TEAM_A);
     }
   }
 }

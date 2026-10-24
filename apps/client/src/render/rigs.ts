@@ -11,13 +11,12 @@ import {
   SRGBColorSpace,
 } from 'three';
 import type { BufferGeometry, Material, Scene } from 'three';
-import { RIG, RIGS, RIG_NO_OWNER, TEAM_BLUE } from '@tidebreaker/shared';
+import { RIG, RIGS, RIG_NO_OWNER, TEAM_A, TEAM_B } from '@tidebreaker/shared';
+import { teamCss } from '../ui/teams.ts';
 import type { RigState } from '@tidebreaker/shared';
 import { WAVE_MAX } from './waves.ts';
 
 const TEX = 256;
-const BLUE = '#4aa8ff';
-const RED = '#ff4d5a';
 const NEUTRAL = '#dfeaf2';
 /** The modelled platform is this much wider than the solid collision circle. */
 const PLATFORM_FIT = 1.35;
@@ -108,14 +107,14 @@ class RigModel {
 
   /** Redraws the gauge texture when the state changed. */
   draw(meter: number, owner: number): void {
-    const key = `${Math.round(meter * 100)}:${owner}`;
+    const key = `${Math.round(meter * 100)}:${owner}:${teamCss(TEAM_A)}:${teamCss(TEAM_B)}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
     const g = this.ctx;
     const c = TEX / 2;
     const R = (RIG.captureRadius / (RIG.captureRadius * 1.05)) * c * 0.95;
     g.clearRect(0, 0, TEX, TEX);
-    const team = owner === RIG_NO_OWNER ? NEUTRAL : owner === TEAM_BLUE ? BLUE : RED;
+    const team = owner === RIG_NO_OWNER ? NEUTRAL : teamCss(owner);
     // A faint fill in the owner's color, so a held rig is visible from far away.
     g.globalAlpha = owner === RIG_NO_OWNER ? 0.06 : 0.16;
     g.fillStyle = team;
@@ -133,7 +132,7 @@ class RigModel {
     if (Math.abs(meter) > 0.005) {
       g.globalAlpha = 1;
       g.lineWidth = 13;
-      g.strokeStyle = meter > 0 ? BLUE : RED;
+      g.strokeStyle = teamCss(meter > 0 ? TEAM_A : TEAM_B);
       g.beginPath();
       g.arc(c, c, R - 6, -Math.PI / 2, -Math.PI / 2 + Math.abs(meter) * Math.PI * 2);
       g.stroke();

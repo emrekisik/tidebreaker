@@ -1,9 +1,9 @@
-import { SHIP_IDS, TEAM_BLUE, TEAM_RED, compareRankOrder } from '@tidebreaker/shared';
+import { SHIP_IDS, TEAM_A, TEAM_B, compareRankOrder } from '@tidebreaker/shared';
 import type { ScoreEntry } from '@tidebreaker/shared';
 import { onLanguageChange, t } from '../i18n/index.ts';
 import { rankBadge } from './rankBadge.ts';
 import { RankBook } from './rankBook.ts';
-import { teamName } from './teamNames.ts';
+import { teamClass, teamName } from './teams.ts';
 
 /** Two-column scoreboard (blue, red): hold Tab, or it stays up between rounds. */
 export class Scoreboard {
@@ -43,13 +43,13 @@ export class Scoreboard {
   }
 
   private render(): void {
-    const columns = [TEAM_BLUE, TEAM_RED].map((team) => this.column(team));
+    const columns = [TEAM_A, TEAM_B].map((team) => this.column(team));
     this.root.replaceChildren(...columns);
   }
 
   private column(team: number): HTMLElement {
     const col = document.createElement('div');
-    col.className = team === TEAM_BLUE ? 'sb-col blue' : 'sb-col red';
+    col.className = `sb-col ${teamClass(team)}`;
     const head = document.createElement('div');
     head.className = 'sb-row sb-head';
     head.append(
@@ -81,11 +81,10 @@ export class Scoreboard {
     const el = document.createElement('span');
     el.className = 'sb-name';
     const ship = SHIP_IDS[r.shipId] ?? SHIP_IDS[0]!;
-    const icon = document.createElement('img');
+    const icon = document.createElement('span');
     icon.className = 'sb-ship';
-    icon.alt = `T${r.tier + 1}`;
     icon.title = `T${r.tier + 1}`;
-    icon.src = `${import.meta.env.BASE_URL}icons/ships/side/${r.team === TEAM_BLUE ? 'blue' : 'red'}/${ship}.png`;
+    icon.style.setProperty('--ship', `url(${import.meta.env.BASE_URL}icons/ships/side/white/${ship}.png)`);
     const rank = this.ranks.of(r.id);
     // The name is its own element, so only it is shortened (and only when the row really is too narrow).
     const text = document.createElement('span');

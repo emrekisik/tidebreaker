@@ -19,7 +19,6 @@ import {
   STAT,
   STAT_COUNT,
   STEP_SEC,
-  TEAM_BLUE,
   TEAM_PIRATE,
   WEAPONS,
   WEAPON_IDS,
@@ -63,6 +62,7 @@ import { Predictor } from '../net/prediction.ts';
 import { ShotTable } from '../net/shotTable.ts';
 import { t } from '../i18n/index.ts';
 import type { MessageKey } from '../i18n/index.ts';
+import { teamKey } from '../render/assets.ts';
 import type { AssetProvider } from '../render/assets.ts';
 import type { BarKit } from '../render/barKit.ts';
 import type { GameEvents } from './localGame.ts';
@@ -75,8 +75,6 @@ const PING_EVERY_MS = 2000;
 const KILL_REWARD_MS = 400;
 /** A shot fired by you is caught up by at most this many ticks when it is shown. */
 const CATCH_UP_MAX = 10;
-
-type TeamName = 'blue' | 'red' | 'pirate';
 
 /** Weapon index of the guided missile. */
 const MISSILE_WEAPON = WEAPON_IDS.indexOf('missile');
@@ -99,10 +97,10 @@ export interface OnlineEvents extends GameEvents {
     state: number,
     winner: number,
     restartSec: number,
-    killsBlue: number,
-    killsRed: number,
-    nameBlue: number,
-    nameRed: number,
+    killsA: number,
+    killsB: number,
+    countryA: number,
+    countryB: number,
   ): void;
   /** Someone sank someone (kill feed). */
   onKill(
@@ -161,8 +159,6 @@ interface Action {
 
 const noopHits: HitSink = { onHit() {}, onExpire() {}, onBlocked() {} };
 const noTargets: Combatant[] = [];
-const teamName = (team: number): TeamName =>
-  team === TEAM_BLUE ? 'blue' : team === TEAM_PIRATE ? 'pirate' : 'red';
 
 /** Pirates come over the wire named by their type ("skiff"); this is the text to show. */
 const pirateName = (type: string): string => t(`pirate.${type}` as MessageKey);
@@ -435,21 +431,21 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       this.predictor = new Predictor(def, this.land, entityId);
       const combatant = createCombatant(entityId, def, team);
       combatant.state = this.predictor.state;
-      const model = d.assets.createShip(def.modelKey, teamName(team), true);
+      const model = d.assets.createShip(def.modelKey, teamKey(team), true);
       // The player has a bar over their own ship too (no name plate).
       this.player = new ShipEntity(
         combatant,
         model,
         new HealthBar(d.scene, d.bars, 1, undefined, true),
       );
-      d.plates?.add(entityId, d.name, teamName(team), d.rankOf ? d.rankOf(entityId) : -1, true);
+      d.plates?.add(entityId, d.name, teamKey(team), d.rankOf ? d.rankOf(entityId) : -1, true);
       d.scene.add(model.root);
       this.entities.unshift(this.player);
     } else {
       const c = this.player.combatant;
       if (c.def !== def) {
         d.scene.remove(this.player.model.root);
-        const model = d.assets.createShip(def.modelKey, teamName(team), true);
+        const model = d.assets.createShip(def.modelKey, teamKey(team), true);
         d.scene.add(model.root);
         this.player.setModel(model);
         c.def = def;
@@ -477,15 +473,15 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     state: number,
     winner: number,
     restartSec: number,
-    killsBlue: number,
-    killsRed: number,
-    nameBlue: number,
-    nameRed: number,
+    killsA: number,
+    killsB: number,
+    countryA: number,
+    countryB: number,
   ): void {
-    this.teamKills[0] = killsBlue;
-    this.teamKills[1] = killsRed;
+    this.teamKills[0] = killsA;
+    this.teamKills[1] = killsB;
     this.kills = this.teamKills[this.myTeam] ?? 0;
-    this.deps.events.onMatch(state, winner, restartSec, killsBlue, killsRed, nameBlue, nameRed);
+    this.deps.events.onMatch(state, winner, restartSec, killsA, killsB, countryA, countryB);
   }
 
   youDied(killerId: number, killerName: string, respawnSec: number): void {
@@ -584,7 +580,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     if (c.def === def) return;
     const d = this.deps;
     d.scene.remove(this.player.model.root);
-    const model = d.assets.createShip(def.modelKey, teamName(this.myTeam), true);
+    const model = d.assets.createShip(def.modelKey, teamKey(this.myTeam), true);
     d.scene.add(model.root);
     this.player.setModel(model);
     this.morph(this.player, c.state.x, c.state.y, def.length);
@@ -657,8 +653,8 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
     combatant.state.heading = e.heading;
     const model =
       e.kind === KIND.DRONE
-        ? d.assets.createDrone(def.modelKey, teamName(e.team), def.length, e.power === this.myId)
-        : d.assets.createShip(def.modelKey, teamName(e.team), false);
+        ? d.assets.createDrone(def.modelKey, teamKey(e.team), def.length, e.power === this.myId)
+        : d.assets.createShip(def.modelKey, teamKey(e.team), false);
     const bar = new HealthBar(
       d.scene,
       d.bars,
@@ -668,7 +664,7 @@ export class OnlineGame implements GameSession, ServerHandler, HomingTargets {
       e.team === this.myTeam,
     );
     // The name plate (carriers and drones have none); pirates show no rank.
-    if (e.kind === KIND.SHIP) d.plates?.add(e.id, e.name, teamName(e.team), d.rankOf ? d.rankOf(e.id) : -1);
+    if (e.kind === KIND.SHIP) d.plates?.add(e.id, e.name, teamKey(e.team), d.rankOf ? d.rankOf(e.id) : -1);
     else if (e.kind === KIND.PIRATE) d.plates?.add(e.id, pirateName(e.name), 'pirate', -1);
     const entity = new ShipEntity(combatant, model, bar);
     entity.aim = e.heading;

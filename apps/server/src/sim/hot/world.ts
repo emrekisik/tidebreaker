@@ -37,9 +37,9 @@ import {
   STAT,
   STAT_COUNT,
   STEP_SEC,
-  TEAM_BLUE,
+  TEAM_A,
   TEAM_COUNT,
-  TEAM_RED,
+  TEAM_B,
   TIER_OPTIONS,
   tierShip,
   WEAPON_IDS,
@@ -901,7 +901,7 @@ export class World
    */
   private pickSpawn(team: number, except: number, out: Float32Array): void {
     const base = MATCH.carriers[team]!;
-    const enemy = MATCH.carriers[team === TEAM_BLUE ? 1 : 0]!;
+    const enemy = MATCH.carriers[team === TEAM_A ? 1 : 0]!;
     const toEnemy = Math.atan2(enemy.y - base.y, enemy.x - base.x);
     const spread = MATCH.spawnSpreadDeg * DEG2RAD;
     let bestScore = -1;
@@ -1369,7 +1369,7 @@ export class World
     if (victim < CARRIER_SLOTS) {
       if (this.matchState === MATCH_STATE.PLAYING) {
         this.matchState = MATCH_STATE.ENDED;
-        this.winner = v.team === TEAM_BLUE ? 1 : 0;
+        this.winner = v.team === TEAM_A ? 1 : 0;
         this.restartLeft = MATCH.intermissionSec;
         this.matchChanged = true;
       }
@@ -1720,7 +1720,7 @@ export class World
         const dy = c.state.y - rig.y;
         if (dx * dx + dy * dy > r2) continue;
         const power = (1 + this.tier[s]! * RIG.powerPerTier) * (c.def.captureMul ?? 1);
-        if (c.team === TEAM_BLUE) blue += power;
+        if (c.team === TEAM_A) blue += power;
         else red += power;
       }
       const diff = blue - red;
@@ -1733,10 +1733,10 @@ export class World
       }
       // A full gauge captures the rig; the owner keeps it until the gauge is back at neutral.
       const owner = this.rigOwner[i]!;
-      if (meter >= 1) this.rigOwner[i] = TEAM_BLUE;
-      else if (meter <= -1) this.rigOwner[i] = TEAM_RED;
-      else if (owner === TEAM_BLUE && meter <= 0) this.rigOwner[i] = RIG_NO_OWNER;
-      else if (owner === TEAM_RED && meter >= 0) this.rigOwner[i] = RIG_NO_OWNER;
+      if (meter >= 1) this.rigOwner[i] = TEAM_A;
+      else if (meter <= -1) this.rigOwner[i] = TEAM_B;
+      else if (owner === TEAM_A && meter <= 0) this.rigOwner[i] = RIG_NO_OWNER;
+      else if (owner === TEAM_B && meter >= 0) this.rigOwner[i] = RIG_NO_OWNER;
       // A team that takes the rig scores for it: everyone of that team inside the circle.
       const now = this.rigOwner[i]!;
       if (now !== owner) {
